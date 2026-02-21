@@ -46,6 +46,7 @@ impl ModSide {
 pub struct ExperienceSpec {
     pub id: String,
     pub mods: Vec<ModDescriptor>,
+    pub default_worldgen: Option<String>,
     pub config: toml::Table,
 }
 
@@ -293,12 +294,21 @@ pub type WorldGenFactory = fn(WorldGenInit) -> Box<dyn WorldGenProvider>;
 #[derive(Debug, Default, Clone)]
 pub struct WorldGenRequest {
     pub seed: u64,
+    pub cx: i32,
+    pub cz: i32,
 }
 
-/// Minimal worldgen output contract placeholder.
+/// Generated section payload for one vertical section in a column.
+#[derive(Debug, Clone)]
+pub struct WorldGenSection {
+    pub sy: i8,
+    pub blocks: Vec<u8>,
+}
+
+/// Minimal worldgen output contract.
 #[derive(Debug, Default, Clone)]
 pub struct WorldGenOutput {
-    pub notes: Vec<String>,
+    pub sections: Vec<WorldGenSection>,
 }
 
 /// Worldgen contract error placeholder.
