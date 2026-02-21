@@ -12,6 +12,7 @@
 
 use std::time::Duration;
 
+use freven_core::blocks::BlockDef;
 use serde::de::DeserializeOwned;
 
 /// Execution side for a runtime instance.
@@ -71,6 +72,8 @@ pub struct ModDescriptor {
 
 /// Backend implemented by runtime for registration operations.
 pub trait ModContextBackend {
+    fn register_block(&mut self, key: &str, def: BlockDef)
+    -> Result<BlockId, ModRegistrationError>;
     fn register_component(&mut self, key: &str) -> Result<ComponentId, ModRegistrationError>;
     fn register_message(&mut self, key: &str) -> Result<MessageId, ModRegistrationError>;
     fn register_worldgen(
@@ -144,6 +147,14 @@ impl<'a> ModContext<'a> {
             })
     }
 
+    pub fn register_block(
+        &mut self,
+        key: &str,
+        def: BlockDef,
+    ) -> Result<BlockId, ModRegistrationError> {
+        self.backend.register_block(key, def)
+    }
+
     pub fn register_component(&mut self, key: &str) -> Result<ComponentId, ModRegistrationError> {
         self.backend.register_component(key)
     }
@@ -179,6 +190,10 @@ impl<'a> ModContext<'a> {
 
 /// Numeric id for registered component keys.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BlockId(pub u8);
+
+/// Numeric id for registered component keys.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ComponentId(pub u32);
 
 /// Numeric id for registered message keys.
@@ -201,6 +216,12 @@ pub enum ModRegistrationError {
         mod_id: String,
         registry: &'static str,
         key: String,
+    },
+    #[error("too many blocks registered by mod '{mod_id}' for key '{key}': limit is {limit}")]
+    TooManyBlocks {
+        mod_id: String,
+        key: String,
+        limit: u32,
     },
 }
 
