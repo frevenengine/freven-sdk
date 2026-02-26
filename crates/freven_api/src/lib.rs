@@ -164,6 +164,18 @@ impl ExperienceSpec {
 /// Mod registration entrypoint type.
 pub type ModRegisterFn = for<'a> fn(&'a mut ModContext<'a>);
 
+/// Client app installer backend used by client-app hooks.
+///
+/// Responsibilities:
+/// - expose stable plugin installation requests from mods
+/// - keep SDK hooks free of engine crate dependencies
+pub trait ClientAppInstaller {
+    fn install_plugin(&mut self, key: &'static str);
+}
+
+/// Client app configuration hook installed by compile-time mods.
+pub type ClientAppHook = fn(&mut dyn ClientAppInstaller);
+
 /// Compile-time mod descriptor used by an experience.
 #[derive(Clone)]
 pub struct ModDescriptor {
@@ -201,6 +213,7 @@ pub trait ModContextBackend {
     ) -> Result<(), ModRegistrationError>;
     fn on_server_tick(&mut self, hook: ServerTickHook);
     fn on_client_tick(&mut self, hook: ClientTickHook);
+    fn on_client_app(&mut self, hook: ClientAppHook);
 }
 
 /// Stable SDK-facing registration context passed to mods.
@@ -318,6 +331,10 @@ impl<'a> ModContext<'a> {
 
     pub fn on_client_tick(&mut self, hook: ClientTickHook) {
         self.backend.on_client_tick(hook);
+    }
+
+    pub fn on_client_app(&mut self, hook: ClientAppHook) {
+        self.backend.on_client_app(hook);
     }
 }
 
