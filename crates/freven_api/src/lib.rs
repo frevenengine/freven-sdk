@@ -576,6 +576,22 @@ pub struct ClientInteractionResultEvent {
     pub authoritative: Vec<ClientAuthoritativeBlock>,
 }
 
+/// Lightweight player view for client-side presentation mods.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ClientPlayerView {
+    pub player_id: u64,
+    pub world_pos_m: (f32, f32, f32),
+    pub is_local: bool,
+}
+
+/// Nameplate draw command (screen-space).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClientNameplateDrawCmd {
+    pub text: String,
+    pub screen_pos_px: (f32, f32),
+    pub rgba: (u8, u8, u8, u8),
+}
+
 /// Engine-provided client input surface.
 pub trait ClientInputProvider {
     fn mouse_button_down(&self, button: ClientMouseButton) -> bool;
@@ -610,6 +626,19 @@ pub trait ClientInteractionProvider {
     fn poll_result(&mut self) -> Option<ClientInteractionResultEvent>;
 }
 
+/// Engine-provided player presentation query surface.
+pub trait ClientPlayerProvider {
+    fn list_players(&self, out: &mut Vec<ClientPlayerView>);
+    fn display_name_for(&self, player_id: u64) -> Option<String>;
+    fn world_to_screen(&self, world_pos_m: (f32, f32, f32)) -> Option<(f32, f32)>;
+}
+
+/// Engine-owned queue for nameplate draw commands.
+pub trait ClientNameplateProvider {
+    fn clear_nameplates(&mut self);
+    fn push_nameplate(&mut self, cmd: ClientNameplateDrawCmd);
+}
+
 /// Common side-independent lifecycle API.
 pub struct CommonApi<'a> {
     pub services: &'a mut dyn Services,
@@ -641,6 +670,8 @@ pub struct ClientApi<'a> {
     pub camera: &'a mut dyn ClientCameraHitProvider,
     pub overlay: &'a mut dyn ClientOverlayProvider,
     pub interaction: &'a mut dyn ClientInteractionProvider,
+    pub players: &'a mut dyn ClientPlayerProvider,
+    pub nameplates: &'a mut dyn ClientNameplateProvider,
 }
 
 impl<'a> ClientApi<'a> {
@@ -651,6 +682,8 @@ impl<'a> ClientApi<'a> {
         camera: &'a mut dyn ClientCameraHitProvider,
         overlay: &'a mut dyn ClientOverlayProvider,
         interaction: &'a mut dyn ClientInteractionProvider,
+        players: &'a mut dyn ClientPlayerProvider,
+        nameplates: &'a mut dyn ClientNameplateProvider,
     ) -> Self {
         Self {
             services,
@@ -658,6 +691,8 @@ impl<'a> ClientApi<'a> {
             camera,
             overlay,
             interaction,
+            players,
+            nameplates,
         }
     }
 
@@ -669,6 +704,8 @@ impl<'a> ClientApi<'a> {
             camera: self.camera,
             overlay: self.overlay,
             interaction: self.interaction,
+            players: self.players,
+            nameplates: self.nameplates,
         }
     }
 }
