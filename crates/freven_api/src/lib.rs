@@ -211,6 +211,12 @@ pub trait ModContextBackend {
         action_kind: ActionKindId,
         handler: Box<dyn ActionHandler>,
     ) -> Result<(), ModRegistrationError>;
+    fn set_should_load(&mut self, hook: ShouldLoadHook);
+    fn on_start_common(&mut self, hook: StartCommonHook);
+    fn on_start_client(&mut self, hook: StartClientHook);
+    fn on_start_server(&mut self, hook: StartServerHook);
+    fn on_tick_client(&mut self, hook: TickClientHook);
+    fn on_tick_server(&mut self, hook: TickServerHook);
     fn on_server_tick(&mut self, hook: ServerTickHook);
     fn on_client_tick(&mut self, hook: ClientTickHook);
     fn on_client_app(&mut self, hook: ClientAppHook);
@@ -329,6 +335,30 @@ impl<'a> ModContext<'a> {
         self.backend.on_server_tick(hook);
     }
 
+    pub fn set_should_load(&mut self, hook: ShouldLoadHook) {
+        self.backend.set_should_load(hook);
+    }
+
+    pub fn on_start_common(&mut self, hook: StartCommonHook) {
+        self.backend.on_start_common(hook);
+    }
+
+    pub fn on_start_client(&mut self, hook: StartClientHook) {
+        self.backend.on_start_client(hook);
+    }
+
+    pub fn on_start_server(&mut self, hook: StartServerHook) {
+        self.backend.on_start_server(hook);
+    }
+
+    pub fn on_tick_client(&mut self, hook: TickClientHook) {
+        self.backend.on_tick_client(hook);
+    }
+
+    pub fn on_tick_server(&mut self, hook: TickServerHook) {
+        self.backend.on_tick_server(hook);
+    }
+
     pub fn on_client_tick(&mut self, hook: ClientTickHook) {
         self.backend.on_client_tick(hook);
     }
@@ -396,6 +426,24 @@ pub type ServerTickHook = for<'a> fn(&mut ServerHookCtx<'a>);
 /// Hook callback executed on client frame/tick updates.
 pub type ClientTickHook = for<'a> fn(&mut ClientHookCtx<'a>);
 
+/// Lifecycle predicate used to decide if a mod should load for the runtime side.
+pub type ShouldLoadHook = fn(Side) -> bool;
+
+/// Lifecycle callback executed once for both sides when the mod starts.
+pub type StartCommonHook = for<'a> fn(&mut CommonApi<'a>);
+
+/// Lifecycle callback executed once when the client side starts.
+pub type StartClientHook = for<'a> fn(&mut ClientApi<'a>);
+
+/// Lifecycle callback executed once when the server side starts.
+pub type StartServerHook = for<'a> fn(&mut ServerApi<'a>);
+
+/// Lifecycle callback executed on each client tick.
+pub type TickClientHook = for<'a> fn(&mut ClientTickApi<'a>);
+
+/// Lifecycle callback executed on each server tick.
+pub type TickServerHook = for<'a> fn(&mut ServerTickApi<'a>);
+
 /// Runtime-provided services exposed to SDK hooks.
 pub trait Services {}
 
@@ -404,6 +452,251 @@ pub trait Services {}
 pub struct NoServices;
 
 impl Services for NoServices {}
+
+/// Mouse buttons for client input polling/consumption.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ClientMouseButton {
+    Left,
+    Right,
+    Middle,
+}
+
+/// Keyboard keys for client input polling/consumption.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ClientKeyCode {
+    KeyW,
+    KeyA,
+    KeyS,
+    KeyD,
+    KeyE,
+    KeyQ,
+    Space,
+    Shift,
+    Ctrl,
+    Escape,
+}
+
+/// Block face used by camera/hit and interaction APIs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ClientBlockFace {
+    PosX,
+    NegX,
+    PosY,
+    NegY,
+    PosZ,
+    NegZ,
+}
+
+/// Camera ray in world space.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ClientCameraRay {
+    pub origin: [f32; 3],
+    pub direction: [f32; 3],
+}
+
+/// Camera cursor hit against a block.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ClientCursorHit {
+    pub block_pos: (i32, i32, i32),
+    pub face: ClientBlockFace,
+    pub distance_m: f32,
+}
+
+/// Pending overlay operation kind for block interactions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PendingOverlayOpKind {
+    Break {
+        face: ClientBlockFace,
+    },
+    Place {
+        face: ClientBlockFace,
+        placed_block_id: u8,
+    },
+}
+
+/// Predicted overlay operation tracked by client mods.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PendingOverlayOp {
+    pub level_id: u32,
+    pub stream_epoch: u32,
+    pub action_seq: u32,
+    pub at_input_seq: u32,
+    pub block_pos: (i32, i32, i32),
+    pub predicted_block_id: u8,
+    pub kind: PendingOverlayOpKind,
+}
+
+/// Outbound block break command.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClientBreakCommand {
+    pub level_id: u32,
+    pub stream_epoch: u32,
+    pub action_seq: u32,
+    pub at_input_seq: u32,
+    pub payload: Vec<u8>,
+}
+
+/// Outbound block place command.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClientPlaceCommand {
+    pub level_id: u32,
+    pub stream_epoch: u32,
+    pub action_seq: u32,
+    pub at_input_seq: u32,
+    pub payload: Vec<u8>,
+}
+
+/// Authoritative block state correction for an interaction result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClientAuthoritativeBlock {
+    pub pos: (i32, i32, i32),
+    pub block_id: u8,
+}
+
+/// Interaction result reject reason.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClientInteractionRejectReason {
+    Unknown,
+    OutOfRange,
+    NotLoaded,
+    InvalidTarget,
+    InvalidBlock,
+    Duplicate,
+}
+
+/// Inbound interaction result event.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClientInteractionResultEvent {
+    pub level_id: u32,
+    pub stream_epoch: u32,
+    pub action_seq: u32,
+    pub at_input_seq: u32,
+    pub ok: bool,
+    pub reason: ClientInteractionRejectReason,
+    pub authoritative: Vec<ClientAuthoritativeBlock>,
+}
+
+/// Engine-provided client input surface.
+pub trait ClientInputProvider {
+    fn mouse_button_down(&self, button: ClientMouseButton) -> bool;
+    fn mouse_button_just_pressed(&self, button: ClientMouseButton) -> bool;
+    fn key_down(&self, key: ClientKeyCode) -> bool;
+    fn key_just_pressed(&self, key: ClientKeyCode) -> bool;
+    fn bind_mouse_button(&mut self, button: ClientMouseButton, owner: &str) -> bool;
+    fn bind_key(&mut self, key: ClientKeyCode, owner: &str) -> bool;
+    fn consume_mouse_button_press(&mut self, button: ClientMouseButton, owner: &str) -> bool;
+    fn consume_key_press(&mut self, key: ClientKeyCode, owner: &str) -> bool;
+}
+
+/// Engine-provided camera and block-hit query surface.
+pub trait ClientCameraHitProvider {
+    fn camera_ray(&self) -> Option<ClientCameraRay>;
+    fn cursor_hit(&self, max_distance_m: f32) -> Option<ClientCursorHit>;
+}
+
+/// Engine-provided predicted overlay surface.
+pub trait ClientOverlayProvider {
+    fn add_pending_op(&mut self, op: PendingOverlayOp);
+    fn remove_pending_op(&mut self, action_seq: u32) -> bool;
+}
+
+/// Engine-provided interaction command/result surface.
+pub trait ClientInteractionProvider {
+    fn send_break(&mut self, cmd: &ClientBreakCommand);
+    fn send_place(&mut self, cmd: &ClientPlaceCommand);
+    fn poll_result(&mut self) -> Option<ClientInteractionResultEvent>;
+}
+
+/// Common side-independent lifecycle API.
+pub struct CommonApi<'a> {
+    pub services: &'a mut dyn Services,
+}
+
+impl<'a> CommonApi<'a> {
+    #[must_use]
+    pub fn new(services: &'a mut dyn Services) -> Self {
+        Self { services }
+    }
+}
+
+/// Server-side lifecycle API.
+pub struct ServerApi<'a> {
+    pub services: &'a mut dyn Services,
+}
+
+impl<'a> ServerApi<'a> {
+    #[must_use]
+    pub fn new(services: &'a mut dyn Services) -> Self {
+        Self { services }
+    }
+}
+
+/// Client-side lifecycle API.
+pub struct ClientApi<'a> {
+    pub services: &'a mut dyn Services,
+    pub input: &'a mut dyn ClientInputProvider,
+    pub camera: &'a mut dyn ClientCameraHitProvider,
+    pub overlay: &'a mut dyn ClientOverlayProvider,
+    pub interaction: &'a mut dyn ClientInteractionProvider,
+}
+
+impl<'a> ClientApi<'a> {
+    #[must_use]
+    pub fn new(
+        services: &'a mut dyn Services,
+        input: &'a mut dyn ClientInputProvider,
+        camera: &'a mut dyn ClientCameraHitProvider,
+        overlay: &'a mut dyn ClientOverlayProvider,
+        interaction: &'a mut dyn ClientInteractionProvider,
+    ) -> Self {
+        Self {
+            services,
+            input,
+            camera,
+            overlay,
+            interaction,
+        }
+    }
+
+    #[must_use]
+    pub fn reborrow(&mut self) -> ClientApi<'_> {
+        ClientApi {
+            services: self.services,
+            input: self.input,
+            camera: self.camera,
+            overlay: self.overlay,
+            interaction: self.interaction,
+        }
+    }
+}
+
+/// Client-side lifecycle tick context.
+pub struct ClientTickApi<'a> {
+    pub tick: u64,
+    pub dt: Duration,
+    pub client: ClientApi<'a>,
+}
+
+impl<'a> ClientTickApi<'a> {
+    #[must_use]
+    pub fn new(tick: u64, dt: Duration, client: ClientApi<'a>) -> Self {
+        Self { tick, dt, client }
+    }
+}
+
+/// Server-side lifecycle tick context.
+pub struct ServerTickApi<'a> {
+    pub tick: u64,
+    pub dt: Duration,
+    pub server: ServerApi<'a>,
+}
+
+impl<'a> ServerTickApi<'a> {
+    #[must_use]
+    pub fn new(tick: u64, dt: Duration, server: ServerApi<'a>) -> Self {
+        Self { tick, dt, server }
+    }
+}
 
 /// Stable server hook context.
 pub struct ServerHookCtx<'a> {
