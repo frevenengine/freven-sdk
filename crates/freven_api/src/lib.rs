@@ -49,8 +49,28 @@ pub struct ActionCmdView<'a> {
 /// Server world-read service exposed to action handlers.
 pub trait ActionWorldRead {}
 
+/// Deterministic result of a compare-and-set world edit requested by an action handler.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActionWorldEditResult {
+    Applied { old: u8, new: u8 },
+    NotLoaded,
+    OutOfBounds,
+    Mismatch { current: u8 },
+}
+
 /// Server-authoritative world-edit service exposed to action handlers.
-pub trait ActionWorldEdit {}
+pub trait ActionWorldEdit {
+    fn block_world(&self, wx: i32, wy: i32, wz: i32) -> u8;
+    fn is_solid_block_id(&self, block_id: u8) -> bool;
+    fn try_set_block_world_if(
+        &mut self,
+        wx: i32,
+        wy: i32,
+        wz: i32,
+        expected_old: u8,
+        new_id: u8,
+    ) -> ActionWorldEditResult;
+}
 
 /// Character-physics query service exposed to action handlers.
 pub trait CharacterPhysicsQuery {
