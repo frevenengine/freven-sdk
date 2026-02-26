@@ -592,6 +592,7 @@ pub trait ClientInputProvider {
 pub trait ClientCameraHitProvider {
     fn camera_ray(&self) -> Option<ClientCameraRay>;
     fn cursor_hit(&self, max_distance_m: f32) -> Option<ClientCursorHit>;
+    fn block_id_at(&self, pos: (i32, i32, i32)) -> Option<u8>;
 }
 
 /// Engine-provided predicted overlay surface.
@@ -602,6 +603,8 @@ pub trait ClientOverlayProvider {
 
 /// Engine-provided interaction command/result surface.
 pub trait ClientInteractionProvider {
+    fn active_stream(&self) -> Option<(u32, u32)>;
+    fn next_input_seq(&self) -> u32;
     fn send_break(&mut self, cmd: &ClientBreakCommand);
     fn send_place(&mut self, cmd: &ClientPlaceCommand);
     fn poll_result(&mut self) -> Option<ClientInteractionResultEvent>;
