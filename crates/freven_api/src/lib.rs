@@ -10,7 +10,7 @@
 //! - keep hook/context types engine-agnostic
 //! - avoid leaking runtime/transport implementation details
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use freven_core::blocks::BlockDef;
 use serde::de::DeserializeOwned;
@@ -527,78 +527,102 @@ pub struct ClientCursorHit {
     pub distance_m: f32,
 }
 
-/// Pending overlay operation kind for block interactions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PendingOverlayOpKind {
-    Break {
-        face: ClientBlockFace,
-    },
-    Place {
-        face: ClientBlockFace,
-        placed_block_id: u8,
-    },
+/// Client-side action request submitted by gameplay/mods.
+///
+/// Giant-grade contract:
+/// - mods describe intent (kind + payload) and optional predicted edits
+/// - engine assigns `action_seq`, owns pending/retransmit/reconcile
+#[derive(Debug, Clone)]
+pub struct ClientActionRequest {
+    /// Logical action kind id registered by the runtime/mods.
+    pub action_kind_id: ActionKindId,
+
+    /// Opaque action payload owned by the mod.
+    ///
+    /// `Arc<[u8]>` keeps clones cheap across layers.
+    pub payload: Arc<[u8]>,
+
+    /// Rule-A anchor: "apply before movement input seq N".
+    pub at_input_seq: u32,
+
+    /// Optional predicted edits for immediate visual feedback.
+    pub predicted: Vec<ClientPredictedEdit>,
 }
 
-/// Predicted overlay operation tracked by client mods.
+/// One predicted world edit hint (visual-only, not authoritative).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PendingOverlayOp {
-    pub level_id: u32,
-    pub stream_epoch: u32,
-    pub action_seq: u32,
-    pub at_input_seq: u32,
-    pub block_pos: (i32, i32, i32),
+pub struct ClientPredictedEdit {
+    pub pos: (i32, i32, i32),
     pub predicted_block_id: u8,
-    pub kind: PendingOverlayOpKind,
 }
 
-/// Outbound block break command.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ClientBreakCommand {
-    pub level_id: u32,
-    pub stream_epoch: u32,
-    pub action_seq: u32,
-    pub at_input_seq: u32,
-    pub payload: Vec<u8>,
+/// Local/engine-side rejection for `submit_action`.
+///
+/// This is NOT a server `ClientActionRejectReason`.
+#[derive(Debug, Clone, thiserror::Error)]
+#[non_exhaustive]
+pub enum ClientActionSubmitError {
+    #[error("cannot submit action: no active world stream")]
+    NoActiveStream,
+
+    #[error("cannot submit action: client is not in Play state")]
+    NotInPlay,
+
+    #[error("cannot submit action: too many pending actions")]
+    TooManyPending,
+
+    #[error("cannot submit action: payload too large (len={len}, limit={limit})")]
+    PayloadTooLarge { len: usize, limit: usize },
+
+    #[error("cannot submit action: {message}")]
+    Other { message: String },
 }
 
-/// Outbound block place command.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ClientPlaceCommand {
-    pub level_id: u32,
-    pub stream_epoch: u32,
-    pub action_seq: u32,
-    pub at_input_seq: u32,
-    pub payload: Vec<u8>,
-}
-
-/// Authoritative block state correction for an interaction result.
+/// Authoritative block state correction for an action result.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ClientAuthoritativeBlock {
+pub struct ClientActionEdit {
     pub pos: (i32, i32, i32),
     pub block_id: u8,
 }
 
-/// Interaction result reject reason.
+/// Action result reject reason.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ClientInteractionRejectReason {
+pub enum ClientActionRejectReason {
     Unknown,
-    OutOfRange,
     NotLoaded,
     InvalidTarget,
-    InvalidBlock,
     Duplicate,
+    UnhandledActionKind,
 }
 
-/// Inbound interaction result event.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ClientInteractionResultEvent {
+/// Inbound action result event.
+///
+/// Notes:
+/// - `(level_id, stream_epoch)` identify the stream the server associated this result with.
+/// - Results MAY refer to a non-active stream (late reject / echo / stream mismatch).
+///   Consumers are allowed to ignore non-active stream results.
+#[derive(Debug, Clone)]
+pub struct ClientActionResultEvent {
+    /// Connection-scoped load session id (recipient-scoped).
     pub level_id: u32,
+
+    /// Stream epoch for the action result.
     pub stream_epoch: u32,
-    pub action_seq: u32,
+
+    /// Rule-A anchor: "apply before movement input seq N".
     pub at_input_seq: u32,
+
+    /// Monotonic per-connection action sequence (wrapping).
+    pub action_seq: u32,
+
+    /// True when the action was applied by the server.
     pub ok: bool,
-    pub reason: ClientInteractionRejectReason,
-    pub authoritative: Vec<ClientAuthoritativeBlock>,
+
+    /// Reject reason when `ok == false`.
+    pub reason: Option<ClientActionRejectReason>,
+
+    /// Authoritative world edits produced by the server for this action.
+    pub edits: Vec<ClientActionEdit>,
 }
 
 /// Lightweight player view for client-side presentation mods.
@@ -647,19 +671,21 @@ pub trait ClientCameraHitProvider {
     fn block_id_at(&self, pos: (i32, i32, i32)) -> Option<u8>;
 }
 
-/// Engine-provided predicted overlay surface.
-pub trait ClientOverlayProvider {
-    fn add_pending_op(&mut self, op: PendingOverlayOp);
-    fn remove_pending_op(&mut self, action_seq: u32) -> bool;
-}
-
-/// Engine-provided interaction command/result surface.
+/// Engine-provided interaction request/result surface.
+///
+/// Giant-grade contract:
+/// - mods submit intent (`ClientActionRequest`)
+/// - engine assigns `action_seq`, owns pending/retransmit/reconcile
+/// - mods observe outcomes via `poll_action_result` events
 pub trait ClientInteractionProvider {
     fn active_stream(&self) -> Option<(u32, u32)>;
+
     fn next_input_seq(&self) -> u32;
-    fn send_break(&mut self, cmd: &ClientBreakCommand);
-    fn send_place(&mut self, cmd: &ClientPlaceCommand);
-    fn poll_result(&mut self) -> Option<ClientInteractionResultEvent>;
+
+    /// Submit an action request. Engine assigns and returns `action_seq`.
+    fn submit_action(&mut self, req: ClientActionRequest) -> Result<u32, ClientActionSubmitError>;
+
+    fn poll_action_result(&mut self) -> Option<ClientActionResultEvent>;
 }
 
 /// Engine-provided player presentation query surface.
@@ -704,7 +730,6 @@ pub struct ClientApi<'a> {
     pub services: &'a mut dyn Services,
     pub input: &'a mut dyn ClientInputProvider,
     pub camera: &'a mut dyn ClientCameraHitProvider,
-    pub overlay: &'a mut dyn ClientOverlayProvider,
     pub interaction: &'a mut dyn ClientInteractionProvider,
     pub players: &'a mut dyn ClientPlayerProvider,
     pub nameplates: &'a mut dyn ClientNameplateProvider,
@@ -716,7 +741,6 @@ impl<'a> ClientApi<'a> {
         services: &'a mut dyn Services,
         input: &'a mut dyn ClientInputProvider,
         camera: &'a mut dyn ClientCameraHitProvider,
-        overlay: &'a mut dyn ClientOverlayProvider,
         interaction: &'a mut dyn ClientInteractionProvider,
         players: &'a mut dyn ClientPlayerProvider,
         nameplates: &'a mut dyn ClientNameplateProvider,
@@ -725,7 +749,6 @@ impl<'a> ClientApi<'a> {
             services,
             input,
             camera,
-            overlay,
             interaction,
             players,
             nameplates,
@@ -738,7 +761,6 @@ impl<'a> ClientApi<'a> {
             services: self.services,
             input: self.input,
             camera: self.camera,
-            overlay: self.overlay,
             interaction: self.interaction,
             players: self.players,
             nameplates: self.nameplates,
