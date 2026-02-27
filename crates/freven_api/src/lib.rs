@@ -201,6 +201,11 @@ pub trait ModContextBackend {
         key: &str,
         factory: CharacterControllerFactory,
     ) -> Result<CharacterControllerId, ModRegistrationError>;
+    fn register_client_control_provider(
+        &mut self,
+        key: &str,
+        factory: ClientControlProviderFactory,
+    ) -> Result<ClientControlProviderId, ModRegistrationError>;
     fn register_channel(
         &mut self,
         key: &str,
@@ -311,6 +316,14 @@ impl<'a> ModContext<'a> {
         self.backend.register_character_controller(key, factory)
     }
 
+    pub fn register_client_control_provider(
+        &mut self,
+        key: &str,
+        factory: ClientControlProviderFactory,
+    ) -> Result<ClientControlProviderId, ModRegistrationError> {
+        self.backend.register_client_control_provider(key, factory)
+    }
+
     pub fn register_channel(
         &mut self,
         key: &str,
@@ -391,6 +404,10 @@ pub struct CharacterControllerId(pub u32);
 /// Numeric id for registered modnet channels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ChannelId(pub u32);
+
+/// Numeric id for registered client control providers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ClientControlProviderId(pub u32);
 
 /// Error type for mod registration failures.
 #[derive(Debug, Clone, thiserror::Error)]
@@ -604,6 +621,17 @@ pub trait ClientInputProvider {
     fn consume_key_press(&mut self, key: ClientKeyCode, owner: &str) -> bool;
 }
 
+/// Engine-provided raw device input state for client control providers.
+pub trait ClientControlDeviceState {
+    fn bind_mouse_button(&mut self, button: ClientMouseButton, owner: &str) -> bool;
+    fn bind_key(&mut self, key: ClientKeyCode, owner: &str) -> bool;
+    fn mouse_button_down(&self, button: ClientMouseButton, owner: &str) -> bool;
+    fn key_down(&self, key: ClientKeyCode, owner: &str) -> bool;
+    fn mouse_delta(&self) -> (f32, f32);
+    fn cursor_locked(&self) -> bool;
+    fn view_angles_deg(&self) -> (f32, f32);
+}
+
 /// Engine-provided camera and block-hit query surface.
 pub trait ClientCameraHitProvider {
     fn camera_ray(&self) -> Option<ClientCameraRay>;
@@ -715,6 +743,29 @@ pub struct ClientTickApi<'a> {
     pub tick: u64,
     pub dt: Duration,
     pub client: ClientApi<'a>,
+}
+
+/// Client control provider output for one input command sample.
+#[derive(Debug, Clone, Copy)]
+pub struct ClientControlOutput {
+    pub input_seq: u32,
+    pub raw: RawInput,
+    pub view_yaw_deg: f32,
+    pub view_pitch_deg: f32,
+}
+
+/// Init params for client control provider factories.
+#[derive(Debug, Clone, Copy, Default)]
+#[non_exhaustive]
+pub struct ClientControlProviderInit {
+    pub next_input_seq: u32,
+}
+
+/// Contract for gameplay control providers owned by mods.
+pub trait ClientControlProvider: Send + Sync {
+    fn sample(&mut self, device: &mut dyn ClientControlDeviceState) -> ClientControlOutput;
+
+    fn reset_input_seq(&mut self, next_input_seq: u32);
 }
 
 impl<'a> ClientTickApi<'a> {
@@ -1100,6 +1151,10 @@ pub struct CharacterControllerInit {}
 
 /// Character controller factory.
 pub type CharacterControllerFactory = fn(CharacterControllerInit) -> Box<dyn CharacterController>;
+
+/// Client control provider factory.
+pub type ClientControlProviderFactory =
+    fn(ClientControlProviderInit) -> Box<dyn ClientControlProvider>;
 
 /// Channel reliability policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
