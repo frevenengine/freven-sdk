@@ -216,6 +216,7 @@ pub trait ModContextBackend {
         action_kind: ActionKindId,
         handler: Box<dyn ActionHandler>,
     ) -> Result<(), ModRegistrationError>;
+    fn register_action_kind(&mut self, key: &str) -> Result<ActionKindId, ModRegistrationError>;
     fn set_should_load(&mut self, hook: ShouldLoadHook);
     fn on_start_common(&mut self, hook: StartCommonHook);
     fn on_start_client(&mut self, hook: StartClientHook);
@@ -342,6 +343,13 @@ impl<'a> ModContext<'a> {
     {
         self.backend
             .register_action_handler(action_kind, Box::new(handler))
+    }
+
+    pub fn register_action_kind(
+        &mut self,
+        key: &str,
+    ) -> Result<ActionKindId, ModRegistrationError> {
+        self.backend.register_action_kind(key)
     }
 
     pub fn on_server_tick(&mut self, hook: ServerTickHook) {
