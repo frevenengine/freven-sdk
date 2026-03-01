@@ -465,6 +465,15 @@ pub enum ModRegistrationError {
         key: String,
         limit: u32,
     },
+    #[error(
+        "unsupported channel QoS for mod '{mod_id}' key '{key}': reliability={reliability:?}, ordering={ordering:?}; v1 supports only (Reliable, Ordered) and (Unreliable, Unordered)"
+    )]
+    UnsupportedChannelQos {
+        mod_id: String,
+        key: String,
+        reliability: ChannelReliability,
+        ordering: ChannelOrdering,
+    },
 }
 
 /// Error type for mod config decode failures.
