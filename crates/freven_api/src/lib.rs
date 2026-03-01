@@ -17,6 +17,14 @@ use serde::de::DeserializeOwned;
 
 pub mod action_payloads;
 
+/// Engine-owned feature keys (requested by mods via `ClientAppInstaller`).
+///
+/// These are stable string contracts and must remain engine-agnostic.
+pub mod engine_features {
+    /// Engine feature: action prediction/reconcile pipeline for universal actions.
+    pub const ACTION_PREDICTION: &str = "freven.engine.client:action_prediction";
+}
+
 /// Stable id for a logical player action kind.
 ///
 /// This id is runtime/mod-facing and independent of transport packet variants.
