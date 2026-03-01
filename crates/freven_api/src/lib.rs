@@ -190,7 +190,11 @@ pub trait ModContextBackend {
     fn register_block(&mut self, key: &str, def: BlockDef)
     -> Result<BlockId, ModRegistrationError>;
     fn register_component(&mut self, key: &str) -> Result<ComponentId, ModRegistrationError>;
-    fn register_message(&mut self, key: &str) -> Result<MessageId, ModRegistrationError>;
+    fn register_message(
+        &mut self,
+        key: &str,
+        config: MessageConfig,
+    ) -> Result<MessageId, ModRegistrationError>;
     fn register_worldgen(
         &mut self,
         key: &str,
@@ -298,7 +302,15 @@ impl<'a> ModContext<'a> {
     }
 
     pub fn register_message(&mut self, key: &str) -> Result<MessageId, ModRegistrationError> {
-        self.backend.register_message(key)
+        self.backend.register_message(key, MessageConfig::default())
+    }
+
+    pub fn register_message_type(
+        &mut self,
+        key: &str,
+        config: MessageConfig,
+    ) -> Result<MessageId, ModRegistrationError> {
+        self.backend.register_message(key, config)
     }
 
     pub fn register_worldgen(
@@ -400,6 +412,27 @@ pub struct ComponentId(pub u32);
 /// Numeric id for registered message keys.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MessageId(pub u32);
+
+/// Supported message codec contracts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MessageCodec {
+    /// Opaque bytes payload, interpreted by higher-level mod code.
+    RawBytes,
+}
+
+/// Message type registration config.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MessageConfig {
+    pub codec: MessageCodec,
+}
+
+impl Default for MessageConfig {
+    fn default() -> Self {
+        Self {
+            codec: MessageCodec::RawBytes,
+        }
+    }
+}
 
 /// Numeric id for registered worldgen providers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -688,6 +721,89 @@ pub trait ClientInteractionProvider {
     fn poll_action_result(&mut self) -> Option<ClientActionResultEvent>;
 }
 
+/// Mod message scope.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MessageScope {
+    Global,
+    Level { level_id: u32, stream_epoch: u32 },
+}
+
+/// Client outbound scope selector.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClientOutboundMessageScope {
+    Global,
+    ActiveLevel,
+}
+
+/// Outbound client mod message payload.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClientOutboundMessage {
+    pub scope: ClientOutboundMessageScope,
+    pub channel_id: u32,
+    pub message_id: u32,
+    pub seq: Option<u32>,
+    pub payload: Vec<u8>,
+}
+
+/// Inbound client mod message payload.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClientInboundMessage {
+    pub scope: MessageScope,
+    pub channel_id: u32,
+    pub message_id: u32,
+    pub seq: Option<u32>,
+    pub payload: Vec<u8>,
+}
+
+/// Outbound server mod message payload.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServerOutboundMessage {
+    pub scope: MessageScope,
+    pub channel_id: u32,
+    pub message_id: u32,
+    pub seq: Option<u32>,
+    pub payload: Vec<u8>,
+}
+
+/// Inbound server mod message payload.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServerInboundMessage {
+    pub player_id: u64,
+    pub scope: MessageScope,
+    pub channel_id: u32,
+    pub message_id: u32,
+    pub seq: Option<u32>,
+    pub payload: Vec<u8>,
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("client message send failed: {message}")]
+pub struct ClientMessageSendError {
+    pub message: String,
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("server message send failed: {message}")]
+pub struct ServerMessageSendError {
+    pub message: String,
+}
+
+/// Engine-provided client mod message surface.
+pub trait ClientMessageProvider {
+    fn send_msg(&mut self, msg: ClientOutboundMessage) -> Result<(), ClientMessageSendError>;
+    fn poll_msg(&mut self) -> Option<ClientInboundMessage>;
+}
+
+/// Engine-provided server mod message surface.
+pub trait ServerMessageProvider {
+    fn send_to(
+        &mut self,
+        player_id: u64,
+        msg: ServerOutboundMessage,
+    ) -> Result<(), ServerMessageSendError>;
+    fn poll_msg(&mut self) -> Option<ServerInboundMessage>;
+}
+
 /// Engine-provided player presentation query surface.
 pub trait ClientPlayerProvider {
     fn list_players(&self, out: &mut Vec<ClientPlayerView>);
@@ -716,12 +832,16 @@ impl<'a> CommonApi<'a> {
 /// Server-side lifecycle API.
 pub struct ServerApi<'a> {
     pub services: &'a mut dyn Services,
+    pub messages: &'a mut dyn ServerMessageProvider,
 }
 
 impl<'a> ServerApi<'a> {
     #[must_use]
-    pub fn new(services: &'a mut dyn Services) -> Self {
-        Self { services }
+    pub fn new(
+        services: &'a mut dyn Services,
+        messages: &'a mut dyn ServerMessageProvider,
+    ) -> Self {
+        Self { services, messages }
     }
 }
 
@@ -731,6 +851,7 @@ pub struct ClientApi<'a> {
     pub input: &'a mut dyn ClientInputProvider,
     pub camera: &'a mut dyn ClientCameraHitProvider,
     pub interaction: &'a mut dyn ClientInteractionProvider,
+    pub messages: &'a mut dyn ClientMessageProvider,
     pub players: &'a mut dyn ClientPlayerProvider,
     pub nameplates: &'a mut dyn ClientNameplateProvider,
 }
@@ -742,6 +863,7 @@ impl<'a> ClientApi<'a> {
         input: &'a mut dyn ClientInputProvider,
         camera: &'a mut dyn ClientCameraHitProvider,
         interaction: &'a mut dyn ClientInteractionProvider,
+        messages: &'a mut dyn ClientMessageProvider,
         players: &'a mut dyn ClientPlayerProvider,
         nameplates: &'a mut dyn ClientNameplateProvider,
     ) -> Self {
@@ -750,6 +872,7 @@ impl<'a> ClientApi<'a> {
             input,
             camera,
             interaction,
+            messages,
             players,
             nameplates,
         }
@@ -762,6 +885,7 @@ impl<'a> ClientApi<'a> {
             input: self.input,
             camera: self.camera,
             interaction: self.interaction,
+            messages: self.messages,
             players: self.players,
             nameplates: self.nameplates,
         }
