@@ -775,27 +775,34 @@ pub struct ClientTickApi<'a> {
     pub client: ClientApi<'a>,
 }
 
-/// Client control provider output for one input command sample.
+/// Client control provider output for one input sample.
+///
+/// Notes:
+/// - The engine owns input sequencing (`NetSeq`) as part of the prediction/network timeline.
+/// - Control providers must NOT generate or persist input sequence numbers.
 #[derive(Debug, Clone, Copy)]
 pub struct ClientControlOutput {
-    pub input_seq: u32,
     pub raw: RawInput,
     pub view_yaw_deg: f32,
     pub view_pitch_deg: f32,
 }
 
 /// Init params for client control provider factories.
+///
+/// Reserved for future evolution (e.g., default sensitivity presets).
 #[derive(Debug, Clone, Copy, Default)]
 #[non_exhaustive]
-pub struct ClientControlProviderInit {
-    pub next_input_seq: u32,
-}
+pub struct ClientControlProviderInit {}
 
 /// Contract for gameplay control providers owned by mods.
+///
+/// This is a pure mapping: device state -> raw input.
+/// Providers may keep internal filters (e.g. smoothing), but must not own network sequencing.
 pub trait ClientControlProvider: Send + Sync {
     fn sample(&mut self, device: &mut dyn ClientControlDeviceState) -> ClientControlOutput;
 
-    fn reset_input_seq(&mut self, next_input_seq: u32);
+    /// Optional hook to clear internal filters on hard resets (world barrier / reconnect).
+    fn reset(&mut self) {}
 }
 
 impl<'a> ClientTickApi<'a> {
