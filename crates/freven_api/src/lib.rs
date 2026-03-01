@@ -25,6 +25,12 @@ pub mod engine_features {
     pub const ACTION_PREDICTION: &str = "freven.engine.client:action_prediction";
 }
 
+/// Engine-owned replicated component keys.
+pub mod engine_components {
+    /// Optional per-player display name payload (UTF-8 bytes).
+    pub const PLAYER_NAMEPLATE_TEXT: &str = "freven.engine:player_nameplate_text";
+}
+
 /// Stable id for a logical player action kind.
 ///
 /// This id is runtime/mod-facing and independent of transport packet variants.
@@ -197,7 +203,11 @@ pub struct ModDescriptor {
 pub trait ModContextBackend {
     fn register_block(&mut self, key: &str, def: BlockDef)
     -> Result<BlockId, ModRegistrationError>;
-    fn register_component(&mut self, key: &str) -> Result<ComponentId, ModRegistrationError>;
+    fn register_component(
+        &mut self,
+        key: &str,
+        codec: ComponentCodec,
+    ) -> Result<ComponentId, ModRegistrationError>;
     fn register_message(
         &mut self,
         key: &str,
@@ -305,8 +315,12 @@ impl<'a> ModContext<'a> {
         self.backend.register_block(key, def)
     }
 
-    pub fn register_component(&mut self, key: &str) -> Result<ComponentId, ModRegistrationError> {
-        self.backend.register_component(key)
+    pub fn register_component(
+        &mut self,
+        key: &str,
+        codec: ComponentCodec,
+    ) -> Result<ComponentId, ModRegistrationError> {
+        self.backend.register_component(key, codec)
     }
 
     pub fn register_message(&mut self, key: &str) -> Result<MessageId, ModRegistrationError> {
@@ -416,6 +430,13 @@ pub struct BlockId(pub u8);
 /// Numeric id for registered component keys.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ComponentId(pub u32);
+
+/// Supported component codec contracts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComponentCodec {
+    /// Opaque bytes payload, interpreted by mod code.
+    RawBytes,
+}
 
 /// Numeric id for registered message keys.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -825,6 +846,7 @@ pub trait ServerMessageProvider {
 pub trait ClientPlayerProvider {
     fn list_players(&self, out: &mut Vec<ClientPlayerView>);
     fn display_name_for(&self, player_id: u64) -> Option<String>;
+    fn component_bytes_for(&self, player_id: u64, component_id: ComponentId) -> Option<&[u8]>;
     fn world_to_screen(&self, world_pos_m: (f32, f32, f32)) -> Option<(f32, f32)>;
 }
 
