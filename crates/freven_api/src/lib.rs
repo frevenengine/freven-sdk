@@ -12,10 +12,8 @@
 
 use std::{sync::Arc, time::Duration};
 
-use freven_core::blocks::BlockDef;
+use freven_sdk_types::blocks::BlockDef;
 use serde::de::DeserializeOwned;
-
-pub mod action_payloads;
 
 /// Engine-owned feature keys (requested by mods via `ClientAppInstaller`).
 ///
@@ -43,11 +41,6 @@ impl ActionKindId {
         self.0
     }
 }
-
-/// Temporary action kind for legacy block-break semantics.
-pub const ACTION_KIND_BLOCK_BREAK: ActionKindId = ActionKindId(1);
-/// Temporary action kind for legacy block-place semantics.
-pub const ACTION_KIND_BLOCK_PLACE: ActionKindId = ActionKindId(2);
 
 /// Read-only view of an inbound player action command.
 #[derive(Debug, Clone, Copy)]
@@ -943,11 +936,27 @@ pub struct ClientTickApi<'a> {
 /// Notes:
 /// - The engine owns input sequencing (`NetSeq`) as part of the prediction/network timeline.
 /// - Control providers must NOT generate or persist input sequence numbers.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ClientControlOutput {
-    pub raw: RawInput,
+    pub input: Arc<[u8]>,
     pub view_yaw_deg: f32,
     pub view_pitch_deg: f32,
+}
+
+/// Timeline metadata associated with one controller input sample.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct InputTimeline {
+    pub input_seq: u32,
+    pub sim_tick: u64,
+}
+
+/// Opaque controller input consumed by character controllers.
+#[derive(Debug, Clone)]
+pub struct CharacterControllerInput {
+    pub input: Arc<[u8]>,
+    pub view_yaw_deg: f32,
+    pub view_pitch_deg: f32,
+    pub timeline: InputTimeline,
 }
 
 /// Init params for client control provider factories.
@@ -1075,49 +1084,6 @@ pub struct WorldGenOutput {
 #[error("worldgen error: {message}")]
 pub struct WorldGenError {
     pub message: String,
-}
-
-/// Raw network input command surface used by controller implementations.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct RawInput {
-    pub move_x: i8,
-    pub move_z: i8,
-    pub buttons: u16,
-    pub yaw_q: i16,
-    pub pitch_q: i16,
-}
-
-impl RawInput {
-    #[inline]
-    #[must_use]
-    pub fn yaw_deg(&self) -> f32 {
-        self.yaw_q as f32 / 100.0
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn pitch_deg(&self) -> f32 {
-        self.pitch_q as f32 / 100.0
-    }
-}
-
-/// Canonical button bits for `RawInput::buttons`.
-pub mod button_bits {
-    pub const JUMP: u16 = 1;
-    pub const SPRINT: u16 = 2;
-    pub const CROUCH: u16 = 4;
-}
-
-/// Semantic movement intent derived from raw input.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct CharacterIntent {
-    pub move_x: f32,
-    pub move_z: f32,
-    pub yaw_deg: f32,
-    pub pitch_deg: f32,
-    pub jump: bool,
-    pub crouch: bool,
-    pub sprint: bool,
 }
 
 /// Character shape used for collision queries.
@@ -1334,11 +1300,10 @@ pub trait CharacterPhysics {
 /// Character controller trait used for authoritative movement and prediction.
 pub trait CharacterController: Send + Sync {
     fn config(&self) -> &CharacterConfig;
-    fn intent_from_raw(&mut self, raw: &RawInput) -> CharacterIntent;
     fn step(
         &mut self,
         state: &mut CharacterState,
-        intent: &CharacterIntent,
+        input: &CharacterControllerInput,
         physics: &mut dyn CharacterPhysics,
         dt: Duration,
     );

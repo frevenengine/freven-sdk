@@ -1,12 +1,10 @@
 [package]
-name = "freven_api"
+name = "freven_std"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
 publish = false
 
 [dependencies]
-freven_sdk_types = { path = "../freven_sdk_types" }
-serde.workspace = true
-toml.workspace = true
+freven_api = { path = "../freven_api" }
 thiserror.workspace = true
