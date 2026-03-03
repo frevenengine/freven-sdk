@@ -12,8 +12,10 @@
 
 use std::{sync::Arc, time::Duration};
 
-use freven_sdk_types::blocks::BlockDef;
 use serde::de::DeserializeOwned;
+
+pub use freven_sdk_types::blocks::{BlockDef, BlockRuntimeId, RenderLayer};
+pub use freven_sdk_types::{blocks, voxel};
 
 /// Engine-owned feature keys (requested by mods via `ClientAppInstaller`).
 ///
