@@ -3,7 +3,11 @@ name = "freven_sdk_types"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
-publish = false
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Shared pure SDK data contracts for Freven."
+publish = true
 
 [dependencies]
 serde.workspace = true

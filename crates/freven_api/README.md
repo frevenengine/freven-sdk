@@ -2,11 +2,33 @@
 
 Stable SDK contracts for Freven experiences and compile-time mods.
 
-## Publishing status
+`freven_api` defines the engine-agnostic public contracts used by Freven
+experiences and compile-time mods. It is intended to stay stable so mods can be
+built and versioned independently from engine internals.
 
-`freven_api` is intentionally `publish = false` right now. The crate can be made
-publishable after workspace package metadata and release ownership policy are
-explicitly configured for public distribution.
+## Stability and semver stance
+
+- Public runtime/mod contracts are treated as stable API.
+- Additive changes are preferred to preserve downstream compatibility.
+- Breaking changes require an intentional semver bump and release notes.
+- While `< 1.0.0`, breaking changes may happen in minor releases but must be
+  deliberate and documented.
+
+## Minimal usage
+
+```rust
+use freven_api::{ActionKindId, ModSide, Side};
+
+let kind = ActionKindId(7);
+assert_eq!(kind.raw(), 7);
+assert!(ModSide::Both.matches(Side::Client));
+```
+
+## Documentation
+
+- Repository docs: <https://github.com/ogyrecDev/freven/tree/main/docs>
+- Architecture and boundaries: `docs/ARCHITECTURE.md`,
+  `docs/ARCHITECTURE_LAYERS.md`, `docs/BOUNDARIES.md`
 
 ## Public contract expectations
 
