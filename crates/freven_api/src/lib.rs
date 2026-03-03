@@ -58,6 +58,7 @@ pub trait ActionWorldRead {}
 
 /// Deterministic result of a compare-and-set world edit requested by an action handler.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ActionWorldEditResult {
     Applied { old: u8, new: u8 },
     NotLoaded,
@@ -426,6 +427,7 @@ pub struct ComponentId(pub u32);
 
 /// Supported component codec contracts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ComponentCodec {
     /// Opaque bytes payload, interpreted by mod code.
     RawBytes,
@@ -437,6 +439,7 @@ pub struct MessageId(pub u32);
 
 /// Supported message codec contracts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum MessageCodec {
     /// Opaque bytes payload, interpreted by higher-level mod code.
     RawBytes,
@@ -474,6 +477,7 @@ pub struct ClientControlProviderId(pub u32);
 
 /// Error type for mod registration failures.
 #[derive(Debug, Clone, thiserror::Error)]
+#[non_exhaustive]
 pub enum ModRegistrationError {
     #[error("duplicate {registry} key '{key}' registered by mod '{mod_id}'")]
     DuplicateKey {
@@ -500,6 +504,7 @@ pub enum ModRegistrationError {
 
 /// Error type for mod config decode failures.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum ModConfigError {
     #[error("failed to decode config for mod '{mod_id}'")]
     Deserialize {
@@ -543,7 +548,12 @@ pub struct NoServices;
 impl Services for NoServices {}
 
 /// Mouse buttons for client input polling/consumption.
+///
+/// This enum is a convenience surface for common desktop bindings.
+/// The primary cross-layer gameplay contract remains opaque input bytes
+/// (`ClientControlOutput::input` / `CharacterControllerInput::input`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ClientMouseButton {
     Left,
     Right,
@@ -551,7 +561,11 @@ pub enum ClientMouseButton {
 }
 
 /// Keyboard keys for client input polling/consumption.
+///
+/// This enum is a convenience surface for common desktop bindings.
+/// Prefer mod-defined opaque input payloads as the stable gameplay contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ClientKeyCode {
     KeyW,
     KeyA,
@@ -566,7 +580,11 @@ pub enum ClientKeyCode {
 }
 
 /// Block face used by camera/hit and interaction APIs.
+///
+/// This is convenience metadata for block-aligned interactions.
+/// Action payload semantics are still owned by mod-defined opaque bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ClientBlockFace {
     PosX,
     NegX,
@@ -651,6 +669,7 @@ pub struct ClientActionEdit {
 
 /// Action result reject reason.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ClientActionRejectReason {
     Unknown,
     NotLoaded,
@@ -754,6 +773,7 @@ pub trait ClientInteractionProvider {
 
 /// Mod message scope.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum MessageScope {
     Global,
     Level { level_id: u32, stream_epoch: u32 },
@@ -761,6 +781,7 @@ pub enum MessageScope {
 
 /// Client outbound scope selector.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ClientOutboundMessageScope {
     Global,
     ActiveLevel,
@@ -1088,6 +1109,7 @@ pub struct WorldGenError {
 
 /// Character shape used for collision queries.
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub enum CharacterShape {
     Aabb { half_extents: [f32; 3] },
 }
@@ -1323,6 +1345,7 @@ pub type ClientControlProviderFactory =
 
 /// Channel reliability policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ChannelReliability {
     Reliable,
     Unreliable,
@@ -1330,6 +1353,7 @@ pub enum ChannelReliability {
 
 /// Channel ordering policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ChannelOrdering {
     Ordered,
     Unordered,
@@ -1337,6 +1361,7 @@ pub enum ChannelOrdering {
 
 /// Channel traffic direction policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ChannelDirection {
     ClientToServer,
     ServerToClient,
