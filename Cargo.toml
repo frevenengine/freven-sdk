@@ -1,0 +1,22 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/freven_api",
+    "crates/freven_sdk_types",
+    "crates/freven_std",
+]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+license = "LicenseRef-FRSL-1.0"
+repository = "https://github.com/frevenengine/freven-sdk"
+homepage = "https://github.com/frevenengine/freven-sdk"
+documentation = "https://github.com/frevenengine/freven-sdk/tree/main/docs"
+publish = false
+
+[workspace.dependencies]
+freven_sdk_types = { path = "crates/freven_sdk_types", version = "0.1.0" }
+serde = { version = "1.0.228", features = ["derive"] }
+toml = "1.0.1"
+thiserror = "2.0.18"
