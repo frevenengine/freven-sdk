@@ -8,7 +8,7 @@ homepage.workspace = true
 documentation.workspace = true
 description = "Stable SDK contracts for Freven experiences and compile-time mods."
 readme = "README.md"
-publish = true
+publish = false
 
 [dependencies]
 freven_sdk_types.workspace = true

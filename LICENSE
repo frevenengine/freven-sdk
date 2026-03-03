@@ -1,0 +1,27 @@
+Freven Readable Source License (FRSL) v1.0
+
+Copyright (c) 2026 Freven.
+All rights reserved.
+
+This is proprietary software made publicly readable.
+
+You are granted permission to:
+1) View, download, and compile this source code for personal use.
+2) Use this source code as a reference to develop mods/experiences for the Freven engine.
+3) Submit contributions (pull requests) to the official upstream repository.
+
+You are NOT granted permission to:
+A) Redistribute this source code (modified or unmodified) in whole or in part.
+B) Publish mirrors, forks, re-uploads, or copies of this repository or its contents.
+C) Distribute derivative works of this codebase as a standalone product (including “my fork” releases).
+D) Publish this code to package registries (e.g., crates.io) or other distribution channels.
+E) Use this code to create or ship a competing engine/game SDK or a substantially similar product.
+
+Contributions:
+By submitting a contribution to the official upstream repository, you grant Freven
+a perpetual, worldwide, royalty-free license to use, modify, and relicense your
+contribution as part of the Freven project.
+
+No trademark rights are granted. “Freven” and related marks remain proprietary.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.

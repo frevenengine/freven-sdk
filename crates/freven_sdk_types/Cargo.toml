@@ -7,7 +7,7 @@ repository.workspace = true
 homepage.workspace = true
 documentation.workspace = true
 description = "Shared pure SDK data contracts for Freven."
-publish = true
+publish = false
 
 [dependencies]
 serde.workspace = true

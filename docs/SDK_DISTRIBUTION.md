@@ -46,14 +46,14 @@ Guidance:
 
 ## Lightweight release checklist
 
-* Boundary checks green:
-
-  * `python3 scripts/check_layers.py`
-  * `python3 scripts/check_boundaries.py --profile phase0 --strict`
 * Formatting/lint green:
 
   * `cargo fmt -- --check`
   * `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+* Tests green:
+
+  * `cargo test --workspace --all-features`
+* Additional boundary/layer checks exist in the private engine repo, but are not part of the public SDK repo checklist.
 * SDK docs reviewed for crate names/path accuracy.
 * Tag created and release notes include:
 
