@@ -26,9 +26,10 @@ assert!(ModSide::Both.matches(Side::Client));
 
 ## Documentation
 
-- Repository docs: <https://github.com/ogyrecDev/freven/tree/main/docs>
-- Architecture and boundaries: `docs/ARCHITECTURE.md`,
-  `docs/ARCHITECTURE_LAYERS.md`, `docs/BOUNDARIES.md`
+- Repository docs: <https://github.com/frevenengine/freven-sdk/tree/main/docs>
+- Distribution / release policy: `docs/SDK_DISTRIBUTION.md`
+- ABI docs: `docs/WASM_ABI_v1.md`, `docs/NATIVE_MOD_ABI_v1.md`, `docs/EXTERNAL_MOD_IPC_v1.md`
+- Safety note: `docs/UNSAFE_NATIVE_MODS.md`
 
 ## Public contract expectations
 

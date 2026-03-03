@@ -24,7 +24,7 @@ freven_sdk_types = { git = "https://github.com/frevenengine/freven-sdk", tag = "
 # freven_std = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_std" }
 ```
 
-See [docs/sdk/SDK_DISTRIBUTION.md](docs/sdk/SDK_DISTRIBUTION.md) for the rollout plan and release policy.
+See [docs/SDK_DISTRIBUTION.md](docs/SDK_DISTRIBUTION.md) for the rollout plan and release policy.
 
 ## Stability notes
 
