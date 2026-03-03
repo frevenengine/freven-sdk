@@ -5,9 +5,8 @@ version.workspace = true
 license.workspace = true
 description = "Stable SDK contracts for Freven experiences and compile-time mods."
 readme = "README.md"
-# TODO(publish): keep private until workspace-level package metadata includes
-# repository/documentation/homepage values and crates.io release ownership is set.
-# TODO(publish): once metadata and release ownership are coherent, flip to true.
+# TODO(publish): keep private until [workspace.package] includes repository/homepage/documentation
+# and we have an explicit crates.io release/ownership policy for public distribution.
 publish = false
 
 [dependencies]
