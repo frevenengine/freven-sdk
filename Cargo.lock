@@ -19,6 +19,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "freven_guest"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "freven_sdk_types"
 version = "0.1.0"
 dependencies = [

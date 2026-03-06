@@ -7,6 +7,7 @@ The **engine source is private** and is **not** part of this repository.
 
 Current SDK crates:
 - `freven_api` - stable-ish SDK contracts (pre-1.0)
+- `freven_guest` - canonical transport-agnostic guest contract for runtime-loaded mods
 - `freven_sdk_types` - pure shared SDK types
 - `freven_std` - early stdlib helpers (**unstable**; depend only if you accept breakage)
 
@@ -19,6 +20,7 @@ Use tagged git dependencies until crates.io publishing begins:
 ```toml
 [dependencies]
 freven_api = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_api" }
+freven_guest = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_guest" }
 freven_sdk_types = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_sdk_types" }
 # Optional / unstable:
 # freven_std = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_std" }

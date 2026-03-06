@@ -2,8 +2,10 @@
 
 These docs describe the public SDK contracts; engine internals are private.
 
-Current note: the transport ABI docs below are v1 action-path contracts. They do not define the full long-term mod lifecycle on their own.
+The canonical public guest contract lives in `freven_guest`; transport ABI docs
+below describe concrete backend wire formats that must map to that contract.
 
+- [GUEST_CONTRACT_v1.md](GUEST_CONTRACT_v1.md)
 - [SDK_DISTRIBUTION.md](SDK_DISTRIBUTION.md)
 - [WASM_ABI_v1.md](WASM_ABI_v1.md)
 - [NATIVE_MOD_ABI_v1.md](NATIVE_MOD_ABI_v1.md)
