@@ -5,6 +5,10 @@ This document defines the companion-process protocol for `kind = "external"` mod
 This is a legacy action-only transport protocol. The canonical public guest
 contract is `freven_guest` as documented in `GUEST_CONTRACT_v1.md`.
 
+This is a secondary transport integration, not the default authoring story.
+Prefer Wasm with `freven_guest_sdk` unless you specifically need a companion
+process boundary.
+
 ## Transport
 
 - Parent process spawns one OS process per external mod.

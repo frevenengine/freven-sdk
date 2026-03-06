@@ -6,6 +6,10 @@ The canonical public guest contract is `freven_guest` and is documented in
 `GUEST_CONTRACT_v1.md`. This document covers the Wasm transport mapping for that
 contract.
 
+For normal mod authoring, use `freven_guest_sdk` and the guide in
+`WASM_AUTHORING.md`. This document is transport reference material, not the
+recommended getting-started path.
+
 ## Scope
 
 - Supports negotiation, lifecycle callbacks, and action handling over Wasm
