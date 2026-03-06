@@ -1,0 +1,123 @@
+# Wasm Authoring
+
+This is the recommended public path for Freven runtime-loaded mods.
+
+Most mod authors should write against `freven_guest_sdk`, not hand-roll the raw
+Wasm ABI exports.
+
+## Why this is the default path
+
+- Wasm is the primary safe guest transport.
+- `freven_guest_sdk` keeps the canonical `freven_guest` lifecycle and action
+  model visible while hiding export-table, allocation, and `postcard` plumbing.
+- Raw ABI work is still available for fixtures and runtime validation, but it is
+  not the normal getting-started experience.
+
+## Canonical lifecycle in guest contract v1
+
+The canonical guest lifecycle today is:
+
+- negotiation
+- `on_start_client`
+- `on_start_server`
+- `on_tick_client`
+- `on_tick_server`
+- action handling through one action entrypoint plus declared bindings
+
+Current contract limits:
+
+- lifecycle hooks are ack-only in guest contract v1
+- lifecycle callbacks do not return effect batches yet
+- `on_start_common` is not part of the runtime-loaded guest contract yet
+
+Those boundaries are intentional. The SDK does not pretend lifecycle output or
+cross-transport parity exists when it does not.
+
+## Minimal authoring example
+
+```rust
+use freven_guest_sdk::{ActionContext, ActionResponse};
+
+const PLACE_BLOCK: u32 = 1;
+
+fn handle_action(ctx: ActionContext<'_>) -> ActionResponse {
+    let _ = ctx.player_id();
+    ActionResponse::applied().set_block((4, 80, 4), 1)
+}
+
+freven_guest_sdk::wasm_guest!(
+    guest_id: "freven.example.wasm",
+    lifecycle: {
+        start_server: |_| {},
+        tick_server: |tick| {
+            let _ = tick.tick;
+        },
+    },
+    actions: {
+        "freven.example:set_block" => {
+            binding_id: PLACE_BLOCK,
+            handler: handle_action,
+        },
+    },
+);
+```
+
+What the SDK hides:
+
+- `freven_guest_alloc` / `freven_guest_dealloc`
+- negotiation/lifecycle/action export implementation details
+- `postcard` encode/decode of contract payloads
+- packed `(ptr, len)` return wiring
+- action binding dispatch by `binding_id`
+
+What stays explicit:
+
+- guest id
+- declared lifecycle hooks
+- declared action bindings
+- exported Wasm capability surface generated from that same declaration
+- canonical action result semantics and world effects
+
+`wasm_guest!` is intentionally declarative rather than magical. The lifecycle
+hooks and action bindings you write are the same data used to build the
+canonical `GuestDescription` and to emit the Wasm export table, so the two
+surfaces cannot drift in normal authoring.
+
+`GuestModule` plus `export_wasm_guest!(...)` still exist as a lower-level escape
+hatch for raw ABI fixtures, runtime validation, or unusual tests, but they are
+not the recommended public authoring path.
+
+## Payload ergonomics
+
+`ActionContext` exposes the canonical input fields directly:
+
+- `binding_id()`
+- `player_id()`
+- `level_id()`
+- `stream_epoch()`
+- `action_seq()`
+- `at_input_seq()`
+- `payload()`
+- `decode_payload::<T>()`
+
+Use `ActionResponse::applied()` or `ActionResponse::rejected()` to surface the
+canonical outcome, then attach effects such as `.set_block(...)`.
+
+## Transport guidance
+
+Prefer these paths in this order:
+
+1. Wasm via `freven_guest_sdk`
+2. External process integration when you explicitly need process isolation
+3. Native only for trusted local code and engine/runtime development
+
+Native and external paths are secondary today. They remain important for
+specific cases, but they should not be presented as equivalent onboarding paths
+or as safer alternatives to Wasm.
+
+## Reference docs
+
+- Canonical contract: [GUEST_CONTRACT_v1.md](GUEST_CONTRACT_v1.md)
+- Wasm transport reference: [WASM_ABI_v1.md](WASM_ABI_v1.md)
+- Native transport reference: [NATIVE_MOD_ABI_v1.md](NATIVE_MOD_ABI_v1.md)
+- External transport reference: [EXTERNAL_MOD_IPC_v1.md](EXTERNAL_MOD_IPC_v1.md)

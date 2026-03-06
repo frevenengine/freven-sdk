@@ -1,0 +1,11 @@
+[package]
+name = "freven_guest_sdk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+freven_guest.workspace = true
+postcard.workspace = true
+serde.workspace = true

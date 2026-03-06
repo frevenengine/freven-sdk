@@ -6,6 +6,8 @@ We follow a **GitHub-first** distribution model for the public Freven SDK.
 
 This repository (`frevenengine/freven-sdk`) is public-readable and contains:
 - `freven_api`
+- `freven_guest`
+- `freven_guest_sdk`
 - `freven_sdk_types`
 - `freven_std` (**unstable**; depend only if you accept breakage)
 
@@ -27,6 +29,7 @@ Later (planned):
 ```toml
 [dependencies]
 freven_api = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_api" }
+freven_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_guest_sdk" }
 freven_sdk_types = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_sdk_types" }
 # Optional / unstable:
 # freven_std = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_std" }

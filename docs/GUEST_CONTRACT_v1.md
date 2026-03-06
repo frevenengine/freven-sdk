@@ -2,6 +2,10 @@
 
 `freven_guest` is the canonical public contract for runtime-loaded Freven mods.
 
+Most mod authors should consume this contract through `freven_guest_sdk`.
+Writing directly against `freven_guest` is mainly for low-level transport work,
+fixtures, and runtime validation.
+
 ## Scope
 
 - Semantic contract only.
