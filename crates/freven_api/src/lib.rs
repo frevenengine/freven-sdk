@@ -17,14 +17,6 @@ use serde::de::DeserializeOwned;
 pub use freven_sdk_types::blocks::{BlockDef, BlockRuntimeId, RenderLayer};
 pub use freven_sdk_types::{blocks, voxel};
 
-/// Engine-owned feature keys (requested by mods via `ClientAppInstaller`).
-///
-/// These are stable string contracts and must remain engine-agnostic.
-pub mod engine_features {
-    /// Engine feature: action prediction/reconcile pipeline for universal actions.
-    pub const ACTION_PREDICTION: &str = "freven.engine.client:action_prediction";
-}
-
 /// Engine-owned replicated component keys.
 pub mod engine_components {
     /// Optional per-player display name payload (UTF-8 bytes).
@@ -174,18 +166,6 @@ impl ExperienceSpec {
 /// Mod registration entrypoint type.
 pub type ModRegisterFn = for<'a> fn(&'a mut ModContext<'a>);
 
-/// Client app installer backend used by client-app hooks.
-///
-/// Responsibilities:
-/// - expose stable plugin installation requests from mods
-/// - keep SDK hooks free of engine crate dependencies
-pub trait ClientAppInstaller {
-    fn install_plugin(&mut self, key: &'static str);
-}
-
-/// Client app configuration hook installed by compile-time mods.
-pub type ClientAppHook = fn(&mut dyn ClientAppInstaller);
-
 /// Compile-time mod descriptor used by an experience.
 #[derive(Clone)]
 pub struct ModDescriptor {
@@ -241,9 +221,6 @@ pub trait ModContextBackend {
     fn on_start_server(&mut self, hook: StartServerHook);
     fn on_tick_client(&mut self, hook: TickClientHook);
     fn on_tick_server(&mut self, hook: TickServerHook);
-    fn on_server_tick(&mut self, hook: ServerTickHook);
-    fn on_client_tick(&mut self, hook: ClientTickHook);
-    fn on_client_app(&mut self, hook: ClientAppHook);
 }
 
 /// Stable SDK-facing registration context passed to mods.
@@ -382,10 +359,6 @@ impl<'a> ModContext<'a> {
         self.backend.register_action_kind(key)
     }
 
-    pub fn on_server_tick(&mut self, hook: ServerTickHook) {
-        self.backend.on_server_tick(hook);
-    }
-
     pub fn set_should_load(&mut self, hook: ShouldLoadHook) {
         self.backend.set_should_load(hook);
     }
@@ -408,14 +381,6 @@ impl<'a> ModContext<'a> {
 
     pub fn on_tick_server(&mut self, hook: TickServerHook) {
         self.backend.on_tick_server(hook);
-    }
-
-    pub fn on_client_tick(&mut self, hook: ClientTickHook) {
-        self.backend.on_client_tick(hook);
-    }
-
-    pub fn on_client_app(&mut self, hook: ClientAppHook) {
-        self.backend.on_client_app(hook);
     }
 }
 
@@ -515,12 +480,6 @@ pub enum ModConfigError {
         source: toml::de::Error,
     },
 }
-
-/// Hook callback executed on server ticks.
-pub type ServerTickHook = for<'a> fn(&mut ServerHookCtx<'a>);
-
-/// Hook callback executed on client frame/tick updates.
-pub type ClientTickHook = for<'a> fn(&mut ClientHookCtx<'a>);
 
 /// Lifecycle predicate used to decide if a mod should load for the runtime side.
 pub type ShouldLoadHook = fn(Side) -> bool;
@@ -1018,34 +977,6 @@ impl<'a> ServerTickApi<'a> {
     #[must_use]
     pub fn new(tick: u64, dt: Duration, server: ServerApi<'a>) -> Self {
         Self { tick, dt, server }
-    }
-}
-
-/// Stable server hook context.
-pub struct ServerHookCtx<'a> {
-    pub tick: u64,
-    pub dt: Duration,
-    pub services: &'a mut dyn Services,
-}
-
-impl<'a> ServerHookCtx<'a> {
-    #[must_use]
-    pub fn new(tick: u64, dt: Duration, services: &'a mut dyn Services) -> Self {
-        Self { tick, dt, services }
-    }
-}
-
-/// Stable client hook context.
-pub struct ClientHookCtx<'a> {
-    pub tick: u64,
-    pub dt: Duration,
-    pub services: &'a mut dyn Services,
-}
-
-impl<'a> ClientHookCtx<'a> {
-    #[must_use]
-    pub fn new(tick: u64, dt: Duration, services: &'a mut dyn Services) -> Self {
-        Self { tick, dt, services }
     }
 }
 
