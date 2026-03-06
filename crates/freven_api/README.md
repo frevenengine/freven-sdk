@@ -6,6 +6,13 @@ Stable SDK contracts for Freven experiences and compile-time mods.
 experiences and compile-time mods. It is intended to stay stable so mods can be
 built and versioned independently from engine internals.
 
+The lifecycle contract is intentionally small:
+- registration via `ModContext`
+- activation via `on_start_common`, `on_start_client`, `on_start_server`
+- runtime via `on_tick_client`, `on_tick_server`, and explicit action dispatch
+
+Engine/app/bootstrap wiring does not belong in this crate.
+
 ## Stability and semver stance
 
 - Public runtime/mod contracts are treated as stable API.
