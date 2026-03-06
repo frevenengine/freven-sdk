@@ -2,9 +2,14 @@
 
 This document defines the Freven WASM mod ABI for WP7A.
 
+The canonical public guest contract is `freven_guest` and is documented in
+`GUEST_CONTRACT_v1.md`. This document covers the Wasm transport mapping for that
+contract.
+
 ## Scope
 
-- Supports action registration and action handling only.
+- Supports negotiation, lifecycle callbacks, and action handling over Wasm
+  ptr/len calls.
 - Host runs modules with no WASI and no host imports by default.
 - `[capabilities]` in `mod.toml` is enforced by runtime with a strict allowlist.
 
@@ -12,56 +17,74 @@ This document defines the Freven WASM mod ABI for WP7A.
 
 A module must export these symbols:
 
-- `freven_alloc(size: u32) -> u32`
-- `freven_dealloc(ptr: u32, size: u32)`
-- `freven_init() -> u64`
-- `freven_handle_action(kind: u32, ptr: u32, len: u32) -> u64`
+- `freven_guest_alloc(size: u32) -> u32`
+- `freven_guest_dealloc(ptr: u32, size: u32)`
+- `freven_guest_negotiate(ptr: u32, len: u32) -> u64`
+- `freven_guest_handle_action(ptr: u32, len: u32) -> u64` if `action_entrypoint = true`
 - linear memory export named `memory`
 
-`freven_init` and `freven_handle_action` return packed `(ptr, len)` as:
+Optional lifecycle exports:
+
+- `freven_guest_on_start_client(ptr: u32, len: u32) -> u64`
+- `freven_guest_on_start_server(ptr: u32, len: u32) -> u64`
+- `freven_guest_on_tick_client(ptr: u32, len: u32) -> u64`
+- `freven_guest_on_tick_server(ptr: u32, len: u32) -> u64`
+
+`freven_guest_negotiate`, lifecycle callbacks, and `freven_guest_handle_action`
+return packed `(ptr, len)` as:
 
 - `((ptr as u64) << 32) | (len as u64)`
 
-The host copies returned bytes from guest memory and then calls `freven_dealloc(ptr, len)`.
+The host copies returned bytes from guest memory and then calls
+`freven_guest_dealloc(ptr, len)`.
 
 ## Encoding
 
-ABI payloads are `postcard` encoded structs from `crates/freven_wasm_abi`.
+ABI payloads are `postcard` encoded values from `freven_guest`.
 
-### Manifest (`freven_init` return bytes)
+### Negotiation (`freven_guest_negotiate`)
 
-`ModManifestV1`:
+Input: `NegotiationRequest`
 
-- `abi_version: u32` (must be `1`)
-- `actions: Vec<ActionBindingV1>`
-
-`ActionBindingV1`:
-
-- `key: String` (runtime action key, example `freven.example:wasm_set_block`)
-- `kind: u32` (module-local dispatch id passed to `freven_handle_action`)
+Output: `NegotiationResponse`
 
 Host behavior:
 
-- validates `abi_version == 1`
+- validates `selected_contract_version`
+- validates `GuestDescription` against exported Wasm symbols
 - registers each `actions[].key` as runtime action kind
-- maps runtime action kind to `actions[].kind` for callback dispatch
+- maps runtime action kind to `actions[].binding_id` for callback dispatch
 
-### Action input (`freven_handle_action` input bytes)
+### Lifecycle inputs and outputs
 
-`ActionInputV1`:
+- `freven_guest_on_start_*` input: `StartInput`
+- `freven_guest_on_tick_*` input: `TickInput`
+- lifecycle output: `LifecycleAck`
 
+Lifecycle is intentionally ack-only in guest contract v1. Returning any richer
+lifecycle effect payload is not part of the contract.
+
+### Action input (`freven_guest_handle_action` input bytes)
+
+`ActionInput`:
+
+- `binding_id: u32`
 - `player_id: u64`
+- `level_id: u32`
+- `stream_epoch: u32`
+- `action_seq: u32`
 - `at_input_seq: u32`
 - `payload: &[u8]` (opaque client/server action payload)
 
-### Action result (`freven_handle_action` return bytes)
+### Action result (`freven_guest_handle_action` return bytes)
 
-`ActionResultV1`:
+`ActionResult`:
 
-- `outcome: ActionOutcomeV1` (`applied` or `rejected`)
-- `edits: Vec<WorldEditV1>`
+- `outcome: ActionOutcome` (`applied` or `rejected`)
+- `effects: EffectBatch`
 
-`WorldEditV1` is a `postcard`-encoded Rust enum.
+`WorldEffect` is a `postcard`-encoded Rust enum carried inside
+`EffectBatch.world`.
 
 ABI rule: enum variant order is ABI-significant.
 - Do NOT reorder variants.
@@ -72,7 +95,9 @@ Currently supported variants:
 
 - `SetBlock { pos: (i32, i32, i32), block_id: u8 }`
 
-Host applies `SetBlock` edits through server world-edit APIs. Any decode/trap/apply failure is treated as `Rejected`.
+Host applies `SetBlock` effects through server world-edit APIs. Any
+decode/trap/apply failure disables that guest for the runtime session and the
+action rejects.
 
 ## Capability policy (implemented in `freven_runtime_wasm`)
 
@@ -112,11 +137,11 @@ Common limits include:
 - maximum call time budget
 - maximum linear memory usage
 - maximum input payload bytes accepted from runtime to guest
-- maximum output bytes for `freven_init` manifest and `freven_handle_action` result
+- maximum output bytes for negotiation, lifecycle, and action result payloads
 
-Guest modules must return packed `(ptr, len)` ranges that are valid and within host-configured
-size limits. If a call exceeds limits (time, memory, or byte caps), host may reject/trap the call
-and runtime treats the action as rejected.
+Guest modules must return packed `(ptr, len)` ranges that are valid and within
+host-configured size limits. If a call exceeds limits or violates the contract,
+the runtime may disable that guest for the current runtime session.
 
 Time budgets may be enforced using Wasmtime epoch deadlines driven by host epoch ticking
 (implementation detail only; ABI contract is unchanged).

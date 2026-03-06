@@ -2,6 +2,9 @@
 
 Native mods (`kind = "native"`) are opt-in and disabled by default.
 
+The canonical public guest contract is `freven_guest`. Native loading remains a
+separate unsafe transport path and is not the primary guest contract surface.
+
 ## Enable
 
 Use one of:

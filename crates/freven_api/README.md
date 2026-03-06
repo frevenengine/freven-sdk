@@ -13,6 +13,9 @@ The lifecycle contract is intentionally small:
 
 Engine/app/bootstrap wiring does not belong in this crate.
 
+For runtime-loaded guests, the canonical public contract lives in
+`freven_guest`, not in transport-specific ABI docs.
+
 ## Stability and semver stance
 
 - Public runtime/mod contracts are treated as stable API.

@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/freven_api",
+    "crates/freven_guest",
     "crates/freven_sdk_types",
     "crates/freven_std",
 ]

@@ -2,6 +2,9 @@
 
 This document defines the in-process native dynamic-library ABI for Freven native mods.
 
+This is a legacy action-only transport ABI. The canonical public guest contract
+is `freven_guest` as documented in `GUEST_CONTRACT_v1.md`.
+
 ## Required exports
 
 A native mod dynamic library must export these symbols:
