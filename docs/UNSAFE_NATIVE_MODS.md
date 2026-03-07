@@ -39,15 +39,24 @@ Absolute paths, root/prefix components, and parent traversal are rejected during
 
 Native mods use the unified ABI surface shared with WASM/runtime contracts:
 
-- `freven_alloc(size: u32) -> u32`
-- `freven_dealloc(ptr: u32, len: u32)`
-- `freven_init() -> u64`
-- `freven_handle_action(kind: u32, payload_ptr: u32, payload_len: u32) -> u64`
+- `freven_guest_alloc(size: u32) -> u32`
+- `freven_guest_dealloc(ptr: u32, len: u32)`
+- `freven_guest_negotiate(payload_ptr: u32, payload_len: u32) -> u64`
+- `freven_guest_handle_action(payload_ptr: u32, payload_len: u32) -> u64`
+- optional lifecycle exports when declared in `GuestDescription`:
+  - `freven_guest_on_start_client`
+  - `freven_guest_on_start_server`
+  - `freven_guest_on_tick_client`
+  - `freven_guest_on_tick_server`
 
-`freven_init` returns postcard bytes for `ModManifestV1` packed as `(ptr,len)`.
-`freven_handle_action` returns postcard bytes for `ActionResultV1` packed as `(ptr,len)`.
-Action input bytes passed to `freven_handle_action` are postcard `ActionInputV1`, which is the
-only authority for `player_id` and `at_input_seq`.
+`freven_guest_negotiate` returns postcard bytes for `NegotiationResponse`
+packed as `(ptr,len)`.
+`freven_guest_handle_action` returns postcard bytes for `ActionResult` packed as
+`(ptr,len)`.
+Lifecycle exports return postcard bytes for `LifecycleAck` packed as `(ptr,len)`.
+Action input bytes passed to `freven_guest_handle_action` are postcard
+`ActionInput`, which is the only authority for action binding and runtime
+action context.
 
 Packed format matches WASM ABI v1 exactly:
 
