@@ -1132,20 +1132,21 @@ macro_rules! wasm_guest {
         );
     };
 
-    (@registration $module:ident,) => { $module };
-    (@registration $module:ident, block: $key:expr => $def:expr $(, $($rest:tt)*)?) => {
+    (@registration $module:expr) => { $module };
+    (@registration $module:expr,) => { $module };
+    (@registration $module:expr, block: $key:expr => $def:expr $(, $($rest:tt)*)?) => {
         $crate::wasm_guest!(@registration $module.register_block($key, $def) $(, $($rest)*)?)
     };
-    (@registration $module:ident, component: $key:expr => $codec:expr $(, $($rest:tt)*)?) => {
+    (@registration $module:expr, component: $key:expr => $codec:expr $(, $($rest:tt)*)?) => {
         $crate::wasm_guest!(@registration $module.register_component($key, $codec) $(, $($rest)*)?)
     };
-    (@registration $module:ident, message: $key:expr => $codec:expr $(, $($rest:tt)*)?) => {
+    (@registration $module:expr, message: $key:expr => $codec:expr $(, $($rest:tt)*)?) => {
         $crate::wasm_guest!(@registration $module.register_message($key, $codec) $(, $($rest)*)?)
     };
-    (@registration $module:ident, channel: $key:expr => $config:expr $(, $($rest:tt)*)?) => {
+    (@registration $module:expr, channel: $key:expr => $config:expr $(, $($rest:tt)*)?) => {
         $crate::wasm_guest!(@registration $module.register_channel($key, $config) $(, $($rest)*)?)
     };
-    (@registration $module:ident, capability: $key:expr $(, $($rest:tt)*)?) => {
+    (@registration $module:expr, capability: $key:expr $(, $($rest:tt)*)?) => {
         $crate::wasm_guest!(@registration $module.declare_capability($key) $(, $($rest)*)?)
     };
 }
@@ -1153,6 +1154,15 @@ macro_rules! wasm_guest {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn message_channel() -> ChannelConfig {
+        ChannelConfig {
+            reliability: ChannelReliability::Reliable,
+            ordering: ChannelOrdering::Ordered,
+            direction: ChannelDirection::Bidirectional,
+            budget: None,
+        }
+    }
 
     fn module() -> GuestModule {
         GuestModule::new("freven.test.guest")
@@ -1168,15 +1178,7 @@ mod tests {
             )
             .register_component("freven.test:name", ComponentCodec::RawBytes)
             .register_message("freven.test:echo", MessageCodec::RawBytes)
-            .register_channel(
-                "freven.test:echo",
-                ChannelConfig {
-                    reliability: ChannelReliability::Reliable,
-                    ordering: ChannelOrdering::Ordered,
-                    direction: ChannelDirection::Bidirectional,
-                    budget: None,
-                },
-            )
+            .register_channel("freven.test:echo", message_channel())
             .declare_capability("max_call_millis")
             .on_start_server(|_| {})
             .on_tick_server(|_| {})
@@ -1196,6 +1198,12 @@ mod tests {
             .action("freven.test:place_block", 7, |_| {
                 ActionResponse::applied().set_block((1, 2, 3), 9)
             })
+    }
+
+    #[test]
+    #[should_panic(expected = "freven_guest_sdk guest_id must not be empty")]
+    fn empty_guest_id_panics() {
+        let _ = GuestModule::new("");
     }
 
     #[test]
@@ -1247,5 +1255,176 @@ mod tests {
         });
         assert_eq!(result.outbound.len(), 1);
         assert_eq!(result.outbound[0].payload, b"hello");
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "freven_guest_sdk capability key 'freven.test:dup' was registered more than once"
+    )]
+    fn duplicate_capability_keys_panic() {
+        let _ = GuestModule::new("freven.test.guest")
+            .declare_capability("freven.test:dup")
+            .declare_capability("freven.test:dup");
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "freven_guest_sdk action key 'freven.test:dup' was registered more than once"
+    )]
+    fn duplicate_action_keys_panic() {
+        let _ = GuestModule::new("freven.test.guest")
+            .action("freven.test:dup", 7, |_| ActionResponse::applied())
+            .action("freven.test:dup", 8, |_| ActionResponse::applied());
+    }
+
+    #[test]
+    #[should_panic(expected = "freven_guest_sdk action key must not be empty")]
+    fn empty_action_keys_panic() {
+        let _ = GuestModule::new("freven.test.guest").action("", 7, |_| ActionResponse::applied());
+    }
+
+    #[test]
+    #[should_panic(expected = "freven_guest_sdk action key must not be empty")]
+    fn whitespace_only_action_keys_panic() {
+        let _ =
+            GuestModule::new("freven.test.guest").action("   ", 7, |_| ActionResponse::applied());
+    }
+
+    #[test]
+    #[should_panic(expected = "freven_guest_sdk binding id 7 was registered more than once")]
+    fn duplicate_action_binding_ids_panic() {
+        let _ = GuestModule::new("freven.test.guest")
+            .action("freven.test:a", 7, |_| ActionResponse::applied())
+            .action("freven.test:b", 7, |_| ActionResponse::applied());
+    }
+
+    #[test]
+    fn callbacks_action_tracks_declared_actions_only() {
+        let no_actions = GuestModule::new("freven.test.guest");
+        assert!(!no_actions.callbacks().action);
+
+        let with_action = GuestModule::new("freven.test.guest")
+            .action("freven.test:a", 1, |_| ActionResponse::rejected());
+        assert!(with_action.callbacks().action);
+    }
+
+    #[test]
+    fn export_surface_assertion_happy_path() {
+        let module = module();
+        __private::assert_export_surface(
+            &module,
+            LifecycleHooks {
+                start_server: true,
+                tick_server: true,
+                ..Default::default()
+            },
+            true,
+            true,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "freven_guest_sdk export lifecycle does not match")]
+    fn export_surface_assertion_rejects_lifecycle_mismatch() {
+        __private::assert_export_surface(&module(), LifecycleHooks::default(), true, true);
+    }
+
+    #[test]
+    #[should_panic(expected = "freven_guest_sdk action export does not match")]
+    fn export_surface_assertion_rejects_action_mismatch() {
+        __private::assert_export_surface(
+            &module(),
+            LifecycleHooks {
+                start_server: true,
+                tick_server: true,
+                ..Default::default()
+            },
+            false,
+            true,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "freven_guest_sdk server message export does not match")]
+    fn export_surface_assertion_rejects_server_message_mismatch() {
+        __private::assert_export_surface(
+            &module(),
+            LifecycleHooks {
+                start_server: true,
+                tick_server: true,
+                ..Default::default()
+            },
+            true,
+            false,
+        );
+    }
+
+    #[test]
+    fn wasm_guest_macro_keeps_surface_and_registration_coherent() {
+        let module = wasm_guest!(
+            @module
+            guest_id: "freven.test.macro"
+            , registration: {
+                message: "freven.test:macro_message" => MessageCodec::RawBytes,
+                channel: "freven.test:macro_channel" => message_channel(),
+                capability: "max_call_millis"
+            }
+            , lifecycle: {
+                start_server: |_| {},
+                tick_server: |_| {}
+            }
+            , server_messages: |_| ServerMessageResponse::default()
+            , actions: {
+                "freven.test:macro_action" => {
+                    binding_id: 17,
+                    handler: |_| ActionResponse::applied(),
+                }
+            }
+        );
+
+        let description = module.description();
+        assert_eq!(description.guest_id, "freven.test.macro");
+        assert_eq!(
+            description.registration.messages[0].key,
+            "freven.test:macro_message"
+        );
+        assert_eq!(
+            description.registration.channels[0].key,
+            "freven.test:macro_channel"
+        );
+        assert_eq!(
+            description.registration.actions[0],
+            ActionDeclaration {
+                key: "freven.test:macro_action".to_string(),
+                binding_id: 17,
+            }
+        );
+        assert_eq!(
+            description.registration.capabilities[0].key,
+            "max_call_millis"
+        );
+        assert_eq!(
+            description.callbacks.lifecycle,
+            LifecycleHooks {
+                start_server: true,
+                tick_server: true,
+                ..Default::default()
+            }
+        );
+        assert!(description.callbacks.action);
+        assert!(description.callbacks.server_messages);
+    }
+
+    #[test]
+    fn native_alloc_and_dealloc_helpers_round_trip() {
+        let ptr = __private::native_guest_alloc(4);
+        assert!(!ptr.is_null());
+
+        unsafe {
+            core::ptr::copy_nonoverlapping(b"rust".as_ptr(), ptr, 4);
+        }
+
+        __private::native_guest_dealloc(NativeGuestBuffer { ptr, len: 4 });
+        __private::native_guest_dealloc(NativeGuestBuffer::empty());
     }
 }

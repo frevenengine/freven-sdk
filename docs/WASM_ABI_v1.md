@@ -28,6 +28,11 @@ A module must export these symbols:
 - `freven_guest_on_server_messages(ptr: u32, len: u32) -> u64` if `callbacks.server_messages = true`
 - linear memory export named `memory`
 
+The negotiated `GuestDescription` must also be internally coherent:
+
+- declared actions require `callbacks.action = true`
+- `callbacks.action = true` requires at least one declared action
+
 Optional lifecycle exports:
 
 - `freven_guest_on_start_client(ptr: u32, len: u32) -> u64`
@@ -86,7 +91,9 @@ lifecycle effect payload is not part of the contract.
 
 - `freven_guest_on_server_messages` input: `ServerMessageInput`
 - output: `ServerMessageResult`
-- the host routes inbound server-side mod messages for the guest's registered channels into this callback
+- the host routes inbound server-side mod messages only for the guest's declared server-readable channels
+- guest outbound sends must use declared message ids and declared server-writable channels
+- unsupported message-scope mapping is rejected explicitly; the runtime does not silently coerce scope
 
 ### Action result (`freven_guest_handle_action` return bytes)
 
@@ -120,6 +127,8 @@ Runtime accepts only these capability keys:
 - `allow_unstable` (boolean, must be `false`)
 
 Unknown keys are rejected. Invalid types are rejected.
+Declared capability keys must also exist in the resolved capability table; the
+runtime reports that as an explicit capability-declaration error rather than a duplicate-key error.
 
 Current host policy maxima/defaults:
 

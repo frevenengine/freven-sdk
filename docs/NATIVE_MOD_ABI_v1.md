@@ -88,12 +88,16 @@ Runtime validates and enforces:
 - non-empty action keys
 - no duplicate action keys within one guest description
 - no duplicate `binding_id` values within one guest description
+- declared actions require `callbacks.action = true`
+- `callbacks.action = true` requires at least one declared action
 - max byte caps for negotiation/result/input payload before copying
 - declared callback surface exactly matches the exported symbol surface
 - dual-side lifecycle declarations are allowed; the runtime hosts the active side as a subset for the current session
+- server-message routing uses the negotiated registration contract:
+  inbound delivery only for declared server-readable channels, outbound sends only for declared server-writable channels and declared message ids
 
 On decode/validation/contract errors, attach fails.
-On lifecycle or action-call faults, runtime disables that guest mod for the
+On lifecycle, action-call, or server-message contract faults, runtime disables that guest mod for the
 current runtime session and later lifecycle/action calls reject. That includes
 host-side failure to apply guest-declared world effects after a valid
 `ActionResult` returns.

@@ -55,10 +55,16 @@ intentionally need to wire the raw surface yourself.
 ## Current boundaries
 
 - Lifecycle hooks are still ack-only.
+- `registration.actions` and `callbacks.action` stay coupled:
+  actions imply the callback family, and the callback family is not valid without declared actions.
 - Server-side runtime messaging is now a dedicated callback family
   (`on_server_messages`) rather than being stuffed into actions.
+- Runtime delivery of server messages is contract-checked symmetrically:
+  undeclared inbound channels/message ids fault the guest the same way undeclared outbound use does.
 - Declarations now cover blocks, components, messages, channels, actions, and
   capability keys in one transport-neutral registration model.
+- Capability declarations are validated honestly by the runtime:
+  empty keys fail, and unknown capability keys are rejected against host policy.
 - Guest-side persistent instance state is not modeled by the SDK today. Use
   explicit statics only when you fully control the implications.
 - Wasm is the primary safe path. Native and external transports remain

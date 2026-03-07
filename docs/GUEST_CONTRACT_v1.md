@@ -60,6 +60,14 @@ Host and guest negotiate before any guest callback.
 
 `on_start_common` is intentionally not part of the guest contract yet.
 
+Registration/callback invariants:
+
+- `registration.actions` and `callbacks.action` are one family:
+  declaring actions requires `callbacks.action = true`
+- `callbacks.action = true` requires at least one declared action
+- capability keys must be non-empty
+- declared capability keys must exist in the resolved host capability table
+
 ## Action path
 
 - Host sends `ActionInput`
@@ -74,6 +82,10 @@ Host and guest negotiate before any guest callback.
 - Guest returns `ServerMessageResult`
 - This is a dedicated callback family, separate from actions and lifecycle
 - `ServerMessageResult.outbound` carries `ServerOutboundMessage` sends
+- host routing is channel/message-contract checked:
+  inbound messages are delivered only for declared server-readable channels and declared message ids
+- outbound sends must use declared message ids and declared server-writable channels
+- unsupported/unknown message scope mapping is a guest fault, not a silent fallback
 
 ## Lifecycle path
 
@@ -97,3 +109,6 @@ If a guest violates the contract or faults during a runtime session:
 
 For action callbacks, "faults" include host-side failure to apply the guest's
 declared world effects after the `ActionResult` is decoded and validated.
+
+For server-message callbacks, faults include invalid inbound scope mapping and
+outbound sends that violate the negotiated channel/message contract.

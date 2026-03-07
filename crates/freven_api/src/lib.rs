@@ -452,6 +452,11 @@ pub enum ModRegistrationError {
         registry: &'static str,
         key: String,
     },
+    #[error("empty {registry} key registered by mod '{mod_id}'")]
+    EmptyKey {
+        mod_id: String,
+        registry: &'static str,
+    },
     #[error("too many blocks registered by mod '{mod_id}' for key '{key}': limit is {limit}")]
     TooManyBlocks {
         mod_id: String,
@@ -466,6 +471,16 @@ pub enum ModRegistrationError {
         key: String,
         reliability: ChannelReliability,
         ordering: ChannelOrdering,
+    },
+    #[error(
+        "mod '{mod_id}' declared capability '{key}' but it is not present in the resolved capability table"
+    )]
+    UndeclaredCapability { mod_id: String, key: String },
+    #[error("invalid {kind} declaration for mod '{mod_id}': {reason}")]
+    InvalidDeclaration {
+        mod_id: String,
+        kind: &'static str,
+        reason: String,
     },
 }
 
