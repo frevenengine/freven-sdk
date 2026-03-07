@@ -6,8 +6,8 @@ use alloc::vec::Vec;
 
 pub use freven_guest::{
     ActionBinding, ActionInput, ActionOutcome, ActionResult, EffectBatch, GUEST_CONTRACT_VERSION_1,
-    GuestDescription, GuestTransport, LifecycleAck, LifecycleHooks, NegotiationRequest,
-    NegotiationResponse, StartInput, TickInput, WorldEffect,
+    GuestDescription, GuestTransport, LifecycleAck, LifecycleHooks, NativeGuestBuffer,
+    NativeGuestInput, NegotiationRequest, NegotiationResponse, StartInput, TickInput, WorldEffect,
 };
 use serde::de::DeserializeOwned;
 
@@ -264,29 +264,15 @@ impl ActionResponse {
 pub mod __private {
     use super::*;
 
-    pub fn guest_alloc(size: u32) -> u32 {
-        let mut buf = Vec::<u8>::with_capacity(size as usize);
-        let ptr = buf.as_mut_ptr();
-        core::mem::forget(buf);
-        ptr as usize as u32
-    }
-
-    pub fn guest_dealloc(ptr: u32, size: u32) {
-        if ptr == 0 {
-            return;
-        }
-        unsafe {
-            let _ = Vec::from_raw_parts(ptr as usize as *mut u8, size as usize, size as usize);
-        }
-    }
-
-    pub fn guest_negotiate(module: &GuestModule, ptr: u32, len: u32) -> u64 {
-        if len > 0 {
-            let input =
-                unsafe { core::slice::from_raw_parts(ptr as usize as *const u8, len as usize) };
+    fn module_negotiate_bytes(
+        module: &GuestModule,
+        input: &[u8],
+        transport: GuestTransport,
+    ) -> Vec<u8> {
+        if !input.is_empty() {
             let request: NegotiationRequest =
                 postcard::from_bytes(input).expect("valid negotiation request");
-            assert_eq!(request.transport, GuestTransport::WasmPtrLenV1);
+            assert_eq!(request.transport, transport);
             assert!(
                 request
                     .supported_contract_versions
@@ -298,35 +284,35 @@ pub mod __private {
             selected_contract_version: GUEST_CONTRACT_VERSION_1,
             description: module.description(),
         };
-        encode_to_guest(&response)
+        postcard::to_allocvec(&response).expect("guest encoding must succeed")
     }
 
-    pub fn guest_start_client(module: &GuestModule, ptr: u32, len: u32) -> u64 {
-        let input = decode_default_input::<StartInput>(ptr, len);
+    fn module_start_client_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+        let input = decode_default_input::<StartInput>(input);
         module.handle_start_client(&input);
-        encode_lifecycle_ack()
+        encode_lifecycle_ack_bytes()
     }
 
-    pub fn guest_start_server(module: &GuestModule, ptr: u32, len: u32) -> u64 {
-        let input = decode_default_input::<StartInput>(ptr, len);
+    fn module_start_server_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+        let input = decode_default_input::<StartInput>(input);
         module.handle_start_server(&input);
-        encode_lifecycle_ack()
+        encode_lifecycle_ack_bytes()
     }
 
-    pub fn guest_tick_client(module: &GuestModule, ptr: u32, len: u32) -> u64 {
-        let input = decode_required_input::<TickInput>(ptr, len);
+    fn module_tick_client_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+        let input = decode_required_input::<TickInput>(input);
         module.handle_tick_client(&input);
-        encode_lifecycle_ack()
+        encode_lifecycle_ack_bytes()
     }
 
-    pub fn guest_tick_server(module: &GuestModule, ptr: u32, len: u32) -> u64 {
-        let input = decode_required_input::<TickInput>(ptr, len);
+    fn module_tick_server_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+        let input = decode_required_input::<TickInput>(input);
         module.handle_tick_server(&input);
-        encode_lifecycle_ack()
+        encode_lifecycle_ack_bytes()
     }
 
-    pub fn guest_handle_action(module: &GuestModule, ptr: u32, len: u32) -> u64 {
-        let input = if len == 0 {
+    fn module_handle_action_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+        let input = if input.is_empty() {
             ActionInput {
                 binding_id: 0,
                 player_id: 0,
@@ -337,51 +323,217 @@ pub mod __private {
                 payload: &[],
             }
         } else {
-            let bytes =
-                unsafe { core::slice::from_raw_parts(ptr as usize as *const u8, len as usize) };
-            postcard::from_bytes(bytes).expect("valid action input")
+            postcard::from_bytes(input).expect("valid action input")
         };
 
         let result = module.handle_action(input);
-        encode_to_guest(&result)
+        postcard::to_allocvec(&result).expect("guest encoding must succeed")
     }
 
-    fn decode_default_input<T>(ptr: u32, len: u32) -> T
+    pub fn wasm_guest_alloc(size: u32) -> u32 {
+        let mut buf = Vec::<u8>::with_capacity(size as usize);
+        let ptr = buf.as_mut_ptr();
+        core::mem::forget(buf);
+        ptr as usize as u32
+    }
+
+    pub fn wasm_guest_dealloc(ptr: u32, size: u32) {
+        if ptr == 0 {
+            return;
+        }
+        unsafe {
+            let _ = Vec::from_raw_parts(ptr as usize as *mut u8, size as usize, size as usize);
+        }
+    }
+
+    pub fn wasm_guest_negotiate(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+        with_wasm_input_bytes(ptr, len, |input| {
+            encode_to_wasm_guest(&module_negotiate_bytes(
+                module,
+                input,
+                GuestTransport::WasmPtrLenV1,
+            ))
+        })
+    }
+
+    pub fn wasm_guest_start_client(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+        with_wasm_input_bytes(ptr, len, |input| {
+            encode_to_wasm_guest(&module_start_client_bytes(module, input))
+        })
+    }
+
+    pub fn wasm_guest_start_server(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+        with_wasm_input_bytes(ptr, len, |input| {
+            encode_to_wasm_guest(&module_start_server_bytes(module, input))
+        })
+    }
+
+    pub fn wasm_guest_tick_client(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+        with_wasm_input_bytes(ptr, len, |input| {
+            encode_to_wasm_guest(&module_tick_client_bytes(module, input))
+        })
+    }
+
+    pub fn wasm_guest_tick_server(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+        with_wasm_input_bytes(ptr, len, |input| {
+            encode_to_wasm_guest(&module_tick_server_bytes(module, input))
+        })
+    }
+
+    pub fn wasm_guest_handle_action(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+        with_wasm_input_bytes(ptr, len, |input| {
+            encode_to_wasm_guest(&module_handle_action_bytes(module, input))
+        })
+    }
+
+    // Native guest buffers in the SDK are owned as exact-sized boxed slices.
+    // That keeps deallocation dependent only on (ptr, len) and avoids any Vec
+    // capacity-coupling in the native ABI helper path.
+    // The canonical empty native buffer is null + zero; these helpers never
+    // intentionally produce non-null + zero.
+    pub fn native_guest_alloc(size: usize) -> *mut u8 {
+        if size == 0 {
+            return core::ptr::null_mut();
+        }
+
+        let mut boxed = alloc::vec![0u8; size].into_boxed_slice();
+        let ptr = boxed.as_mut_ptr();
+        let _raw = alloc::boxed::Box::into_raw(boxed);
+        ptr
+    }
+
+    pub fn native_guest_dealloc(buffer: NativeGuestBuffer) {
+        // Canonical empty native buffers are null + zero. Invalid non-null + zero
+        // is treated as no-op here rather than reconstructing ownership from a
+        // malformed buffer shape.
+        if buffer.ptr.is_null() || buffer.len == 0 {
+            return;
+        }
+
+        unsafe {
+            let slice_ptr = core::ptr::slice_from_raw_parts_mut(buffer.ptr, buffer.len);
+            drop(alloc::boxed::Box::from_raw(slice_ptr));
+        }
+    }
+
+    pub fn native_guest_negotiate(
+        module: &GuestModule,
+        input: NativeGuestInput,
+    ) -> NativeGuestBuffer {
+        with_native_input_bytes(input, |input| {
+            encode_to_native_guest(module_negotiate_bytes(
+                module,
+                input,
+                GuestTransport::NativeInProcessV1,
+            ))
+        })
+    }
+
+    pub fn native_guest_start_client(
+        module: &GuestModule,
+        input: NativeGuestInput,
+    ) -> NativeGuestBuffer {
+        with_native_input_bytes(input, |input| {
+            encode_to_native_guest(module_start_client_bytes(module, input))
+        })
+    }
+
+    pub fn native_guest_start_server(
+        module: &GuestModule,
+        input: NativeGuestInput,
+    ) -> NativeGuestBuffer {
+        with_native_input_bytes(input, |input| {
+            encode_to_native_guest(module_start_server_bytes(module, input))
+        })
+    }
+
+    pub fn native_guest_tick_client(
+        module: &GuestModule,
+        input: NativeGuestInput,
+    ) -> NativeGuestBuffer {
+        with_native_input_bytes(input, |input| {
+            encode_to_native_guest(module_tick_client_bytes(module, input))
+        })
+    }
+
+    pub fn native_guest_tick_server(
+        module: &GuestModule,
+        input: NativeGuestInput,
+    ) -> NativeGuestBuffer {
+        with_native_input_bytes(input, |input| {
+            encode_to_native_guest(module_tick_server_bytes(module, input))
+        })
+    }
+
+    pub fn native_guest_handle_action(
+        module: &GuestModule,
+        input: NativeGuestInput,
+    ) -> NativeGuestBuffer {
+        with_native_input_bytes(input, |input| {
+            encode_to_native_guest(module_handle_action_bytes(module, input))
+        })
+    }
+
+    fn decode_default_input<T>(bytes: &[u8]) -> T
     where
         T: Default + serde::de::DeserializeOwned,
     {
-        if len == 0 {
+        if bytes.is_empty() {
             return T::default();
         }
-
-        let bytes = unsafe { core::slice::from_raw_parts(ptr as usize as *const u8, len as usize) };
         postcard::from_bytes(bytes).expect("valid guest input")
     }
 
-    fn decode_required_input<T>(ptr: u32, len: u32) -> T
+    fn decode_required_input<T>(bytes: &[u8]) -> T
     where
         T: serde::de::DeserializeOwned,
     {
-        assert!(len > 0, "guest input must not be empty");
-        let bytes = unsafe { core::slice::from_raw_parts(ptr as usize as *const u8, len as usize) };
+        assert!(!bytes.is_empty(), "guest input must not be empty");
         postcard::from_bytes(bytes).expect("valid guest input")
     }
 
-    fn encode_lifecycle_ack() -> u64 {
-        encode_to_guest(&LifecycleAck::default())
+    fn encode_lifecycle_ack_bytes() -> Vec<u8> {
+        postcard::to_allocvec(&LifecycleAck::default()).expect("guest encoding must succeed")
     }
 
-    fn encode_to_guest<T>(value: &T) -> u64
-    where
-        T: serde::Serialize,
-    {
-        let bytes = postcard::to_allocvec(value).expect("guest encoding must succeed");
+    fn with_wasm_input_bytes<R>(ptr: u32, len: u32, f: impl FnOnce(&[u8]) -> R) -> R {
+        if len == 0 {
+            return f(&[]);
+        }
+
+        let bytes = unsafe { core::slice::from_raw_parts(ptr as usize as *const u8, len as usize) };
+        f(bytes)
+    }
+
+    fn with_native_input_bytes<R>(input: NativeGuestInput, f: impl FnOnce(&[u8]) -> R) -> R {
+        if input.len == 0 {
+            return f(&[]);
+        }
+
+        let bytes = unsafe { core::slice::from_raw_parts(input.ptr, input.len) };
+        f(bytes)
+    }
+
+    fn encode_to_wasm_guest(bytes: &[u8]) -> u64 {
         let len = u32::try_from(bytes.len()).expect("guest buffer length must fit u32");
-        let ptr = guest_alloc(len);
+        let ptr = wasm_guest_alloc(len);
         unsafe {
             core::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr as usize as *mut u8, bytes.len());
         }
         (u64::from(ptr) << 32) | u64::from(len)
+    }
+
+    fn encode_to_native_guest(bytes: Vec<u8>) -> NativeGuestBuffer {
+        if bytes.is_empty() {
+            return NativeGuestBuffer::empty();
+        }
+
+        let mut boxed = bytes.into_boxed_slice();
+        let len = boxed.len();
+        let ptr = boxed.as_mut_ptr();
+        let _raw = alloc::boxed::Box::into_raw(boxed);
+
+        NativeGuestBuffer { ptr, len }
     }
 
     pub fn assert_export_surface(
@@ -413,12 +565,12 @@ macro_rules! export_wasm_guest {
     ) => {
         #[unsafe(no_mangle)]
         pub extern "C" fn freven_guest_alloc(size: u32) -> u32 {
-            $crate::__private::guest_alloc(size)
+            $crate::__private::wasm_guest_alloc(size)
         }
 
         #[unsafe(no_mangle)]
         pub extern "C" fn freven_guest_dealloc(ptr: u32, size: u32) {
-            $crate::__private::guest_dealloc(ptr, size)
+            $crate::__private::wasm_guest_dealloc(ptr, size)
         }
 
         #[unsafe(no_mangle)]
@@ -429,7 +581,7 @@ macro_rules! export_wasm_guest {
                 $crate::export_wasm_guest!(@lifecycle_struct $($($lifecycle),*)?),
                 $crate::export_wasm_guest!(@actions_bool $($actions)?),
             );
-            $crate::__private::guest_negotiate(&module, ptr, len)
+            $crate::__private::wasm_guest_negotiate(&module, ptr, len)
         }
 
         $crate::export_wasm_guest!(@maybe_export $factory, start_client, $($($lifecycle),*)?);
@@ -459,7 +611,7 @@ macro_rules! export_wasm_guest {
         #[unsafe(no_mangle)]
         pub extern "C" fn freven_guest_on_start_client(ptr: u32, len: u32) -> u64 {
             let module = $factory();
-            $crate::__private::guest_start_client(&module, ptr, len)
+            $crate::__private::wasm_guest_start_client(&module, ptr, len)
         }
     };
     (@maybe_export $factory:path, start_client, $_head:ident $(, $rest:ident)*) => {
@@ -472,7 +624,7 @@ macro_rules! export_wasm_guest {
         #[unsafe(no_mangle)]
         pub extern "C" fn freven_guest_on_start_server(ptr: u32, len: u32) -> u64 {
             let module = $factory();
-            $crate::__private::guest_start_server(&module, ptr, len)
+            $crate::__private::wasm_guest_start_server(&module, ptr, len)
         }
     };
     (@maybe_export $factory:path, start_server, $_head:ident $(, $rest:ident)*) => {
@@ -485,7 +637,7 @@ macro_rules! export_wasm_guest {
         #[unsafe(no_mangle)]
         pub extern "C" fn freven_guest_on_tick_client(ptr: u32, len: u32) -> u64 {
             let module = $factory();
-            $crate::__private::guest_tick_client(&module, ptr, len)
+            $crate::__private::wasm_guest_tick_client(&module, ptr, len)
         }
     };
     (@maybe_export $factory:path, tick_client, $_head:ident $(, $rest:ident)*) => {
@@ -498,7 +650,7 @@ macro_rules! export_wasm_guest {
         #[unsafe(no_mangle)]
         pub extern "C" fn freven_guest_on_tick_server(ptr: u32, len: u32) -> u64 {
             let module = $factory();
-            $crate::__private::guest_tick_server(&module, ptr, len)
+            $crate::__private::wasm_guest_tick_server(&module, ptr, len)
         }
     };
     (@maybe_export $factory:path, tick_server, $_head:ident $(, $rest:ident)*) => {
@@ -511,7 +663,136 @@ macro_rules! export_wasm_guest {
         #[unsafe(no_mangle)]
         pub extern "C" fn freven_guest_handle_action(ptr: u32, len: u32) -> u64 {
             let module = $factory();
-            $crate::__private::guest_handle_action(&module, ptr, len)
+            $crate::__private::wasm_guest_handle_action(&module, ptr, len)
+        }
+    };
+    (@maybe_export_action $factory:path, false) => {};
+    (@maybe_export_action $factory:path) => {};
+}
+
+/// Lower-level native export wiring for cases where you intentionally manage a
+/// `GuestModule` factory and export surface separately.
+#[macro_export]
+macro_rules! export_native_guest {
+    (
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),* $(,)?])?
+        $(, actions: $actions:tt)?
+        $(,)?
+    ) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_alloc(size: usize) -> *mut u8 {
+            $crate::__private::native_guest_alloc(size)
+        }
+
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_dealloc(buffer: $crate::NativeGuestBuffer) {
+            $crate::__private::native_guest_dealloc(buffer)
+        }
+
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_negotiate(
+            input: $crate::NativeGuestInput,
+        ) -> $crate::NativeGuestBuffer {
+            let module = $factory();
+            $crate::__private::assert_export_surface(
+                &module,
+                $crate::export_native_guest!(@lifecycle_struct $($($lifecycle),*)?),
+                $crate::export_native_guest!(@actions_bool $($actions)?),
+            );
+            $crate::__private::native_guest_negotiate(&module, input)
+        }
+
+        $crate::export_native_guest!(@maybe_export $factory, start_client, $($($lifecycle),*)?);
+        $crate::export_native_guest!(@maybe_export $factory, start_server, $($($lifecycle),*)?);
+        $crate::export_native_guest!(@maybe_export $factory, tick_client, $($($lifecycle),*)?);
+        $crate::export_native_guest!(@maybe_export $factory, tick_server, $($($lifecycle),*)?);
+        $crate::export_native_guest!(@maybe_export_action $factory, $($actions)?);
+    };
+
+    (@lifecycle_struct $($hook:ident),*) => {{
+        let mut hooks = $crate::LifecycleHooks::default();
+        $(hooks.$hook = true;)*
+        hooks
+    }};
+
+    (@actions_bool true) => {
+        true
+    };
+    (@actions_bool false) => {
+        false
+    };
+    (@actions_bool) => {
+        false
+    };
+
+    (@maybe_export $factory:path, start_client, start_client $(, $rest:ident)*) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_on_start_client(
+            input: $crate::NativeGuestInput,
+        ) -> $crate::NativeGuestBuffer {
+            let module = $factory();
+            $crate::__private::native_guest_start_client(&module, input)
+        }
+    };
+    (@maybe_export $factory:path, start_client, $_head:ident $(, $rest:ident)*) => {
+        $crate::export_native_guest!(@maybe_export $factory, start_client $(, $rest)*);
+    };
+    (@maybe_export $factory:path, start_client,) => {};
+    (@maybe_export $factory:path, start_client) => {};
+
+    (@maybe_export $factory:path, start_server, start_server $(, $rest:ident)*) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_on_start_server(
+            input: $crate::NativeGuestInput,
+        ) -> $crate::NativeGuestBuffer {
+            let module = $factory();
+            $crate::__private::native_guest_start_server(&module, input)
+        }
+    };
+    (@maybe_export $factory:path, start_server, $_head:ident $(, $rest:ident)*) => {
+        $crate::export_native_guest!(@maybe_export $factory, start_server $(, $rest)*);
+    };
+    (@maybe_export $factory:path, start_server,) => {};
+    (@maybe_export $factory:path, start_server) => {};
+
+    (@maybe_export $factory:path, tick_client, tick_client $(, $rest:ident)*) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_on_tick_client(
+            input: $crate::NativeGuestInput,
+        ) -> $crate::NativeGuestBuffer {
+            let module = $factory();
+            $crate::__private::native_guest_tick_client(&module, input)
+        }
+    };
+    (@maybe_export $factory:path, tick_client, $_head:ident $(, $rest:ident)*) => {
+        $crate::export_native_guest!(@maybe_export $factory, tick_client $(, $rest)*);
+    };
+    (@maybe_export $factory:path, tick_client,) => {};
+    (@maybe_export $factory:path, tick_client) => {};
+
+    (@maybe_export $factory:path, tick_server, tick_server $(, $rest:ident)*) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_on_tick_server(
+            input: $crate::NativeGuestInput,
+        ) -> $crate::NativeGuestBuffer {
+            let module = $factory();
+            $crate::__private::native_guest_tick_server(&module, input)
+        }
+    };
+    (@maybe_export $factory:path, tick_server, $_head:ident $(, $rest:ident)*) => {
+        $crate::export_native_guest!(@maybe_export $factory, tick_server $(, $rest)*);
+    };
+    (@maybe_export $factory:path, tick_server,) => {};
+    (@maybe_export $factory:path, tick_server) => {};
+
+    (@maybe_export_action $factory:path, true) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_handle_action(
+            input: $crate::NativeGuestInput,
+        ) -> $crate::NativeGuestBuffer {
+            let module = $factory();
+            $crate::__private::native_guest_handle_action(&module, input)
         }
     };
     (@maybe_export_action $factory:path, false) => {};
@@ -799,5 +1080,22 @@ mod tests {
                 ..Default::default()
             }
         );
+    }
+
+    #[test]
+    fn native_guest_alloc_dealloc_round_trips_exact_sized_buffer() {
+        let ptr = __private::native_guest_alloc(16);
+        assert!(!ptr.is_null());
+
+        unsafe {
+            core::ptr::write_bytes(ptr, 0xAB, 16);
+        }
+
+        __private::native_guest_dealloc(NativeGuestBuffer { ptr, len: 16 });
+    }
+
+    #[test]
+    fn native_guest_dealloc_accepts_empty_buffer() {
+        __private::native_guest_dealloc(NativeGuestBuffer::empty());
     }
 }

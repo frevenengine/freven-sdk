@@ -46,30 +46,40 @@ Absolute paths, root/prefix components, and parent traversal are rejected during
 
 ## ABI boundary
 
-Native mods use the unified ABI surface shared with WASM/runtime contracts:
+Native mods use the same semantic guest contract as Wasm, but not the same
+memory ABI. Native uses explicit in-process FFI structs:
 
-- `freven_guest_alloc(size: u32) -> u32`
-- `freven_guest_dealloc(ptr: u32, len: u32)`
-- `freven_guest_negotiate(payload_ptr: u32, payload_len: u32) -> u64`
-- `freven_guest_handle_action(payload_ptr: u32, payload_len: u32) -> u64`
+- `freven_guest_alloc(size: usize) -> *mut u8`
+- `freven_guest_dealloc(buffer: NativeGuestBuffer)`
+- `freven_guest_negotiate(input: NativeGuestInput) -> NativeGuestBuffer`
+- `freven_guest_handle_action(input: NativeGuestInput) -> NativeGuestBuffer`
 - optional lifecycle exports when declared in `GuestDescription`:
   - `freven_guest_on_start_client`
   - `freven_guest_on_start_server`
   - `freven_guest_on_tick_client`
   - `freven_guest_on_tick_server`
 
-`freven_guest_negotiate` returns postcard bytes for `NegotiationResponse`
-packed as `(ptr,len)`.
-`freven_guest_handle_action` returns postcard bytes for `ActionResult` packed as
-`(ptr,len)`.
-Lifecycle exports return postcard bytes for `LifecycleAck` packed as `(ptr,len)`.
+`NativeGuestInput` is `#[repr(C)] { ptr: *const u8, len: usize }`.
+`NativeGuestBuffer` is `#[repr(C)] { ptr: *mut u8, len: usize }`.
+
+Zero-length native inputs and outputs are canonical only as `ptr = null` with `len = 0`.
+Non-null zero-length buffers are invalid.
+
+`freven_guest_negotiate` returns postcard bytes for `NegotiationResponse`.
+`freven_guest_handle_action` returns postcard bytes for `ActionResult`.
+Lifecycle exports return postcard bytes for `LifecycleAck`.
 Action input bytes passed to `freven_guest_handle_action` are postcard
 `ActionInput`, which is the only authority for action binding and runtime
 action context.
 
-Packed format matches WASM ABI v1 exactly:
+For non-empty input, the host allocates guest-owned input buffers with
+`freven_guest_alloc`, passes them by `NativeGuestInput`, and releases them with
+`freven_guest_dealloc`. Empty input is passed canonically as `ptr = null` with
+`len = 0`.
 
-- `((ptr as u64) << 32) | (len as u64)`
+Returned `NativeGuestBuffer` values are copied and then released with
+`freven_guest_dealloc`. Zero-length output is canonical only as `ptr = null`
+with `len = 0`.
 
 See [NATIVE_MOD_ABI_v1.md](./NATIVE_MOD_ABI_v1.md) for exact details.
 
