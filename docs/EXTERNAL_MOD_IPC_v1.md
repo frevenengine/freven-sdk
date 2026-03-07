@@ -1,7 +1,7 @@
 # External Mod IPC v1
 
-This document defines the companion-process protocol for `kind = "external"`
-mods.
+This document defines the companion-process protocol for mods with
+`execution = "external_guest"`.
 
 The canonical public guest contract is `freven_guest` as documented in
 `GUEST_CONTRACT_v1.md`. External is a secondary transport that carries the same
@@ -59,7 +59,8 @@ process boundary.
   lifecycle calls, and action IPC.
 - Negotiation must select `GUEST_CONTRACT_VERSION_1` and return a
   `guest_id` that matches the resolved mod id.
-- Negotiated lifecycle declarations must be side-compatible with the runtime.
+- Negotiated lifecycle declarations may include both client and server hooks.
+  The runtime hosts the active side as a subset for the current session.
 - External transport supports the full `freven_guest` surface; if the guest
   declares a lifecycle hook, the companion process must answer the
   corresponding request with a `lifecycle` response carrying `LifecycleAck`.

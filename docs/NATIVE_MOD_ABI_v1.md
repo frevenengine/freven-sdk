@@ -84,4 +84,4 @@ Native mods are UNSAFE by design:
 - no CPU timeout enforcement
 - full process privileges
 
-Use external mods (`kind = "external"`) when process isolation/timeouts are required.
+Use external guest execution (`execution = "external_guest"`) when process isolation/timeouts are required.

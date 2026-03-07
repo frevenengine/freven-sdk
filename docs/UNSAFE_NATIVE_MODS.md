@@ -1,6 +1,6 @@
 # Unsafe Native Mods
 
-Native mods (`kind = "native"`) are opt-in and disabled by default.
+Native guest execution is opt-in and disabled by default.
 
 The canonical public guest contract is `freven_guest`. Native loading remains a
 separate unsafe transport path and is not the primary guest contract surface.
@@ -19,6 +19,15 @@ Supported entry points:
 - `freven_client --unsafe-native-mods ...`
 
 When enabled, Freven logs a loud warning because native libraries run with full process privileges.
+
+## Canonical model
+
+Disk-loaded native guests use this semantic model in `mod.toml`:
+
+- `artifact = "native_library"`
+- `execution = "native_guest"`
+- `trust = "trusted"`
+- `policy = "unsafe_native"`
 
 ## On-disk location
 
@@ -67,7 +76,7 @@ See [NATIVE_MOD_ABI_v1.md](./NATIVE_MOD_ABI_v1.md) for exact details.
 ## Policy notes
 
 - Native mods are never loaded unless explicit opt-in is enabled.
-- If an explicitly required disk `mod.toml` resolves to `kind = "native"` while opt-in is disabled, resolution fails with an actionable error that includes the manifest path and enable flag/env.
-- If an explicitly required disk `mod.toml` resolves to `kind = "external"` while external policy is disabled, resolution fails with an actionable error that includes the manifest path and enable flag/env.
-- Builtin native/external candidates may be skipped when the corresponding policy is disabled.
+- If an explicitly required disk `mod.toml` resolves to `policy = "unsafe_native"` while opt-in is disabled, resolution fails with an actionable error that includes the manifest path and enable flag/env.
+- If an explicitly required disk `mod.toml` resolves to `policy = "external_process"` while external policy is disabled, resolution fails with an actionable error that includes the manifest path and enable flag/env.
+- Builtin registrations are no longer modeled as native/external candidates.
 - Native mods are local-only and not treated as server-downloadable artifacts.
