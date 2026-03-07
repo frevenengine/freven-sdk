@@ -100,8 +100,8 @@ Currently supported variants:
 - `SetBlock { pos: (i32, i32, i32), block_id: u8 }`
 
 Host applies `SetBlock` effects through server world-edit APIs. Any
-decode/trap/apply failure disables that guest for the runtime session and the
-action rejects.
+decode/trap/validation/apply failure disables that guest for the runtime
+session and the action rejects.
 
 ## Capability policy (implemented in `freven_runtime_wasm`)
 
@@ -117,10 +117,10 @@ Current host policy maxima/defaults:
 
 - `max_call_millis`: `25`
 - `max_linear_memory_bytes`: `4 MiB`
-- `max_manifest_bytes`: `64 KiB`
+- `max_negotiation_bytes`: `64 KiB`
 - `max_result_bytes`: `256 KiB`
 - `max_input_payload_bytes`: `64 KiB`
-- `max_edits` per action result: `128`
+- `max_world_effects` per action result: `128`
 
 Capabilities may tighten selected limits (`max_call_millis`, `max_linear_memory_bytes`) but cannot raise limits above policy maxima.
 

@@ -78,3 +78,6 @@ If a guest violates the contract or faults during a runtime session:
 - further action dispatches to that guest must reject
 - the host must stop routing later lifecycle callbacks to that guest for that
   session
+
+For action callbacks, "faults" include host-side failure to apply the guest's
+declared world effects after the `ActionResult` is decoded and validated.
