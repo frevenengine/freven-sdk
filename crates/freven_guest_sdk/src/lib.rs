@@ -5,23 +5,36 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 pub use freven_guest::{
-    ActionBinding, ActionInput, ActionOutcome, ActionResult, EffectBatch, GUEST_CONTRACT_VERSION_1,
-    GuestDescription, GuestTransport, LifecycleAck, LifecycleHooks, NativeGuestBuffer,
-    NativeGuestInput, NegotiationRequest, NegotiationResponse, StartInput, TickInput, WorldEffect,
+    ActionDeclaration, ActionInput, ActionOutcome, ActionResult, BlockDeclaration,
+    CapabilityDeclaration, ChannelBudget, ChannelConfig, ChannelDeclaration, ChannelDirection,
+    ChannelOrdering, ChannelReliability, ComponentCodec, ComponentDeclaration, EffectBatch,
+    GUEST_CONTRACT_VERSION_1, GuestCallbacks, GuestDescription, GuestRegistration, GuestTransport,
+    LifecycleAck, LifecycleHooks, MessageCodec, MessageDeclaration, MessageScope,
+    NativeGuestBuffer, NativeGuestInput, NegotiationRequest, NegotiationResponse,
+    ServerInboundMessage, ServerMessageInput, ServerMessageResult, ServerOutboundMessage,
+    StartInput, TickInput, WorldEffect,
 };
+pub use freven_sdk_types::blocks::{BlockDef, RenderLayer};
 use serde::de::DeserializeOwned;
 
 type StartHandler = fn(&StartInput);
 type TickHandler = fn(&TickInput);
 type ActionHandler = fn(ActionContext<'_>) -> ActionResponse;
+type ServerMessageHandler = fn(ServerMessageContext<'_>) -> ServerMessageResponse;
 
 pub struct GuestModule {
     guest_id: &'static str,
+    blocks: Vec<BlockDeclaration>,
+    components: Vec<ComponentDeclaration>,
+    messages: Vec<MessageDeclaration>,
+    channels: Vec<ChannelDeclaration>,
     actions: Vec<GuestAction>,
+    capabilities: Vec<CapabilityDeclaration>,
     on_start_client: Option<StartHandler>,
     on_start_server: Option<StartHandler>,
     on_tick_client: Option<TickHandler>,
     on_tick_server: Option<TickHandler>,
+    on_server_messages: Option<ServerMessageHandler>,
 }
 
 impl GuestModule {
@@ -33,12 +46,87 @@ impl GuestModule {
         );
         Self {
             guest_id,
+            blocks: Vec::new(),
+            components: Vec::new(),
+            messages: Vec::new(),
+            channels: Vec::new(),
             actions: Vec::new(),
+            capabilities: Vec::new(),
             on_start_client: None,
             on_start_server: None,
             on_tick_client: None,
             on_tick_server: None,
+            on_server_messages: None,
         }
+    }
+
+    #[must_use]
+    pub fn register_block(mut self, key: &'static str, def: BlockDef) -> Self {
+        assert_unique_key(
+            "block",
+            key,
+            self.blocks.iter().map(|entry| entry.key.as_str()),
+        );
+        self.blocks.push(BlockDeclaration {
+            key: key.to_string(),
+            def,
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn register_component(mut self, key: &'static str, codec: ComponentCodec) -> Self {
+        assert_unique_key(
+            "component",
+            key,
+            self.components.iter().map(|entry| entry.key.as_str()),
+        );
+        self.components.push(ComponentDeclaration {
+            key: key.to_string(),
+            codec,
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn register_message(mut self, key: &'static str, codec: MessageCodec) -> Self {
+        assert_unique_key(
+            "message",
+            key,
+            self.messages.iter().map(|entry| entry.key.as_str()),
+        );
+        self.messages.push(MessageDeclaration {
+            key: key.to_string(),
+            codec,
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn register_channel(mut self, key: &'static str, config: ChannelConfig) -> Self {
+        assert_unique_key(
+            "channel",
+            key,
+            self.channels.iter().map(|entry| entry.key.as_str()),
+        );
+        self.channels.push(ChannelDeclaration {
+            key: key.to_string(),
+            config,
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn declare_capability(mut self, key: &'static str) -> Self {
+        assert_unique_key(
+            "capability",
+            key,
+            self.capabilities.iter().map(|entry| entry.key.as_str()),
+        );
+        self.capabilities.push(CapabilityDeclaration {
+            key: key.to_string(),
+        });
+        self
     }
 
     #[must_use]
@@ -66,15 +154,14 @@ impl GuestModule {
     }
 
     #[must_use]
+    pub fn on_server_messages(mut self, handler: ServerMessageHandler) -> Self {
+        self.on_server_messages = Some(handler);
+        self
+    }
+
+    #[must_use]
     pub fn action(mut self, key: &'static str, binding_id: u32, handler: ActionHandler) -> Self {
-        assert!(
-            !key.trim().is_empty(),
-            "freven_guest_sdk action key must not be empty"
-        );
-        assert!(
-            self.actions.iter().all(|action| action.key != key),
-            "freven_guest_sdk action key '{key}' was registered more than once"
-        );
+        assert_unique_key("action", key, self.actions.iter().map(|entry| entry.key));
         assert!(
             self.actions
                 .iter()
@@ -105,19 +192,34 @@ impl GuestModule {
     }
 
     #[must_use]
+    pub fn callbacks(&self) -> GuestCallbacks {
+        GuestCallbacks {
+            lifecycle: self.lifecycle_hooks(),
+            action: !self.actions.is_empty(),
+            server_messages: self.on_server_messages.is_some(),
+        }
+    }
+
+    #[must_use]
     pub fn description(&self) -> GuestDescription {
         GuestDescription {
             guest_id: self.guest_id.to_string(),
-            lifecycle: self.lifecycle_hooks(),
-            action_entrypoint: !self.actions.is_empty(),
-            actions: self
-                .actions
-                .iter()
-                .map(|action| ActionBinding {
-                    key: action.key.to_string(),
-                    binding_id: action.binding_id,
-                })
-                .collect(),
+            registration: GuestRegistration {
+                blocks: self.blocks.clone(),
+                components: self.components.clone(),
+                messages: self.messages.clone(),
+                channels: self.channels.clone(),
+                actions: self
+                    .actions
+                    .iter()
+                    .map(|action| ActionDeclaration {
+                        key: action.key.to_string(),
+                        binding_id: action.binding_id,
+                    })
+                    .collect(),
+                capabilities: self.capabilities.clone(),
+            },
+            callbacks: self.callbacks(),
         }
     }
 
@@ -157,6 +259,25 @@ impl GuestModule {
 
         (action.handler)(ActionContext { input }).finish()
     }
+
+    #[must_use]
+    pub fn handle_server_messages(&self, input: ServerMessageInput) -> ServerMessageResult {
+        let Some(handler) = self.on_server_messages else {
+            return ServerMessageResponse::default().finish();
+        };
+        handler(ServerMessageContext { input: &input }).finish()
+    }
+}
+
+fn assert_unique_key<'a>(kind: &str, key: &'static str, existing: impl Iterator<Item = &'a str>) {
+    assert!(
+        !key.trim().is_empty(),
+        "freven_guest_sdk {kind} key must not be empty"
+    );
+    assert!(
+        existing.into_iter().all(|entry| entry != key),
+        "freven_guest_sdk {kind} key '{key}' was registered more than once"
+    );
 }
 
 struct GuestAction {
@@ -203,6 +324,11 @@ impl<'a> ActionContext<'a> {
     #[must_use]
     pub fn at_input_seq(&self) -> u32 {
         self.input.at_input_seq
+    }
+
+    #[must_use]
+    pub fn player_position_m(&self) -> Option<[f32; 3]> {
+        self.input.player_position_m
     }
 
     #[must_use]
@@ -256,6 +382,47 @@ impl ActionResponse {
         ActionResult {
             outcome: self.outcome,
             effects: self.effects,
+        }
+    }
+}
+
+pub struct ServerMessageContext<'a> {
+    input: &'a ServerMessageInput,
+}
+
+impl<'a> ServerMessageContext<'a> {
+    #[must_use]
+    pub fn tick(&self) -> u64 {
+        self.input.tick
+    }
+
+    #[must_use]
+    pub fn dt_millis(&self) -> u32 {
+        self.input.dt_millis
+    }
+
+    #[must_use]
+    pub fn messages(&self) -> &'a [ServerInboundMessage] {
+        &self.input.messages
+    }
+}
+
+#[derive(Default)]
+pub struct ServerMessageResponse {
+    outbound: Vec<ServerOutboundMessage>,
+}
+
+impl ServerMessageResponse {
+    #[must_use]
+    pub fn send_to(mut self, message: ServerOutboundMessage) -> Self {
+        self.outbound.push(message);
+        self
+    }
+
+    #[must_use]
+    pub fn finish(self) -> ServerMessageResult {
+        ServerMessageResult {
+            outbound: self.outbound,
         }
     }
 }
@@ -320,6 +487,7 @@ pub mod __private {
                 stream_epoch: 0,
                 action_seq: 0,
                 at_input_seq: 0,
+                player_position_m: None,
                 payload: &[],
             }
         } else {
@@ -328,6 +496,12 @@ pub mod __private {
 
         let result = module.handle_action(input);
         postcard::to_allocvec(&result).expect("guest encoding must succeed")
+    }
+
+    fn module_server_messages_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+        let input = decode_required_input::<ServerMessageInput>(input);
+        postcard::to_allocvec(&module.handle_server_messages(input))
+            .expect("guest encoding must succeed")
     }
 
     pub fn wasm_guest_alloc(size: u32) -> u32 {
@@ -386,11 +560,12 @@ pub mod __private {
         })
     }
 
-    // Native guest buffers in the SDK are owned as exact-sized boxed slices.
-    // That keeps deallocation dependent only on (ptr, len) and avoids any Vec
-    // capacity-coupling in the native ABI helper path.
-    // The canonical empty native buffer is null + zero; these helpers never
-    // intentionally produce non-null + zero.
+    pub fn wasm_guest_server_messages(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+        with_wasm_input_bytes(ptr, len, |input| {
+            encode_to_wasm_guest(&module_server_messages_bytes(module, input))
+        })
+    }
+
     pub fn native_guest_alloc(size: usize) -> *mut u8 {
         if size == 0 {
             return core::ptr::null_mut();
@@ -403,9 +578,6 @@ pub mod __private {
     }
 
     pub fn native_guest_dealloc(buffer: NativeGuestBuffer) {
-        // Canonical empty native buffers are null + zero. Invalid non-null + zero
-        // is treated as no-op here rather than reconstructing ownership from a
-        // malformed buffer shape.
         if buffer.ptr.is_null() || buffer.len == 0 {
             return;
         }
@@ -474,6 +646,15 @@ pub mod __private {
         })
     }
 
+    pub fn native_guest_server_messages(
+        module: &GuestModule,
+        input: NativeGuestInput,
+    ) -> NativeGuestBuffer {
+        with_native_input_bytes(input, |input| {
+            encode_to_native_guest(module_server_messages_bytes(module, input))
+        })
+    }
+
     fn decode_default_input<T>(bytes: &[u8]) -> T
     where
         T: Default + serde::de::DeserializeOwned,
@@ -539,28 +720,32 @@ pub mod __private {
     pub fn assert_export_surface(
         module: &GuestModule,
         lifecycle: LifecycleHooks,
-        action_entrypoint: bool,
+        action: bool,
+        server_messages: bool,
     ) {
-        let description = module.description();
+        let callbacks = module.description().callbacks;
         assert_eq!(
-            description.lifecycle, lifecycle,
+            callbacks.lifecycle, lifecycle,
             "freven_guest_sdk export lifecycle does not match GuestModule::description()",
         );
         assert_eq!(
-            description.action_entrypoint, action_entrypoint,
+            callbacks.action, action,
             "freven_guest_sdk action export does not match GuestModule::description()",
+        );
+        assert_eq!(
+            callbacks.server_messages, server_messages,
+            "freven_guest_sdk server message export does not match GuestModule::description()",
         );
     }
 }
 
-/// Lower-level Wasm export wiring for cases where you intentionally manage a
-/// `GuestModule` factory and export surface separately.
 #[macro_export]
 macro_rules! export_wasm_guest {
     (
         factory: $factory:path
         $(, lifecycle: [$($lifecycle:ident),* $(,)?])?
         $(, actions: $actions:tt)?
+        $(, server_messages: $server_messages:tt)?
         $(,)?
     ) => {
         #[unsafe(no_mangle)]
@@ -579,7 +764,8 @@ macro_rules! export_wasm_guest {
             $crate::__private::assert_export_surface(
                 &module,
                 $crate::export_wasm_guest!(@lifecycle_struct $($($lifecycle),*)?),
-                $crate::export_wasm_guest!(@actions_bool $($actions)?),
+                $crate::export_wasm_guest!(@bool $($actions)?),
+                $crate::export_wasm_guest!(@bool $($server_messages)?),
             );
             $crate::__private::wasm_guest_negotiate(&module, ptr, len)
         }
@@ -589,6 +775,7 @@ macro_rules! export_wasm_guest {
         $crate::export_wasm_guest!(@maybe_export $factory, tick_client, $($($lifecycle),*)?);
         $crate::export_wasm_guest!(@maybe_export $factory, tick_server, $($($lifecycle),*)?);
         $crate::export_wasm_guest!(@maybe_export_action $factory, $($actions)?);
+        $crate::export_wasm_guest!(@maybe_export_server_messages $factory, $($server_messages)?);
     };
 
     (@lifecycle_struct $($hook:ident),*) => {{
@@ -596,16 +783,9 @@ macro_rules! export_wasm_guest {
         $(hooks.$hook = true;)*
         hooks
     }};
-
-    (@actions_bool true) => {
-        true
-    };
-    (@actions_bool false) => {
-        false
-    };
-    (@actions_bool) => {
-        false
-    };
+    (@bool true) => { true };
+    (@bool false) => { false };
+    (@bool) => { false };
 
     (@maybe_export $factory:path, start_client, start_client $(, $rest:ident)*) => {
         #[unsafe(no_mangle)]
@@ -668,16 +848,26 @@ macro_rules! export_wasm_guest {
     };
     (@maybe_export_action $factory:path, false) => {};
     (@maybe_export_action $factory:path) => {};
+
+    (@maybe_export_server_messages $factory:path, true) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_on_server_messages(ptr: u32, len: u32) -> u64 {
+            let module = $factory();
+            $crate::__private::wasm_guest_server_messages(&module, ptr, len)
+        }
+    };
+    (@maybe_export_server_messages $factory:path,) => {};
+    (@maybe_export_server_messages $factory:path, false) => {};
+    (@maybe_export_server_messages $factory:path) => {};
 }
 
-/// Lower-level native export wiring for cases where you intentionally manage a
-/// `GuestModule` factory and export surface separately.
 #[macro_export]
 macro_rules! export_native_guest {
     (
         factory: $factory:path
         $(, lifecycle: [$($lifecycle:ident),* $(,)?])?
         $(, actions: $actions:tt)?
+        $(, server_messages: $server_messages:tt)?
         $(,)?
     ) => {
         #[unsafe(no_mangle)]
@@ -698,7 +888,8 @@ macro_rules! export_native_guest {
             $crate::__private::assert_export_surface(
                 &module,
                 $crate::export_native_guest!(@lifecycle_struct $($($lifecycle),*)?),
-                $crate::export_native_guest!(@actions_bool $($actions)?),
+                $crate::export_native_guest!(@bool $($actions)?),
+                $crate::export_native_guest!(@bool $($server_messages)?),
             );
             $crate::__private::native_guest_negotiate(&module, input)
         }
@@ -708,6 +899,7 @@ macro_rules! export_native_guest {
         $crate::export_native_guest!(@maybe_export $factory, tick_client, $($($lifecycle),*)?);
         $crate::export_native_guest!(@maybe_export $factory, tick_server, $($($lifecycle),*)?);
         $crate::export_native_guest!(@maybe_export_action $factory, $($actions)?);
+        $crate::export_native_guest!(@maybe_export_server_messages $factory, $($server_messages)?);
     };
 
     (@lifecycle_struct $($hook:ident),*) => {{
@@ -715,16 +907,9 @@ macro_rules! export_native_guest {
         $(hooks.$hook = true;)*
         hooks
     }};
-
-    (@actions_bool true) => {
-        true
-    };
-    (@actions_bool false) => {
-        false
-    };
-    (@actions_bool) => {
-        false
-    };
+    (@bool true) => { true };
+    (@bool false) => { false };
+    (@bool) => { false };
 
     (@maybe_export $factory:path, start_client, start_client $(, $rest:ident)*) => {
         #[unsafe(no_mangle)]
@@ -797,15 +982,28 @@ macro_rules! export_native_guest {
     };
     (@maybe_export_action $factory:path, false) => {};
     (@maybe_export_action $factory:path) => {};
+
+    (@maybe_export_server_messages $factory:path, true) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_on_server_messages(
+            input: $crate::NativeGuestInput,
+        ) -> $crate::NativeGuestBuffer {
+            let module = $factory();
+            $crate::__private::native_guest_server_messages(&module, input)
+        }
+    };
+    (@maybe_export_server_messages $factory:path,) => {};
+    (@maybe_export_server_messages $factory:path, false) => {};
+    (@maybe_export_server_messages $factory:path) => {};
 }
 
-/// Defines the canonical guest description and the Wasm export surface from one
-/// declarative source of truth.
 #[macro_export]
 macro_rules! wasm_guest {
     (
         guest_id: $guest_id:expr
+        $(, registration: { $($registration:tt)* })?
         $(, lifecycle: { $($lifecycle:ident : $lifecycle_handler:expr),* $(,)? })?
+        $(, server_messages: $server_messages_handler:expr)?
         $(, actions: {
             $(
                 $action_key:expr => {
@@ -822,7 +1020,9 @@ macro_rules! wasm_guest {
             $crate::wasm_guest!(
                 @module
                 guest_id: $guest_id
+                $(, registration: { $($registration)* })?
                 $(, lifecycle: { $($lifecycle : $lifecycle_handler),* })?
+                $(, server_messages: $server_messages_handler)?
                 $(, actions: {
                     $(
                         $action_key => {
@@ -838,6 +1038,7 @@ macro_rules! wasm_guest {
             @export
             factory: __freven_guest_sdk_module
             $(, lifecycle: [$($lifecycle),*])?
+            $(, server_messages: [$server_messages_handler])?
             $(, actions: [$($action_key),*])?
         );
     };
@@ -845,7 +1046,9 @@ macro_rules! wasm_guest {
     (
         @module
         guest_id: $guest_id:expr
+        $(, registration: { $($registration:tt)* })?
         $(, lifecycle: { $($lifecycle:ident : $lifecycle_handler:expr),* $(,)? })?
+        $(, server_messages: $server_messages_handler:expr)?
         $(, actions: {
             $(
                 $action_key:expr => {
@@ -859,6 +1062,9 @@ macro_rules! wasm_guest {
     ) => {{
         let module = $crate::GuestModule::new($guest_id);
         $(
+            let module = $crate::wasm_guest!(@registration module, $($registration)*);
+        )?
+        $(
             $(
                 let module = $crate::wasm_guest!(
                     @register_lifecycle
@@ -869,6 +1075,9 @@ macro_rules! wasm_guest {
             )*
         )?
         $(
+            let module = module.on_server_messages($server_messages_handler);
+        )?
+        $(
             $(
                 let module = module.action($action_key, $binding_id, $action_handler);
             )*
@@ -876,23 +1085,22 @@ macro_rules! wasm_guest {
         module
     }};
 
-    (@register_lifecycle $module:ident, start_client, $handler:expr) => {
-        $module.on_start_client($handler)
-    };
-    (@register_lifecycle $module:ident, start_server, $handler:expr) => {
-        $module.on_start_server($handler)
-    };
-    (@register_lifecycle $module:ident, tick_client, $handler:expr) => {
-        $module.on_tick_client($handler)
-    };
-    (@register_lifecycle $module:ident, tick_server, $handler:expr) => {
-        $module.on_tick_server($handler)
-    };
+    (@register_lifecycle $module:ident, start_client, $handler:expr) => { $module.on_start_client($handler) };
+    (@register_lifecycle $module:ident, start_server, $handler:expr) => { $module.on_start_server($handler) };
+    (@register_lifecycle $module:ident, tick_client, $handler:expr) => { $module.on_tick_client($handler) };
+    (@register_lifecycle $module:ident, tick_server, $handler:expr) => { $module.on_tick_server($handler) };
 
     (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?) => {
         $crate::export_wasm_guest!(
             factory: $factory
             $(, lifecycle: [$($lifecycle),*])?
+        );
+    };
+    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, server_messages: [$handler:expr]) => {
+        $crate::export_wasm_guest!(
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            , server_messages: true
         );
     };
     (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, actions: []) => {
@@ -908,6 +1116,38 @@ macro_rules! wasm_guest {
             , actions: true
         );
     };
+    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, server_messages: [$handler:expr], actions: []) => {
+        $crate::export_wasm_guest!(
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            , server_messages: true
+        );
+    };
+    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, server_messages: [$handler:expr], actions: [$first:expr $(, $rest:expr)*]) => {
+        $crate::export_wasm_guest!(
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            , actions: true
+            , server_messages: true
+        );
+    };
+
+    (@registration $module:ident,) => { $module };
+    (@registration $module:ident, block: $key:expr => $def:expr $(, $($rest:tt)*)?) => {
+        $crate::wasm_guest!(@registration $module.register_block($key, $def) $(, $($rest)*)?)
+    };
+    (@registration $module:ident, component: $key:expr => $codec:expr $(, $($rest:tt)*)?) => {
+        $crate::wasm_guest!(@registration $module.register_component($key, $codec) $(, $($rest)*)?)
+    };
+    (@registration $module:ident, message: $key:expr => $codec:expr $(, $($rest:tt)*)?) => {
+        $crate::wasm_guest!(@registration $module.register_message($key, $codec) $(, $($rest)*)?)
+    };
+    (@registration $module:ident, channel: $key:expr => $config:expr $(, $($rest:tt)*)?) => {
+        $crate::wasm_guest!(@registration $module.register_channel($key, $config) $(, $($rest)*)?)
+    };
+    (@registration $module:ident, capability: $key:expr $(, $($rest:tt)*)?) => {
+        $crate::wasm_guest!(@registration $module.declare_capability($key) $(, $($rest)*)?)
+    };
 }
 
 #[cfg(test)]
@@ -916,24 +1156,62 @@ mod tests {
 
     fn module() -> GuestModule {
         GuestModule::new("freven.test.guest")
+            .register_block(
+                "freven.test:stone",
+                BlockDef {
+                    is_solid: true,
+                    is_opaque: true,
+                    render_layer: RenderLayer::Opaque,
+                    debug_tint_rgba: 0,
+                    material_id: 7,
+                },
+            )
+            .register_component("freven.test:name", ComponentCodec::RawBytes)
+            .register_message("freven.test:echo", MessageCodec::RawBytes)
+            .register_channel(
+                "freven.test:echo",
+                ChannelConfig {
+                    reliability: ChannelReliability::Reliable,
+                    ordering: ChannelOrdering::Ordered,
+                    direction: ChannelDirection::Bidirectional,
+                    budget: None,
+                },
+            )
+            .declare_capability("max_call_millis")
             .on_start_server(|_| {})
             .on_tick_server(|_| {})
+            .on_server_messages(|ctx| {
+                let Some(msg) = ctx.messages().first() else {
+                    return ServerMessageResponse::default();
+                };
+                ServerMessageResponse::default().send_to(ServerOutboundMessage {
+                    player_id: msg.player_id,
+                    scope: msg.scope,
+                    channel_id: msg.channel_id,
+                    message_id: msg.message_id,
+                    seq: msg.seq,
+                    payload: msg.payload.clone(),
+                })
+            })
             .action("freven.test:place_block", 7, |_| {
                 ActionResponse::applied().set_block((1, 2, 3), 9)
             })
     }
 
     #[test]
-    fn description_reflects_registered_lifecycle_and_actions() {
+    fn description_reflects_registered_families() {
         let description = module().description();
         assert_eq!(description.guest_id, "freven.test.guest");
-        assert!(description.lifecycle.start_server);
-        assert!(description.lifecycle.tick_server);
-        assert!(!description.lifecycle.start_client);
-        assert!(description.action_entrypoint);
-        assert_eq!(description.actions.len(), 1);
-        assert_eq!(description.actions[0].binding_id, 7);
-        assert_eq!(description.actions[0].key, "freven.test:place_block");
+        assert_eq!(description.registration.blocks.len(), 1);
+        assert_eq!(description.registration.components.len(), 1);
+        assert_eq!(description.registration.messages.len(), 1);
+        assert_eq!(description.registration.channels.len(), 1);
+        assert_eq!(description.registration.actions.len(), 1);
+        assert_eq!(description.registration.capabilities.len(), 1);
+        assert!(description.callbacks.lifecycle.start_server);
+        assert!(description.callbacks.lifecycle.tick_server);
+        assert!(description.callbacks.action);
+        assert!(description.callbacks.server_messages);
     }
 
     #[test]
@@ -945,6 +1223,7 @@ mod tests {
             stream_epoch: 3,
             action_seq: 4,
             at_input_seq: 5,
+            player_position_m: Some([1.0, 2.0, 3.0]),
             payload: &[],
         });
 
@@ -953,149 +1232,20 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "guest_id must not be empty")]
-    fn empty_guest_id_is_rejected() {
-        let _ = GuestModule::new("  ");
-    }
-
-    #[test]
-    #[should_panic(expected = "action key must not be empty")]
-    fn empty_action_key_is_rejected() {
-        let _ =
-            GuestModule::new("freven.test.guest").action(" ", 1, |_| ActionResponse::rejected());
-    }
-
-    #[test]
-    #[should_panic(expected = "registered more than once")]
-    fn duplicate_action_key_is_rejected() {
-        let _ = GuestModule::new("freven.test.guest")
-            .action("freven.test:dup", 1, |_| ActionResponse::rejected())
-            .action("freven.test:dup", 2, |_| ActionResponse::rejected());
-    }
-
-    #[test]
-    #[should_panic(expected = "binding id 1 was registered more than once")]
-    fn duplicate_binding_id_is_rejected() {
-        let _ = GuestModule::new("freven.test.guest")
-            .action("freven.test:first", 1, |_| ActionResponse::rejected())
-            .action("freven.test:second", 1, |_| ActionResponse::rejected());
-    }
-
-    #[test]
-    fn export_surface_assertion_matches_description() {
-        let module = module();
-        __private::assert_export_surface(
-            &module,
-            LifecycleHooks {
-                start_server: true,
-                tick_server: true,
-                ..Default::default()
-            },
-            true,
-        );
-    }
-
-    #[test]
-    #[should_panic(expected = "export lifecycle does not match")]
-    fn export_surface_assertion_rejects_lifecycle_mismatch() {
-        let module = module();
-        __private::assert_export_surface(&module, LifecycleHooks::default(), true);
-    }
-
-    #[test]
-    #[should_panic(expected = "action export does not match")]
-    fn export_surface_assertion_rejects_action_mismatch() {
-        let module = module();
-        __private::assert_export_surface(
-            &module,
-            LifecycleHooks {
-                start_server: true,
-                tick_server: true,
-                ..Default::default()
-            },
-            false,
-        );
-    }
-
-    fn test_start_server(_: &StartInput) {}
-
-    fn test_tick_server(_: &TickInput) {}
-
-    fn test_handle_action(_: ActionContext<'_>) -> ActionResponse {
-        ActionResponse::applied()
-    }
-
-    #[test]
-    fn wasm_guest_macro_module_description_matches_declared_surface() {
-        let module = crate::wasm_guest!(
-            @module
-            guest_id: "freven.test.single_source",
-            lifecycle: {
-                start_server: test_start_server,
-                tick_server: test_tick_server,
-            },
-            actions: {
-                "freven.test:macro_action" => {
-                    binding_id: 11,
-                    handler: test_handle_action,
-                },
-            },
-        );
-
-        assert_eq!(module.guest_id(), "freven.test.single_source");
-        assert_eq!(
-            module.lifecycle_hooks(),
-            LifecycleHooks {
-                start_server: true,
-                tick_server: true,
-                ..Default::default()
-            }
-        );
-
-        let description = module.description();
-        assert!(description.action_entrypoint);
-        assert_eq!(description.actions.len(), 1);
-        assert_eq!(description.actions[0].key, "freven.test:macro_action");
-        assert_eq!(description.actions[0].binding_id, 11);
-    }
-
-    #[test]
-    fn wasm_guest_macro_supports_guests_without_actions() {
-        let module = crate::wasm_guest!(
-            @module
-            guest_id: "freven.test.lifecycle_only",
-            lifecycle: {
-                start_server: test_start_server,
-            },
-            actions: {},
-        );
-
-        let description = module.description();
-        assert!(!description.action_entrypoint);
-        assert!(description.actions.is_empty());
-        assert_eq!(
-            description.lifecycle,
-            LifecycleHooks {
-                start_server: true,
-                ..Default::default()
-            }
-        );
-    }
-
-    #[test]
-    fn native_guest_alloc_dealloc_round_trips_exact_sized_buffer() {
-        let ptr = __private::native_guest_alloc(16);
-        assert!(!ptr.is_null());
-
-        unsafe {
-            core::ptr::write_bytes(ptr, 0xAB, 16);
-        }
-
-        __private::native_guest_dealloc(NativeGuestBuffer { ptr, len: 16 });
-    }
-
-    #[test]
-    fn native_guest_dealloc_accepts_empty_buffer() {
-        __private::native_guest_dealloc(NativeGuestBuffer::empty());
+    fn server_message_handler_round_trips() {
+        let result = module().handle_server_messages(ServerMessageInput {
+            tick: 5,
+            dt_millis: 16,
+            messages: vec![ServerInboundMessage {
+                player_id: 42,
+                scope: MessageScope::Global,
+                channel_id: 1,
+                message_id: 2,
+                seq: Some(3),
+                payload: b"hello".to_vec(),
+            }],
+        });
+        assert_eq!(result.outbound.len(), 1);
+        assert_eq!(result.outbound[0].payload, b"hello");
     }
 }

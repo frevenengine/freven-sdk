@@ -6,4 +6,5 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+freven_sdk_types.workspace = true
 serde.workspace = true

@@ -43,6 +43,7 @@ dependencies = [
 name = "freven_guest"
 version = "0.1.0"
 dependencies = [
+ "freven_sdk_types",
  "serde",
 ]
 
@@ -51,6 +52,7 @@ name = "freven_guest_sdk"
 version = "0.1.0"
 dependencies = [
  "freven_guest",
+ "freven_sdk_types",
  "postcard",
  "serde",
 ]

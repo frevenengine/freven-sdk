@@ -25,7 +25,7 @@ contract meaning defined here.
 
 ## Negotiation
 
-Host and guest negotiate before any lifecycle or action callback.
+Host and guest negotiate before any guest callback.
 
 - `NegotiationRequest`
   - `supported_contract_versions: Vec<u32>`
@@ -39,9 +39,17 @@ Host and guest negotiate before any lifecycle or action callback.
 `GuestDescription` declares:
 
 - `guest_id`
-- `lifecycle: LifecycleHooks`
-- `action_entrypoint`
-- `actions: Vec<ActionBinding>`
+- `registration: GuestRegistration`
+- `callbacks: GuestCallbacks`
+
+`GuestRegistration` currently covers:
+
+- `blocks`
+- `components`
+- `messages`
+- `channels`
+- `actions`
+- `capabilities`
 
 `LifecycleHooks` currently exposes:
 
@@ -58,6 +66,14 @@ Host and guest negotiate before any lifecycle or action callback.
 - Guest returns `ActionResult`
 - `ActionResult.outcome` is `applied` or `rejected`
 - `ActionResult.effects` currently supports world effects through `WorldEffect`
+- `ActionInput.player_position_m` is the first canonical player-read slice
+
+## Server message path
+
+- Host sends `ServerMessageInput`
+- Guest returns `ServerMessageResult`
+- This is a dedicated callback family, separate from actions and lifecycle
+- `ServerMessageResult.outbound` carries `ServerOutboundMessage` sends
 
 ## Lifecycle path
 
@@ -76,7 +92,7 @@ If a guest violates the contract or faults during a runtime session:
 
 - that guest is disabled for the remainder of the runtime session
 - further action dispatches to that guest must reject
-- the host must stop routing later lifecycle callbacks to that guest for that
+- the host must stop routing later lifecycle and message callbacks to that guest for that
   session
 
 For action callbacks, "faults" include host-side failure to apply the guest's

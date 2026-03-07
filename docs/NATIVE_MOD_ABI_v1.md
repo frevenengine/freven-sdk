@@ -5,7 +5,7 @@ Freven native mods.
 
 The canonical public guest contract is `freven_guest` as documented in
 `GUEST_CONTRACT_v1.md`. Native is a secondary unsafe transport that carries the
-same guest negotiation and action semantics over an in-process native-width ABI.
+same guest negotiation, declaration, and callback semantics over an in-process native-width ABI.
 
 This is not the recommended public authoring path. Prefer Wasm with
 `freven_guest_sdk` unless you are intentionally doing low-level runtime work on
@@ -19,15 +19,17 @@ A native mod dynamic library must export these symbols:
 - `freven_guest_dealloc(buffer: NativeGuestBuffer)`
 - `freven_guest_negotiate(input: NativeGuestInput) -> NativeGuestBuffer`
 - `freven_guest_handle_action(input: NativeGuestInput) -> NativeGuestBuffer` when
-  `action_entrypoint = true`
+  `callbacks.action = true`
+- `freven_guest_on_server_messages(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.server_messages = true`
 - `freven_guest_on_start_client(input: NativeGuestInput) -> NativeGuestBuffer`
-  when `lifecycle.start_client = true`
+  when `callbacks.lifecycle.start_client = true`
 - `freven_guest_on_start_server(input: NativeGuestInput) -> NativeGuestBuffer`
-  when `lifecycle.start_server = true`
+  when `callbacks.lifecycle.start_server = true`
 - `freven_guest_on_tick_client(input: NativeGuestInput) -> NativeGuestBuffer`
-  when `lifecycle.tick_client = true`
+  when `callbacks.lifecycle.tick_client = true`
 - `freven_guest_on_tick_server(input: NativeGuestInput) -> NativeGuestBuffer`
-  when `lifecycle.tick_server = true`
+  when `callbacks.lifecycle.tick_server = true`
 
 FFI structs:
 
@@ -70,6 +72,7 @@ Returned bytes are postcard-encoded `freven_guest` contract types:
 
 - `freven_guest_negotiate` takes `NegotiationRequest` and returns `NegotiationResponse`
 - `freven_guest_handle_action` takes `ActionInput` and returns `ActionResult`
+- `freven_guest_on_server_messages` takes `ServerMessageInput` and returns `ServerMessageResult`
 - lifecycle exports take `StartInput` or `TickInput` and return `LifecycleAck`
 
 `ActionInput` carries `binding_id`, `player_id`, `level_id`, `stream_epoch`,
@@ -86,7 +89,7 @@ Runtime validates and enforces:
 - no duplicate action keys within one guest description
 - no duplicate `binding_id` values within one guest description
 - max byte caps for negotiation/result/input payload before copying
-- declared action/lifecycle surface exactly matches the exported symbol surface
+- declared callback surface exactly matches the exported symbol surface
 - dual-side lifecycle declarations are allowed; the runtime hosts the active side as a subset for the current session
 
 On decode/validation/contract errors, attach fails.

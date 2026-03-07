@@ -12,7 +12,7 @@ recommended getting-started path.
 
 ## Scope
 
-- Supports negotiation, lifecycle callbacks, and action handling over Wasm
+- Supports negotiation, declaration registration, lifecycle callbacks, server-message callbacks, and action handling over Wasm
   ptr/len calls.
 - Host runs modules with no WASI and no host imports by default.
 - `[capabilities]` in `mod.toml` is enforced by runtime with a strict allowlist.
@@ -24,7 +24,8 @@ A module must export these symbols:
 - `freven_guest_alloc(size: u32) -> u32`
 - `freven_guest_dealloc(ptr: u32, size: u32)`
 - `freven_guest_negotiate(ptr: u32, len: u32) -> u64`
-- `freven_guest_handle_action(ptr: u32, len: u32) -> u64` if `action_entrypoint = true`
+- `freven_guest_handle_action(ptr: u32, len: u32) -> u64` if `callbacks.action = true`
+- `freven_guest_on_server_messages(ptr: u32, len: u32) -> u64` if `callbacks.server_messages = true`
 - linear memory export named `memory`
 
 Optional lifecycle exports:
@@ -55,9 +56,9 @@ Output: `NegotiationResponse`
 Host behavior:
 
 - validates `selected_contract_version`
-- validates `GuestDescription` against exported Wasm symbols
-- registers each `actions[].key` as runtime action kind
-- maps runtime action kind to `actions[].binding_id` for callback dispatch
+- validates `GuestDescription.callbacks` against exported Wasm symbols
+- registers `GuestDescription.registration` into the canonical host runtime
+- maps runtime action kind to `registration.actions[].binding_id` for callback dispatch
 
 ### Lifecycle inputs and outputs
 
@@ -78,7 +79,14 @@ lifecycle effect payload is not part of the contract.
 - `stream_epoch: u32`
 - `action_seq: u32`
 - `at_input_seq: u32`
+- `player_position_m: Option<[f32; 3]>`
 - `payload: &[u8]` (opaque client/server action payload)
+
+### Server message callback
+
+- `freven_guest_on_server_messages` input: `ServerMessageInput`
+- output: `ServerMessageResult`
+- the host routes inbound server-side mod messages for the guest's registered channels into this callback
 
 ### Action result (`freven_guest_handle_action` return bytes)
 
