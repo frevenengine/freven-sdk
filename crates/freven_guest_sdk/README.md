@@ -8,6 +8,7 @@ canonical `freven_guest` contract and hides the transport boilerplate:
 - guest alloc/dealloc exports
 - `postcard` encode/decode plumbing
 - Wasm export table wiring
+- native in-process export wiring for low-level fixtures/tests
 - lifecycle/action dispatch lookup
 - export-surface validation against the canonical `GuestDescription`
 
@@ -46,9 +47,9 @@ freven_guest_sdk::wasm_guest!(
 hooks, action bindings, negotiated `GuestDescription`, and emitted Wasm export
 surface all come from that one declaration.
 
-`GuestModule` plus `export_wasm_guest!(...)` remain available for lower-level
-fixtures and ABI-focused tests when you intentionally need to wire the raw
-surface yourself.
+`GuestModule` plus `export_wasm_guest!(...)` / `export_native_guest!(...)`
+remain available for lower-level fixtures and ABI-focused tests when you
+intentionally need to wire the raw surface yourself.
 
 ## Current boundaries
 

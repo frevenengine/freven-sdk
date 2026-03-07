@@ -15,8 +15,42 @@ pub const GUEST_CONTRACT_VERSION_1: u32 = 1;
 #[serde(rename_all = "snake_case")]
 pub enum GuestTransport {
     WasmPtrLenV1,
-    NativePtrLenV1,
+    NativeInProcessV1,
     ExternalEnvelopeV1,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NativeGuestInput {
+    pub ptr: *const u8,
+    pub len: usize,
+}
+
+impl NativeGuestInput {
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            ptr: core::ptr::null(),
+            len: 0,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NativeGuestBuffer {
+    pub ptr: *mut u8,
+    pub len: usize,
+}
+
+impl NativeGuestBuffer {
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            ptr: core::ptr::null_mut(),
+            len: 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
