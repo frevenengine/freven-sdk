@@ -25,7 +25,7 @@ contract meaning defined here.
 
 ## Negotiation
 
-Host and guest negotiate before any lifecycle or action callback.
+Host and guest negotiate before any guest callback.
 
 - `NegotiationRequest`
   - `supported_contract_versions: Vec<u32>`
@@ -39,9 +39,17 @@ Host and guest negotiate before any lifecycle or action callback.
 `GuestDescription` declares:
 
 - `guest_id`
-- `lifecycle: LifecycleHooks`
-- `action_entrypoint`
-- `actions: Vec<ActionBinding>`
+- `registration: GuestRegistration`
+- `callbacks: GuestCallbacks`
+
+`GuestRegistration` currently covers:
+
+- `blocks`
+- `components`
+- `messages`
+- `channels`
+- `actions`
+- `capabilities`
 
 `LifecycleHooks` currently exposes:
 
@@ -52,12 +60,32 @@ Host and guest negotiate before any lifecycle or action callback.
 
 `on_start_common` is intentionally not part of the guest contract yet.
 
+Registration/callback invariants:
+
+- `registration.actions` and `callbacks.action` are one family:
+  declaring actions requires `callbacks.action = true`
+- `callbacks.action = true` requires at least one declared action
+- capability keys must be non-empty
+- declared capability keys must exist in the resolved host capability table
+
 ## Action path
 
 - Host sends `ActionInput`
 - Guest returns `ActionResult`
 - `ActionResult.outcome` is `applied` or `rejected`
 - `ActionResult.effects` currently supports world effects through `WorldEffect`
+- `ActionInput.player_position_m` is the first canonical player-read slice
+
+## Server message path
+
+- Host sends `ServerMessageInput`
+- Guest returns `ServerMessageResult`
+- This is a dedicated callback family, separate from actions and lifecycle
+- `ServerMessageResult.outbound` carries `ServerOutboundMessage` sends
+- host routing is channel/message-contract checked:
+  inbound messages are delivered only for declared server-readable channels and declared message ids
+- outbound sends must use declared message ids and declared server-writable channels
+- unsupported/unknown message scope mapping is a guest fault, not a silent fallback
 
 ## Lifecycle path
 
@@ -76,8 +104,11 @@ If a guest violates the contract or faults during a runtime session:
 
 - that guest is disabled for the remainder of the runtime session
 - further action dispatches to that guest must reject
-- the host must stop routing later lifecycle callbacks to that guest for that
+- the host must stop routing later lifecycle and message callbacks to that guest for that
   session
 
 For action callbacks, "faults" include host-side failure to apply the guest's
 declared world effects after the `ActionResult` is decoded and validated.
+
+For server-message callbacks, faults include invalid inbound scope mapping and
+outbound sends that violate the negotiated channel/message contract.

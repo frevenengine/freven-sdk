@@ -7,5 +7,6 @@ publish.workspace = true
 
 [dependencies]
 freven_guest.workspace = true
+freven_sdk_types.workspace = true
 postcard.workspace = true
 serde.workspace = true

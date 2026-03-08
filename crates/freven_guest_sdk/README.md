@@ -9,7 +9,8 @@ canonical `freven_guest` contract and hides the transport boilerplate:
 - `postcard` encode/decode plumbing
 - Wasm export table wiring
 - native in-process export wiring for low-level fixtures/tests
-- lifecycle/action dispatch lookup
+- canonical declaration builders for blocks/components/messages/channels/actions/capabilities
+- lifecycle/action/server-message dispatch lookup
 - export-surface validation against the canonical `GuestDescription`
 
 Most mod authors should depend on `freven_guest_sdk`. Reach for
@@ -43,9 +44,9 @@ freven_guest_sdk::wasm_guest!(
 );
 ```
 
-`wasm_guest!` is the normal public authoring path: the guest id, lifecycle
-hooks, action bindings, negotiated `GuestDescription`, and emitted Wasm export
-surface all come from that one declaration.
+`wasm_guest!` is the normal public authoring path: the guest id, registration
+families, callback families, negotiated `GuestDescription`, and emitted Wasm
+export surface all come from that one declaration.
 
 `GuestModule` plus `export_wasm_guest!(...)` / `export_native_guest!(...)`
 remain available for lower-level fixtures and ABI-focused tests when you
@@ -53,8 +54,17 @@ intentionally need to wire the raw surface yourself.
 
 ## Current boundaries
 
-- Lifecycle hooks are ack-only because contract v1 does not expose lifecycle
-  output payloads yet.
+- Lifecycle hooks are still ack-only.
+- `registration.actions` and `callbacks.action` stay coupled:
+  actions imply the callback family, and the callback family is not valid without declared actions.
+- Server-side runtime messaging is now a dedicated callback family
+  (`on_server_messages`) rather than being stuffed into actions.
+- Runtime delivery of server messages is contract-checked symmetrically:
+  undeclared inbound channels/message ids fault the guest the same way undeclared outbound use does.
+- Declarations now cover blocks, components, messages, channels, actions, and
+  capability keys in one transport-neutral registration model.
+- Capability declarations are validated honestly by the runtime:
+  empty keys fail, and unknown capability keys are rejected against host policy.
 - Guest-side persistent instance state is not modeled by the SDK today. Use
   explicit statics only when you fully control the implications.
 - Wasm is the primary safe path. Native and external transports remain
