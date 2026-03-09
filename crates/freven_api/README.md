@@ -6,6 +6,9 @@ Stable SDK contracts for Freven experiences and compile-time mods.
 experiences and compile-time mods. It is intended to stay stable so mods can be
 built and versioned independently from engine internals.
 
+`ExperienceSpec` in this crate is a compile-time convenience surface. Canonical
+boot/load/runtime truth lives in the engine runtime activation model, not here.
+
 The lifecycle contract is intentionally small:
 - registration via `ModContext`
 - activation via `on_start_common`, `on_start_client`, `on_start_server`
