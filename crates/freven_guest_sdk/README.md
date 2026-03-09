@@ -57,6 +57,13 @@ intentionally need to wire the raw surface yourself.
 - Lifecycle hooks are still ack-only.
 - `registration.actions` and `callbacks.action` stay coupled:
   actions imply the callback family, and the callback family is not valid without declared actions.
+- Rejected actions are effect-free by API shape in the SDK:
+  `ActionResponse::rejected()` can be finished, but it does not expose world-effect
+  builder methods.
+- Action callbacks require a real decoded `ActionInput`:
+  empty or malformed action payload bytes are not silently synthesized by the
+  SDK. On the runtime path, that becomes a contract / transport / host-delivery
+  fault for the guest call rather than a fabricated placeholder input.
 - Server-side runtime messaging is now a dedicated callback family
   (`on_server_messages`) rather than being stuffed into actions.
 - Runtime delivery of server messages is contract-checked symmetrically:

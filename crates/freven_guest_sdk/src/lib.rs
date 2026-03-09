@@ -19,7 +19,7 @@ use serde::de::DeserializeOwned;
 
 type StartHandler = fn(&StartInput);
 type TickHandler = fn(&TickInput);
-type ActionHandler = fn(ActionContext<'_>) -> ActionResponse;
+type ActionHandler = fn(ActionContext<'_>) -> ActionResult;
 type ServerMessageHandler = fn(ServerMessageContext<'_>) -> ServerMessageResponse;
 
 pub struct GuestModule {
@@ -257,7 +257,7 @@ impl GuestModule {
             return ActionResponse::rejected().finish();
         };
 
-        (action.handler)(ActionContext { input }).finish()
+        (action.handler)(ActionContext { input })
     }
 
     #[must_use]
@@ -344,28 +344,29 @@ impl<'a> ActionContext<'a> {
     }
 }
 
-pub struct ActionResponse {
-    outcome: ActionOutcome,
+pub struct ActionResponse;
+
+pub struct AppliedActionResponse {
     effects: EffectBatch,
 }
 
+pub struct RejectedActionResponse;
+
 impl ActionResponse {
     #[must_use]
-    pub fn applied() -> Self {
-        Self {
-            outcome: ActionOutcome::Applied,
+    pub fn applied() -> AppliedActionResponse {
+        AppliedActionResponse {
             effects: EffectBatch::default(),
         }
     }
 
     #[must_use]
-    pub fn rejected() -> Self {
-        Self {
-            outcome: ActionOutcome::Rejected,
-            effects: EffectBatch::default(),
-        }
+    pub fn rejected() -> RejectedActionResponse {
+        RejectedActionResponse
     }
+}
 
+impl AppliedActionResponse {
     #[must_use]
     pub fn push_world_effect(mut self, effect: WorldEffect) -> Self {
         self.effects.world.push(effect);
@@ -380,8 +381,18 @@ impl ActionResponse {
     #[must_use]
     pub fn finish(self) -> ActionResult {
         ActionResult {
-            outcome: self.outcome,
+            outcome: ActionOutcome::Applied,
             effects: self.effects,
+        }
+    }
+}
+
+impl RejectedActionResponse {
+    #[must_use]
+    pub fn finish(self) -> ActionResult {
+        ActionResult {
+            outcome: ActionOutcome::Rejected,
+            effects: EffectBatch::default(),
         }
     }
 }
@@ -479,20 +490,8 @@ pub mod __private {
     }
 
     fn module_handle_action_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
-        let input = if input.is_empty() {
-            ActionInput {
-                binding_id: 0,
-                player_id: 0,
-                level_id: 0,
-                stream_epoch: 0,
-                action_seq: 0,
-                at_input_seq: 0,
-                player_position_m: None,
-                payload: &[],
-            }
-        } else {
-            postcard::from_bytes(input).expect("valid action input")
-        };
+        assert!(!input.is_empty(), "guest input must not be empty");
+        let input: ActionInput<'_> = postcard::from_bytes(input).expect("valid action input");
 
         let result = module.handle_action(input);
         postcard::to_allocvec(&result).expect("guest encoding must succeed")
@@ -1196,7 +1195,7 @@ mod tests {
                 })
             })
             .action("freven.test:place_block", 7, |_| {
-                ActionResponse::applied().set_block((1, 2, 3), 9)
+                ActionResponse::applied().set_block((1, 2, 3), 9).finish()
             })
     }
 
@@ -1273,29 +1272,30 @@ mod tests {
     )]
     fn duplicate_action_keys_panic() {
         let _ = GuestModule::new("freven.test.guest")
-            .action("freven.test:dup", 7, |_| ActionResponse::applied())
-            .action("freven.test:dup", 8, |_| ActionResponse::applied());
+            .action("freven.test:dup", 7, |_| ActionResponse::applied().finish())
+            .action("freven.test:dup", 8, |_| ActionResponse::applied().finish());
     }
 
     #[test]
     #[should_panic(expected = "freven_guest_sdk action key must not be empty")]
     fn empty_action_keys_panic() {
-        let _ = GuestModule::new("freven.test.guest").action("", 7, |_| ActionResponse::applied());
+        let _ = GuestModule::new("freven.test.guest")
+            .action("", 7, |_| ActionResponse::applied().finish());
     }
 
     #[test]
     #[should_panic(expected = "freven_guest_sdk action key must not be empty")]
     fn whitespace_only_action_keys_panic() {
-        let _ =
-            GuestModule::new("freven.test.guest").action("   ", 7, |_| ActionResponse::applied());
+        let _ = GuestModule::new("freven.test.guest")
+            .action("   ", 7, |_| ActionResponse::applied().finish());
     }
 
     #[test]
     #[should_panic(expected = "freven_guest_sdk binding id 7 was registered more than once")]
     fn duplicate_action_binding_ids_panic() {
         let _ = GuestModule::new("freven.test.guest")
-            .action("freven.test:a", 7, |_| ActionResponse::applied())
-            .action("freven.test:b", 7, |_| ActionResponse::applied());
+            .action("freven.test:a", 7, |_| ActionResponse::applied().finish())
+            .action("freven.test:b", 7, |_| ActionResponse::applied().finish());
     }
 
     #[test]
@@ -1304,8 +1304,22 @@ mod tests {
         assert!(!no_actions.callbacks().action);
 
         let with_action = GuestModule::new("freven.test.guest")
-            .action("freven.test:a", 1, |_| ActionResponse::rejected());
+            .action("freven.test:a", 1, |_| ActionResponse::rejected().finish());
         assert!(with_action.callbacks().action);
+    }
+
+    #[test]
+    fn rejected_action_response_finishes_without_effects() {
+        let result = ActionResponse::rejected().finish();
+        assert_eq!(result.outcome, ActionOutcome::Rejected);
+        assert!(result.effects.is_empty());
+    }
+
+    #[test]
+    #[should_panic(expected = "guest input must not be empty")]
+    fn action_input_must_not_be_empty() {
+        let module = module();
+        let _ = __private::wasm_guest_handle_action(&module, 0, 0);
     }
 
     #[test]
@@ -1377,7 +1391,7 @@ mod tests {
             , actions: {
                 "freven.test:macro_action" => {
                     binding_id: 17,
-                    handler: |_| ActionResponse::applied(),
+                    handler: |_| ActionResponse::applied().finish(),
                 }
             }
         );

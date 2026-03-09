@@ -103,6 +103,17 @@ not the recommended public authoring path.
 Use `ActionResponse::applied()` or `ActionResponse::rejected()` to surface the
 canonical outcome, then attach effects such as `.set_block(...)`.
 
+Two SDK hardening rules matter here:
+
+- `ActionResponse::rejected()` is terminal at the API level:
+  the rejected response builder can be finished, but it does not expose
+  world-effect builder methods.
+- Action callbacks require a real decoded `ActionInput`; empty or malformed
+  action payload bytes are not silently synthesized by the SDK.
+  In practice this means a contract / transport / host-delivery violation on
+  the action callback path faults the guest call instead of fabricating a
+  placeholder input.
+
 ## Transport guidance
 
 Prefer these paths in this order:
