@@ -144,7 +144,7 @@ impl ModSide {
     }
 }
 
-/// Experience specification selected by boot.
+/// Compile-time convenience experience specification.
 ///
 /// `config` is a top-level table keyed by mod id. Each mod receives its own value.
 #[derive(Clone)]
@@ -153,6 +153,7 @@ pub struct ExperienceSpec {
     pub mods: Vec<ModDescriptor>,
     pub default_worldgen: Option<String>,
     pub default_character_controller: Option<String>,
+    pub default_client_control_provider: Option<String>,
     pub config: toml::Table,
 }
 
@@ -215,7 +216,6 @@ pub trait ModContextBackend {
         handler: Box<dyn ActionHandler>,
     ) -> Result<(), ModRegistrationError>;
     fn register_action_kind(&mut self, key: &str) -> Result<ActionKindId, ModRegistrationError>;
-    fn set_should_load(&mut self, hook: ShouldLoadHook);
     fn on_start_common(&mut self, hook: StartCommonHook);
     fn on_start_client(&mut self, hook: StartClientHook);
     fn on_start_server(&mut self, hook: StartServerHook);
@@ -359,10 +359,6 @@ impl<'a> ModContext<'a> {
         self.backend.register_action_kind(key)
     }
 
-    pub fn set_should_load(&mut self, hook: ShouldLoadHook) {
-        self.backend.set_should_load(hook);
-    }
-
     pub fn on_start_common(&mut self, hook: StartCommonHook) {
         self.backend.on_start_common(hook);
     }
@@ -495,9 +491,6 @@ pub enum ModConfigError {
         source: toml::de::Error,
     },
 }
-
-/// Lifecycle predicate used to decide if a mod should load for the runtime side.
-pub type ShouldLoadHook = fn(Side) -> bool;
 
 /// Lifecycle callback executed once for both sides when the mod starts.
 pub type StartCommonHook = for<'a> fn(&mut CommonApi<'a>);
