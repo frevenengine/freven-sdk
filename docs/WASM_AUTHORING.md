@@ -155,6 +155,30 @@ same per-mod config semantics builtin / compile-time mods already had.
 These calls are semantic runtime services. They are not ad-hoc callback hacks
 and they are not encoded as fake action results.
 
+## Logging
+
+Use the log macros from `freven_guest_sdk` to emit messages through the
+canonical observability service:
+```rust
+use freven_guest_sdk::{log_debug, log_info, log_warn, log_error};
+
+// inside any lifecycle, action, or message callback:
+log_info!("player {} joined the world", player_id);
+log_warn!("block at {:?} was already air", pos);
+```
+
+All four levels are available: `log_debug!`, `log_info!`, `log_warn!`,
+`log_error!`. They accept the same format syntax as `format!`.
+
+Logging is fire-and-forget: it does not affect `ActionResult`,
+`LifecycleResult`, or message output. The host owns attribution, filtering,
+routing, and presentation — guests provide only level and message text.
+
+The macros call `RuntimeServices.log(...)` under the hood, which routes through
+`RuntimeServiceRequest::Observability`. On Wasm this goes through
+`freven_guest_host_service_call`; on native it goes through
+`NativeRuntimeBridge`. The guest code is identical across transports.
+
 ## Transport guidance
 
 Prefer these paths in this order:

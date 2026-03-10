@@ -1559,6 +1559,47 @@ impl RuntimeServices {
     }
 }
 
+/// Emit a log message through the canonical guest observability service.
+///
+/// Prefer [`log_debug!`], [`log_info!`], [`log_warn!`], [`log_error!`] over
+/// calling this directly.
+#[doc(hidden)]
+pub fn __guest_emit_log(level: LogLevel, args: ::core::fmt::Arguments<'_>) {
+    RuntimeServices.log(level, ::alloc::format!("{args}"));
+}
+
+/// Log a debug message from a guest mod.
+#[macro_export]
+macro_rules! log_debug {
+    ($($arg:tt)*) => {
+        $crate::__guest_emit_log($crate::LogLevel::Debug, ::core::format_args!($($arg)*));
+    };
+}
+
+/// Log an info message from a guest mod.
+#[macro_export]
+macro_rules! log_info {
+    ($($arg:tt)*) => {
+        $crate::__guest_emit_log($crate::LogLevel::Info, ::core::format_args!($($arg)*));
+    };
+}
+
+/// Log a warning from a guest mod.
+#[macro_export]
+macro_rules! log_warn {
+    ($($arg:tt)*) => {
+        $crate::__guest_emit_log($crate::LogLevel::Warn, ::core::format_args!($($arg)*));
+    };
+}
+
+/// Log an error from a guest mod.
+#[macro_export]
+macro_rules! log_error {
+    ($($arg:tt)*) => {
+        $crate::__guest_emit_log($crate::LogLevel::Error, ::core::format_args!($($arg)*));
+    };
+}
+
 pub struct ActionResponse;
 
 pub struct AppliedActionResponse {
