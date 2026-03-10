@@ -7,89 +7,34 @@
 extern crate alloc;
 
 use alloc::{string::String, vec::Vec};
-use core::ffi::c_void;
 use freven_sdk_types::blocks::BlockDef;
 use serde::{Deserialize, Serialize};
 
 pub const GUEST_CONTRACT_VERSION_1: u32 = 1;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum GuestTransport {
-    WasmPtrLenV1,
-    NativeInProcessV1,
-    ExternalEnvelopeV1,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct NativeGuestInput {
-    pub ptr: *const u8,
-    pub len: usize,
-}
-
-impl NativeGuestInput {
-    #[must_use]
-    pub const fn empty() -> Self {
-        Self {
-            ptr: core::ptr::null(),
-            len: 0,
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct NativeGuestBuffer {
-    pub ptr: *mut u8,
-    pub len: usize,
-}
-
-impl NativeGuestBuffer {
-    #[must_use]
-    pub const fn empty() -> Self {
-        Self {
-            ptr: core::ptr::null_mut(),
-            len: 0,
-        }
-    }
-}
-
-pub type NativeRuntimeServiceCall = unsafe extern "C" fn(
-    ctx: *mut c_void,
-    req_ptr: *const u8,
-    req_len: usize,
-    resp_ptr: *mut u8,
-    resp_cap: usize,
-) -> usize;
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct NativeRuntimeBridge {
-    pub ctx: *mut c_void,
-    pub call: Option<NativeRuntimeServiceCall>,
-}
-
-impl NativeRuntimeBridge {
-    #[must_use]
-    pub const fn empty() -> Self {
-        Self {
-            ctx: core::ptr::null_mut(),
-            call: None,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NegotiationRequest {
     pub supported_contract_versions: Vec<u32>,
-    pub transport: GuestTransport,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NegotiationResponse {
     pub selected_contract_version: u32,
     pub description: GuestDescription,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeSessionSide {
+    Client,
+    #[default]
+    Server,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RuntimeSessionInfo {
+    pub id: u64,
+    pub side: RuntimeSessionSide,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -377,6 +322,7 @@ pub struct ModConfigDocument {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct StartInput {
+    pub session: RuntimeSessionInfo,
     pub experience_id: String,
     pub mod_id: String,
     pub config: ModConfigDocument,

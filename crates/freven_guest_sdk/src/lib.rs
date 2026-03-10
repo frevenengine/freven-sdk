@@ -4,6 +4,8 @@ extern crate alloc;
 
 use alloc::{string::String, vec::Vec};
 use core::cell::RefCell;
+use core::ffi::c_void;
+use std::thread::LocalKey;
 
 pub use freven_guest::{
     ActionDeclaration, ActionInput, ActionOutcome, ActionResult, BlockDeclaration,
@@ -15,17 +17,17 @@ pub use freven_guest::{
     ClientControlSampleResult, ClientInboundMessage, ClientKeyCode, ClientMessageInput,
     ClientMessageResult, ClientMouseButton, ClientNameplateDrawCmd, ClientOutboundMessage,
     ClientOutboundMessageScope, ClientPlayerView, ComponentCodec, ComponentDeclaration,
-    GUEST_CONTRACT_VERSION_1, GuestCallbacks, GuestDescription, GuestRegistration, GuestTransport,
-    InputTimeline, KinematicMoveConfig, KinematicMoveResult, LifecycleHooks, LifecycleResult,
-    MessageCodec, MessageDeclaration, MessageHooks, MessageScope, ModConfigDocument,
-    ModConfigFormat, NativeGuestBuffer, NativeGuestInput, NativeRuntimeBridge, NegotiationRequest,
-    NegotiationResponse, ProviderHooks, RuntimeCharacterPhysicsRequest,
+    GUEST_CONTRACT_VERSION_1, GuestCallbacks, GuestDescription, GuestRegistration, InputTimeline,
+    KinematicMoveConfig, KinematicMoveResult, LifecycleHooks, LifecycleResult, MessageCodec,
+    MessageDeclaration, MessageHooks, MessageScope, ModConfigDocument, ModConfigFormat,
+    NegotiationRequest, NegotiationResponse, ProviderHooks, RuntimeCharacterPhysicsRequest,
     RuntimeClientControlRequest, RuntimeCommandOutput, RuntimeEntityTarget, RuntimeLevelRef,
     RuntimeMessageOutput, RuntimeOutput, RuntimePresentationOutput, RuntimeReadRequest,
-    RuntimeServiceRequest, RuntimeServiceResponse, RuntimeSideRequest, ServerInboundMessage,
-    ServerMessageInput, ServerMessageResult, ServerOutboundMessage, StartInput, SweepHit,
-    TickInput, WorldCommand, WorldGenCallInput, WorldGenCallResult, WorldGenDeclaration,
-    WorldGenInit, WorldGenOutput, WorldGenRequest, WorldGenSection,
+    RuntimeServiceRequest, RuntimeServiceResponse, RuntimeSessionInfo, RuntimeSessionSide,
+    RuntimeSideRequest, ServerInboundMessage, ServerMessageInput, ServerMessageResult,
+    ServerOutboundMessage, StartInput, SweepHit, TickInput, WorldCommand, WorldGenCallInput,
+    WorldGenCallResult, WorldGenDeclaration, WorldGenInit, WorldGenOutput, WorldGenRequest,
+    WorldGenSection,
 };
 pub use freven_sdk_types::blocks::{BlockDef, RenderLayer};
 use serde::de::DeserializeOwned;
@@ -42,6 +44,73 @@ type CharacterControllerStepHandler =
     fn(CharacterControllerStepContext<'_>) -> CharacterControllerStepResult;
 type ClientControlProviderHandler =
     fn(ClientControlProviderContext<'_>) -> ClientControlSampleResult;
+type StatefulSessionFactory<S> = fn(StartContext<'_>) -> S;
+type StatefulStartHandler<S> = fn(&mut S, StartContext<'_>) -> LifecycleResult;
+type StatefulTickHandler<S> = fn(&mut S, TickContext<'_>) -> LifecycleResult;
+type StatefulActionHandler<S> = fn(&mut S, ActionContext<'_>) -> ActionResult;
+type StatefulClientMessageHandler<S> =
+    fn(&mut S, ClientMessageContext<'_>) -> ClientMessageResponse;
+type StatefulServerMessageHandler<S> =
+    fn(&mut S, ServerMessageContext<'_>) -> ServerMessageResponse;
+
+pub type NativeRuntimeServiceCall = unsafe extern "C" fn(
+    ctx: *mut c_void,
+    req_ptr: *const u8,
+    req_len: usize,
+    resp_ptr: *mut u8,
+    resp_cap: usize,
+) -> usize;
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NativeGuestInput {
+    pub ptr: *const u8,
+    pub len: usize,
+}
+
+impl NativeGuestInput {
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            ptr: core::ptr::null(),
+            len: 0,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NativeGuestBuffer {
+    pub ptr: *mut u8,
+    pub len: usize,
+}
+
+impl NativeGuestBuffer {
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            ptr: core::ptr::null_mut(),
+            len: 0,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct NativeRuntimeBridge {
+    pub ctx: *mut c_void,
+    pub call: Option<NativeRuntimeServiceCall>,
+}
+
+impl NativeRuntimeBridge {
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            ctx: core::ptr::null_mut(),
+            call: None,
+        }
+    }
+}
 
 thread_local! {
     static NATIVE_RUNTIME_BRIDGE: RefCell<NativeRuntimeBridge> =
@@ -482,6 +551,473 @@ impl GuestModule {
     }
 }
 
+#[doc(hidden)]
+pub trait ExportedGuestModule {
+    fn description(&self) -> GuestDescription;
+    fn handle_start_client(&self, input: &StartInput) -> LifecycleResult;
+    fn handle_start_server(&self, input: &StartInput) -> LifecycleResult;
+    fn handle_tick_client(&self, input: &TickInput) -> LifecycleResult;
+    fn handle_tick_server(&self, input: &TickInput) -> LifecycleResult;
+    fn handle_client_messages(&self, input: ClientMessageInput) -> ClientMessageResult;
+    fn handle_action(&self, input: ActionInput<'_>) -> ActionResult;
+    fn handle_server_messages(&self, input: ServerMessageInput) -> ServerMessageResult;
+    fn handle_worldgen(&self, input: WorldGenCallInput) -> WorldGenCallResult;
+    fn handle_character_controller_init(
+        &self,
+        input: CharacterControllerInitInput,
+    ) -> CharacterControllerInitResult;
+    fn handle_character_controller_step(
+        &self,
+        input: CharacterControllerStepInput,
+    ) -> CharacterControllerStepResult;
+    fn handle_client_control_provider(
+        &self,
+        input: ClientControlSampleInput,
+    ) -> ClientControlSampleResult;
+}
+
+impl ExportedGuestModule for GuestModule {
+    fn description(&self) -> GuestDescription {
+        GuestModule::description(self)
+    }
+
+    fn handle_start_client(&self, input: &StartInput) -> LifecycleResult {
+        GuestModule::handle_start_client(self, input)
+    }
+
+    fn handle_start_server(&self, input: &StartInput) -> LifecycleResult {
+        GuestModule::handle_start_server(self, input)
+    }
+
+    fn handle_tick_client(&self, input: &TickInput) -> LifecycleResult {
+        GuestModule::handle_tick_client(self, input)
+    }
+
+    fn handle_tick_server(&self, input: &TickInput) -> LifecycleResult {
+        GuestModule::handle_tick_server(self, input)
+    }
+
+    fn handle_client_messages(&self, input: ClientMessageInput) -> ClientMessageResult {
+        GuestModule::handle_client_messages(self, input)
+    }
+
+    fn handle_action(&self, input: ActionInput<'_>) -> ActionResult {
+        GuestModule::handle_action(self, input)
+    }
+
+    fn handle_server_messages(&self, input: ServerMessageInput) -> ServerMessageResult {
+        GuestModule::handle_server_messages(self, input)
+    }
+
+    fn handle_worldgen(&self, input: WorldGenCallInput) -> WorldGenCallResult {
+        GuestModule::handle_worldgen(self, input)
+    }
+
+    fn handle_character_controller_init(
+        &self,
+        input: CharacterControllerInitInput,
+    ) -> CharacterControllerInitResult {
+        GuestModule::handle_character_controller_init(self, input)
+    }
+
+    fn handle_character_controller_step(
+        &self,
+        input: CharacterControllerStepInput,
+    ) -> CharacterControllerStepResult {
+        GuestModule::handle_character_controller_step(self, input)
+    }
+
+    fn handle_client_control_provider(
+        &self,
+        input: ClientControlSampleInput,
+    ) -> ClientControlSampleResult {
+        GuestModule::handle_client_control_provider(self, input)
+    }
+}
+
+struct ActiveGuestSession<S> {
+    info: RuntimeSessionInfo,
+    state: S,
+}
+
+#[derive(Default)]
+pub struct StatefulGuestSessionStore<S> {
+    current: Option<ActiveGuestSession<S>>,
+}
+
+impl<S> StatefulGuestSessionStore<S> {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self { current: None }
+    }
+
+    fn ensure_current(
+        &mut self,
+        input: &StartInput,
+        factory: StatefulSessionFactory<S>,
+    ) -> &mut ActiveGuestSession<S> {
+        let replace = self
+            .current
+            .as_ref()
+            .is_none_or(|current| current.info != input.session);
+        if replace {
+            self.current = Some(ActiveGuestSession {
+                info: input.session,
+                state: factory(StartContext { input }),
+            });
+        }
+        self.current
+            .as_mut()
+            .expect("stateful guest session must exist after ensure_current")
+    }
+
+    fn current_mut(&mut self, callback: &'static str) -> &mut ActiveGuestSession<S> {
+        self.current.as_mut().unwrap_or_else(|| {
+            panic!(
+                "freven_guest_sdk stateful callback '{callback}' ran before start_client/start_server created a runtime session"
+            )
+        })
+    }
+}
+
+pub struct StatefulGuestModule<S: 'static> {
+    module: GuestModule,
+    session_factory: StatefulSessionFactory<S>,
+    session_store: &'static LocalKey<RefCell<StatefulGuestSessionStore<S>>>,
+    on_start_client: Option<StatefulStartHandler<S>>,
+    on_start_server: Option<StatefulStartHandler<S>>,
+    on_tick_client: Option<StatefulTickHandler<S>>,
+    on_tick_server: Option<StatefulTickHandler<S>>,
+    on_client_messages: Option<StatefulClientMessageHandler<S>>,
+    on_server_messages: Option<StatefulServerMessageHandler<S>>,
+    actions: Vec<StatefulGuestAction<S>>,
+}
+
+impl<S: 'static> StatefulGuestModule<S> {
+    #[must_use]
+    pub fn new(
+        guest_id: &'static str,
+        session_factory: StatefulSessionFactory<S>,
+        session_store: &'static LocalKey<RefCell<StatefulGuestSessionStore<S>>>,
+    ) -> Self {
+        Self {
+            module: GuestModule::new(guest_id),
+            session_factory,
+            session_store,
+            on_start_client: None,
+            on_start_server: None,
+            on_tick_client: None,
+            on_tick_server: None,
+            on_client_messages: None,
+            on_server_messages: None,
+            actions: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn register_block(mut self, key: &'static str, def: BlockDef) -> Self {
+        self.module = self.module.register_block(key, def);
+        self
+    }
+
+    #[must_use]
+    pub fn register_component(mut self, key: &'static str, codec: ComponentCodec) -> Self {
+        self.module = self.module.register_component(key, codec);
+        self
+    }
+
+    #[must_use]
+    pub fn register_message(mut self, key: &'static str, codec: MessageCodec) -> Self {
+        self.module = self.module.register_message(key, codec);
+        self
+    }
+
+    #[must_use]
+    pub fn register_worldgen(mut self, key: &'static str) -> Self {
+        self.module = self.module.register_worldgen(key);
+        self
+    }
+
+    #[must_use]
+    pub fn register_worldgen_handler(
+        mut self,
+        key: &'static str,
+        handler: WorldGenHandler,
+    ) -> Self {
+        self.module = self.module.register_worldgen_handler(key, handler);
+        self
+    }
+
+    #[must_use]
+    pub fn register_character_controller(mut self, key: &'static str) -> Self {
+        self.module = self.module.register_character_controller(key);
+        self
+    }
+
+    #[must_use]
+    pub fn register_character_controller_handler(
+        mut self,
+        key: &'static str,
+        init: CharacterControllerInitHandler,
+        step: CharacterControllerStepHandler,
+    ) -> Self {
+        self.module = self
+            .module
+            .register_character_controller_handler(key, init, step);
+        self
+    }
+
+    #[must_use]
+    pub fn register_client_control_provider(mut self, key: &'static str) -> Self {
+        self.module = self.module.register_client_control_provider(key);
+        self
+    }
+
+    #[must_use]
+    pub fn register_client_control_provider_handler(
+        mut self,
+        key: &'static str,
+        handler: ClientControlProviderHandler,
+    ) -> Self {
+        self.module = self
+            .module
+            .register_client_control_provider_handler(key, handler);
+        self
+    }
+
+    #[must_use]
+    pub fn register_channel(mut self, key: &'static str, config: ChannelConfig) -> Self {
+        self.module = self.module.register_channel(key, config);
+        self
+    }
+
+    #[must_use]
+    pub fn declare_capability(mut self, key: &'static str) -> Self {
+        self.module = self.module.declare_capability(key);
+        self
+    }
+
+    #[must_use]
+    pub fn on_start_client(mut self, handler: StatefulStartHandler<S>) -> Self {
+        self.on_start_client = Some(handler);
+        self
+    }
+
+    #[must_use]
+    pub fn on_start_server(mut self, handler: StatefulStartHandler<S>) -> Self {
+        self.on_start_server = Some(handler);
+        self
+    }
+
+    #[must_use]
+    pub fn on_tick_client(mut self, handler: StatefulTickHandler<S>) -> Self {
+        self.on_tick_client = Some(handler);
+        self
+    }
+
+    #[must_use]
+    pub fn on_tick_server(mut self, handler: StatefulTickHandler<S>) -> Self {
+        self.on_tick_server = Some(handler);
+        self
+    }
+
+    #[must_use]
+    pub fn on_client_messages(mut self, handler: StatefulClientMessageHandler<S>) -> Self {
+        self.on_client_messages = Some(handler);
+        self
+    }
+
+    #[must_use]
+    pub fn on_server_messages(mut self, handler: StatefulServerMessageHandler<S>) -> Self {
+        self.on_server_messages = Some(handler);
+        self
+    }
+
+    #[must_use]
+    pub fn action(
+        mut self,
+        key: &'static str,
+        binding_id: u32,
+        handler: StatefulActionHandler<S>,
+    ) -> Self {
+        assert_unique_key("action", key, self.actions.iter().map(|entry| entry.key));
+        assert!(
+            self.actions
+                .iter()
+                .all(|action| action.binding_id != binding_id),
+            "freven_guest_sdk binding id {binding_id} was registered more than once"
+        );
+        self.actions.push(StatefulGuestAction {
+            key,
+            binding_id,
+            handler,
+        });
+        self
+    }
+
+    fn lifecycle_hooks(&self) -> LifecycleHooks {
+        LifecycleHooks {
+            start_client: self.on_start_client.is_some(),
+            start_server: self.on_start_server.is_some(),
+            tick_client: self.on_tick_client.is_some(),
+            tick_server: self.on_tick_server.is_some(),
+        }
+    }
+
+    fn callbacks(&self) -> GuestCallbacks {
+        GuestCallbacks {
+            lifecycle: self.lifecycle_hooks(),
+            action: !self.actions.is_empty(),
+            messages: MessageHooks {
+                client: self.on_client_messages.is_some(),
+                server: self.on_server_messages.is_some(),
+            },
+            providers: ProviderHooks {
+                worldgen: !self.module.worldgen_handlers.is_empty(),
+                character_controller: !self.module.character_controller_handlers.is_empty(),
+                client_control_provider: !self.module.client_control_provider_handlers.is_empty(),
+            },
+        }
+    }
+}
+
+impl<S: 'static> ExportedGuestModule for StatefulGuestModule<S> {
+    fn description(&self) -> GuestDescription {
+        GuestDescription {
+            guest_id: self.module.guest_id.to_string(),
+            registration: GuestRegistration {
+                blocks: self.module.blocks.clone(),
+                components: self.module.components.clone(),
+                messages: self.module.messages.clone(),
+                worldgen: self.module.worldgen.clone(),
+                character_controllers: self.module.character_controllers.clone(),
+                client_control_providers: self.module.client_control_providers.clone(),
+                channels: self.module.channels.clone(),
+                actions: self
+                    .actions
+                    .iter()
+                    .map(|action| ActionDeclaration {
+                        key: action.key.to_string(),
+                        binding_id: action.binding_id,
+                    })
+                    .collect(),
+                capabilities: self.module.capabilities.clone(),
+            },
+            callbacks: self.callbacks(),
+        }
+    }
+
+    fn handle_start_client(&self, input: &StartInput) -> LifecycleResult {
+        let Some(handler) = self.on_start_client else {
+            return LifecycleResponse::default().finish();
+        };
+        self.session_store.with(|store| {
+            let mut store = store.borrow_mut();
+            let session = store.ensure_current(input, self.session_factory);
+            handler(&mut session.state, StartContext { input })
+        })
+    }
+
+    fn handle_start_server(&self, input: &StartInput) -> LifecycleResult {
+        let Some(handler) = self.on_start_server else {
+            return LifecycleResponse::default().finish();
+        };
+        self.session_store.with(|store| {
+            let mut store = store.borrow_mut();
+            let session = store.ensure_current(input, self.session_factory);
+            handler(&mut session.state, StartContext { input })
+        })
+    }
+
+    fn handle_tick_client(&self, input: &TickInput) -> LifecycleResult {
+        let Some(handler) = self.on_tick_client else {
+            return LifecycleResponse::default().finish();
+        };
+        self.session_store.with(|store| {
+            let mut store = store.borrow_mut();
+            let session = store.current_mut("tick_client");
+            assert_eq!(session.info.side, RuntimeSessionSide::Client);
+            handler(&mut session.state, TickContext { input })
+        })
+    }
+
+    fn handle_tick_server(&self, input: &TickInput) -> LifecycleResult {
+        let Some(handler) = self.on_tick_server else {
+            return LifecycleResponse::default().finish();
+        };
+        self.session_store.with(|store| {
+            let mut store = store.borrow_mut();
+            let session = store.current_mut("tick_server");
+            assert_eq!(session.info.side, RuntimeSessionSide::Server);
+            handler(&mut session.state, TickContext { input })
+        })
+    }
+
+    fn handle_client_messages(&self, input: ClientMessageInput) -> ClientMessageResult {
+        let Some(handler) = self.on_client_messages else {
+            return ClientMessageResponse::default().finish();
+        };
+        self.session_store.with(|store| {
+            let mut store = store.borrow_mut();
+            let session = store.current_mut("client_messages");
+            assert_eq!(session.info.side, RuntimeSessionSide::Client);
+            handler(&mut session.state, ClientMessageContext { input: &input }).finish()
+        })
+    }
+
+    fn handle_action(&self, input: ActionInput<'_>) -> ActionResult {
+        let Some(action) = self
+            .actions
+            .iter()
+            .find(|action| action.binding_id == input.binding_id)
+        else {
+            return ActionResponse::rejected().finish();
+        };
+        self.session_store.with(|store| {
+            let mut store = store.borrow_mut();
+            let session = store.current_mut("action");
+            (action.handler)(&mut session.state, ActionContext { input })
+        })
+    }
+
+    fn handle_server_messages(&self, input: ServerMessageInput) -> ServerMessageResult {
+        let Some(handler) = self.on_server_messages else {
+            return ServerMessageResponse::default().finish();
+        };
+        self.session_store.with(|store| {
+            let mut store = store.borrow_mut();
+            let session = store.current_mut("server_messages");
+            assert_eq!(session.info.side, RuntimeSessionSide::Server);
+            handler(&mut session.state, ServerMessageContext { input: &input }).finish()
+        })
+    }
+
+    fn handle_worldgen(&self, input: WorldGenCallInput) -> WorldGenCallResult {
+        self.module.handle_worldgen(input)
+    }
+
+    fn handle_character_controller_init(
+        &self,
+        input: CharacterControllerInitInput,
+    ) -> CharacterControllerInitResult {
+        self.module.handle_character_controller_init(input)
+    }
+
+    fn handle_character_controller_step(
+        &self,
+        input: CharacterControllerStepInput,
+    ) -> CharacterControllerStepResult {
+        self.module.handle_character_controller_step(input)
+    }
+
+    fn handle_client_control_provider(
+        &self,
+        input: ClientControlSampleInput,
+    ) -> ClientControlSampleResult {
+        self.module.handle_client_control_provider(input)
+    }
+}
+
 fn assert_unique_key<'a>(kind: &str, key: &'static str, existing: impl Iterator<Item = &'a str>) {
     assert!(
         !key.trim().is_empty(),
@@ -497,6 +1033,12 @@ struct GuestAction {
     key: &'static str,
     binding_id: u32,
     handler: ActionHandler,
+}
+
+struct StatefulGuestAction<S> {
+    key: &'static str,
+    binding_id: u32,
+    handler: StatefulActionHandler<S>,
 }
 
 struct GuestWorldGen {
@@ -685,6 +1227,11 @@ impl<'a> StartContext<'a> {
     #[must_use]
     pub fn input(&self) -> &'a StartInput {
         self.input
+    }
+
+    #[must_use]
+    pub fn session(&self) -> RuntimeSessionInfo {
+        self.input.session
     }
 
     #[must_use]
@@ -1345,15 +1892,10 @@ fn native_runtime_service_call(request: &[u8], response: &mut [u8]) -> Option<us
 pub mod __private {
     use super::*;
 
-    fn module_negotiate_bytes(
-        module: &GuestModule,
-        input: &[u8],
-        transport: GuestTransport,
-    ) -> Vec<u8> {
+    fn module_negotiate_bytes(module: &impl ExportedGuestModule, input: &[u8]) -> Vec<u8> {
         if !input.is_empty() {
             let request: NegotiationRequest =
                 postcard::from_bytes(input).expect("valid negotiation request");
-            assert_eq!(request.transport, transport);
             assert!(
                 request
                     .supported_contract_versions
@@ -1368,31 +1910,31 @@ pub mod __private {
         postcard::to_allocvec(&response).expect("guest encoding must succeed")
     }
 
-    fn module_start_client_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+    fn module_start_client_bytes(module: &impl ExportedGuestModule, input: &[u8]) -> Vec<u8> {
         let input = decode_default_input::<StartInput>(input);
         postcard::to_allocvec(&module.handle_start_client(&input))
             .expect("guest encoding must succeed")
     }
 
-    fn module_start_server_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+    fn module_start_server_bytes(module: &impl ExportedGuestModule, input: &[u8]) -> Vec<u8> {
         let input = decode_default_input::<StartInput>(input);
         postcard::to_allocvec(&module.handle_start_server(&input))
             .expect("guest encoding must succeed")
     }
 
-    fn module_tick_client_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+    fn module_tick_client_bytes(module: &impl ExportedGuestModule, input: &[u8]) -> Vec<u8> {
         let input = decode_required_input::<TickInput>(input);
         postcard::to_allocvec(&module.handle_tick_client(&input))
             .expect("guest encoding must succeed")
     }
 
-    fn module_tick_server_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+    fn module_tick_server_bytes(module: &impl ExportedGuestModule, input: &[u8]) -> Vec<u8> {
         let input = decode_required_input::<TickInput>(input);
         postcard::to_allocvec(&module.handle_tick_server(&input))
             .expect("guest encoding must succeed")
     }
 
-    fn module_handle_action_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+    fn module_handle_action_bytes(module: &impl ExportedGuestModule, input: &[u8]) -> Vec<u8> {
         assert!(!input.is_empty(), "guest input must not be empty");
         let input: ActionInput<'_> = postcard::from_bytes(input).expect("valid action input");
 
@@ -1400,36 +1942,45 @@ pub mod __private {
         postcard::to_allocvec(&result).expect("guest encoding must succeed")
     }
 
-    fn module_client_messages_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+    fn module_client_messages_bytes(module: &impl ExportedGuestModule, input: &[u8]) -> Vec<u8> {
         let input = decode_required_input::<ClientMessageInput>(input);
         postcard::to_allocvec(&module.handle_client_messages(input))
             .expect("guest encoding must succeed")
     }
 
-    fn module_server_messages_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+    fn module_server_messages_bytes(module: &impl ExportedGuestModule, input: &[u8]) -> Vec<u8> {
         let input = decode_required_input::<ServerMessageInput>(input);
         postcard::to_allocvec(&module.handle_server_messages(input))
             .expect("guest encoding must succeed")
     }
 
-    fn module_worldgen_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+    fn module_worldgen_bytes(module: &impl ExportedGuestModule, input: &[u8]) -> Vec<u8> {
         let input = decode_required_input::<WorldGenCallInput>(input);
         postcard::to_allocvec(&module.handle_worldgen(input)).expect("guest encoding must succeed")
     }
 
-    fn module_character_controller_init_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+    fn module_character_controller_init_bytes(
+        module: &impl ExportedGuestModule,
+        input: &[u8],
+    ) -> Vec<u8> {
         let input = decode_required_input::<CharacterControllerInitInput>(input);
         postcard::to_allocvec(&module.handle_character_controller_init(input))
             .expect("guest encoding must succeed")
     }
 
-    fn module_character_controller_step_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+    fn module_character_controller_step_bytes(
+        module: &impl ExportedGuestModule,
+        input: &[u8],
+    ) -> Vec<u8> {
         let input = decode_required_input::<CharacterControllerStepInput>(input);
         postcard::to_allocvec(&module.handle_character_controller_step(input))
             .expect("guest encoding must succeed")
     }
 
-    fn module_client_control_provider_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+    fn module_client_control_provider_bytes(
+        module: &impl ExportedGuestModule,
+        input: &[u8],
+    ) -> Vec<u8> {
         let input = decode_required_input::<ClientControlSampleInput>(input);
         postcard::to_allocvec(&module.handle_client_control_provider(input))
             .expect("guest encoding must succeed")
@@ -1451,77 +2002,93 @@ pub mod __private {
         }
     }
 
-    pub fn wasm_guest_negotiate(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+    pub fn wasm_guest_negotiate(module: &impl ExportedGuestModule, ptr: u32, len: u32) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
-            encode_to_wasm_guest(&module_negotiate_bytes(
-                module,
-                input,
-                GuestTransport::WasmPtrLenV1,
-            ))
+            encode_to_wasm_guest(&module_negotiate_bytes(module, input))
         })
     }
 
-    pub fn wasm_guest_start_client(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+    pub fn wasm_guest_start_client(module: &impl ExportedGuestModule, ptr: u32, len: u32) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
             encode_to_wasm_guest(&module_start_client_bytes(module, input))
         })
     }
 
-    pub fn wasm_guest_start_server(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+    pub fn wasm_guest_start_server(module: &impl ExportedGuestModule, ptr: u32, len: u32) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
             encode_to_wasm_guest(&module_start_server_bytes(module, input))
         })
     }
 
-    pub fn wasm_guest_tick_client(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+    pub fn wasm_guest_tick_client(module: &impl ExportedGuestModule, ptr: u32, len: u32) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
             encode_to_wasm_guest(&module_tick_client_bytes(module, input))
         })
     }
 
-    pub fn wasm_guest_tick_server(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+    pub fn wasm_guest_tick_server(module: &impl ExportedGuestModule, ptr: u32, len: u32) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
             encode_to_wasm_guest(&module_tick_server_bytes(module, input))
         })
     }
 
-    pub fn wasm_guest_handle_action(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+    pub fn wasm_guest_handle_action(module: &impl ExportedGuestModule, ptr: u32, len: u32) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
             encode_to_wasm_guest(&module_handle_action_bytes(module, input))
         })
     }
 
-    pub fn wasm_guest_client_messages(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+    pub fn wasm_guest_client_messages(
+        module: &impl ExportedGuestModule,
+        ptr: u32,
+        len: u32,
+    ) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
             encode_to_wasm_guest(&module_client_messages_bytes(module, input))
         })
     }
 
-    pub fn wasm_guest_server_messages(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+    pub fn wasm_guest_server_messages(
+        module: &impl ExportedGuestModule,
+        ptr: u32,
+        len: u32,
+    ) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
             encode_to_wasm_guest(&module_server_messages_bytes(module, input))
         })
     }
 
-    pub fn wasm_guest_worldgen(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+    pub fn wasm_guest_worldgen(module: &impl ExportedGuestModule, ptr: u32, len: u32) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
             encode_to_wasm_guest(&module_worldgen_bytes(module, input))
         })
     }
 
-    pub fn wasm_guest_character_controller_init(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+    pub fn wasm_guest_character_controller_init(
+        module: &impl ExportedGuestModule,
+        ptr: u32,
+        len: u32,
+    ) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
             encode_to_wasm_guest(&module_character_controller_init_bytes(module, input))
         })
     }
 
-    pub fn wasm_guest_character_controller_step(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+    pub fn wasm_guest_character_controller_step(
+        module: &impl ExportedGuestModule,
+        ptr: u32,
+        len: u32,
+    ) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
             encode_to_wasm_guest(&module_character_controller_step_bytes(module, input))
         })
     }
 
-    pub fn wasm_guest_client_control_provider(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+    pub fn wasm_guest_client_control_provider(
+        module: &impl ExportedGuestModule,
+        ptr: u32,
+        len: u32,
+    ) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
             encode_to_wasm_guest(&module_client_control_provider_bytes(module, input))
         })
@@ -1556,20 +2123,16 @@ pub mod __private {
     }
 
     pub fn native_guest_negotiate(
-        module: &GuestModule,
+        module: &impl ExportedGuestModule,
         input: NativeGuestInput,
     ) -> NativeGuestBuffer {
         with_native_input_bytes(input, |input| {
-            encode_to_native_guest(module_negotiate_bytes(
-                module,
-                input,
-                GuestTransport::NativeInProcessV1,
-            ))
+            encode_to_native_guest(module_negotiate_bytes(module, input))
         })
     }
 
     pub fn native_guest_start_client(
-        module: &GuestModule,
+        module: &impl ExportedGuestModule,
         input: NativeGuestInput,
     ) -> NativeGuestBuffer {
         with_native_input_bytes(input, |input| {
@@ -1578,7 +2141,7 @@ pub mod __private {
     }
 
     pub fn native_guest_start_server(
-        module: &GuestModule,
+        module: &impl ExportedGuestModule,
         input: NativeGuestInput,
     ) -> NativeGuestBuffer {
         with_native_input_bytes(input, |input| {
@@ -1587,7 +2150,7 @@ pub mod __private {
     }
 
     pub fn native_guest_tick_client(
-        module: &GuestModule,
+        module: &impl ExportedGuestModule,
         input: NativeGuestInput,
     ) -> NativeGuestBuffer {
         with_native_input_bytes(input, |input| {
@@ -1596,7 +2159,7 @@ pub mod __private {
     }
 
     pub fn native_guest_tick_server(
-        module: &GuestModule,
+        module: &impl ExportedGuestModule,
         input: NativeGuestInput,
     ) -> NativeGuestBuffer {
         with_native_input_bytes(input, |input| {
@@ -1605,7 +2168,7 @@ pub mod __private {
     }
 
     pub fn native_guest_handle_action(
-        module: &GuestModule,
+        module: &impl ExportedGuestModule,
         input: NativeGuestInput,
     ) -> NativeGuestBuffer {
         with_native_input_bytes(input, |input| {
@@ -1614,7 +2177,7 @@ pub mod __private {
     }
 
     pub fn native_guest_client_messages(
-        module: &GuestModule,
+        module: &impl ExportedGuestModule,
         input: NativeGuestInput,
     ) -> NativeGuestBuffer {
         with_native_input_bytes(input, |input| {
@@ -1623,7 +2186,7 @@ pub mod __private {
     }
 
     pub fn native_guest_server_messages(
-        module: &GuestModule,
+        module: &impl ExportedGuestModule,
         input: NativeGuestInput,
     ) -> NativeGuestBuffer {
         with_native_input_bytes(input, |input| {
@@ -1632,7 +2195,7 @@ pub mod __private {
     }
 
     pub fn native_guest_worldgen(
-        module: &GuestModule,
+        module: &impl ExportedGuestModule,
         input: NativeGuestInput,
     ) -> NativeGuestBuffer {
         with_native_input_bytes(input, |input| {
@@ -1641,7 +2204,7 @@ pub mod __private {
     }
 
     pub fn native_guest_character_controller_init(
-        module: &GuestModule,
+        module: &impl ExportedGuestModule,
         input: NativeGuestInput,
     ) -> NativeGuestBuffer {
         with_native_input_bytes(input, |input| {
@@ -1650,7 +2213,7 @@ pub mod __private {
     }
 
     pub fn native_guest_character_controller_step(
-        module: &GuestModule,
+        module: &impl ExportedGuestModule,
         input: NativeGuestInput,
     ) -> NativeGuestBuffer {
         with_native_input_bytes(input, |input| {
@@ -1659,7 +2222,7 @@ pub mod __private {
     }
 
     pub fn native_guest_client_control_provider(
-        module: &GuestModule,
+        module: &impl ExportedGuestModule,
         input: NativeGuestInput,
     ) -> NativeGuestBuffer {
         with_native_input_bytes(input, |input| {
@@ -1726,7 +2289,7 @@ pub mod __private {
     }
 
     pub fn assert_export_surface(
-        module: &GuestModule,
+        module: &impl ExportedGuestModule,
         lifecycle: LifecycleHooks,
         action: bool,
         messages: MessageHooks,
@@ -2392,6 +2955,147 @@ macro_rules! wasm_guest {
     };
 }
 
+#[macro_export]
+macro_rules! stateful_wasm_guest {
+    (
+        guest_id: $guest_id:expr,
+        session_state: $state_ty:ty = $session_factory:expr
+        $(, registration: { $($registration:tt)* })?
+        $(, lifecycle: { $($lifecycle:ident : $lifecycle_handler:expr),* $(,)? })?
+        $(, client_messages: $client_messages_handler:expr)?
+        $(, server_messages: $server_messages_handler:expr)?
+        $(, actions: {
+            $(
+                $action_key:expr => {
+                    binding_id: $binding_id:expr,
+                    handler: $action_handler:expr
+                    $(,)?
+                }
+            ),* $(,)?
+        })?
+        $(,)?
+    ) => {
+        std::thread_local! {
+            static __FREVEN_GUEST_SDK_SESSION_STORE: core::cell::RefCell<
+                $crate::StatefulGuestSessionStore<$state_ty>
+            > = const {
+                core::cell::RefCell::new($crate::StatefulGuestSessionStore::new())
+            };
+        }
+
+        #[doc(hidden)]
+        fn __freven_guest_sdk_stateful_module() -> $crate::StatefulGuestModule<$state_ty> {
+            $crate::stateful_wasm_guest!(
+                @module
+                guest_id: $guest_id,
+                session_factory: $session_factory,
+                session_store: &__FREVEN_GUEST_SDK_SESSION_STORE
+                $(, registration: { $($registration)* })?
+                $(, lifecycle: { $($lifecycle : $lifecycle_handler),* })?
+                $(, client_messages: $client_messages_handler)?
+                $(, server_messages: $server_messages_handler)?
+                $(, actions: {
+                    $(
+                        $action_key => {
+                            binding_id: $binding_id,
+                            handler: $action_handler,
+                        }
+                    ),*
+                })?
+            )
+        }
+
+        $crate::wasm_guest!(
+            @export
+            factory: __freven_guest_sdk_stateful_module
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages_handler])?
+            $(, server_messages: [$server_messages_handler])?
+            $(, actions: [$($action_key),*])?
+        );
+    };
+
+    (
+        @module
+        guest_id: $guest_id:expr,
+        session_factory: $session_factory:expr,
+        session_store: $session_store:expr
+        $(, registration: { $($registration:tt)* })?
+        $(, lifecycle: { $($lifecycle:ident : $lifecycle_handler:expr),* $(,)? })?
+        $(, client_messages: $client_messages_handler:expr)?
+        $(, server_messages: $server_messages_handler:expr)?
+        $(, actions: {
+            $(
+                $action_key:expr => {
+                    binding_id: $binding_id:expr,
+                    handler: $action_handler:expr
+                    $(,)?
+                }
+            ),* $(,)?
+        })?
+        $(,)?
+    ) => {{
+        let module = $crate::StatefulGuestModule::new($guest_id, $session_factory, $session_store);
+        $(
+            let module = $crate::stateful_wasm_guest!(@registration module, $($registration)*);
+        )?
+        $(
+            $(
+                let module = $crate::stateful_wasm_guest!(
+                    @register_lifecycle
+                    module,
+                    $lifecycle,
+                    $lifecycle_handler
+                );
+            )*
+        )?
+        $(
+            let module = module.on_client_messages($client_messages_handler);
+        )?
+        $(
+            let module = module.on_server_messages($server_messages_handler);
+        )?
+        $(
+            $(
+                let module = module.action($action_key, $binding_id, $action_handler);
+            )*
+        )?
+        module
+    }};
+
+    (@register_lifecycle $module:ident, start_client, $handler:expr) => { $module.on_start_client($handler) };
+    (@register_lifecycle $module:ident, start_server, $handler:expr) => { $module.on_start_server($handler) };
+    (@register_lifecycle $module:ident, tick_client, $handler:expr) => { $module.on_tick_client($handler) };
+    (@register_lifecycle $module:ident, tick_server, $handler:expr) => { $module.on_tick_server($handler) };
+
+    (@registration $module:expr) => { $module };
+    (@registration $module:expr,) => { $module };
+    (@registration $module:expr, block: $key:expr => $def:expr $(, $($rest:tt)*)?) => {
+        $crate::stateful_wasm_guest!(@registration $module.register_block($key, $def) $(, $($rest)*)?)
+    };
+    (@registration $module:expr, component: $key:expr => $codec:expr $(, $($rest:tt)*)?) => {
+        $crate::stateful_wasm_guest!(@registration $module.register_component($key, $codec) $(, $($rest)*)?)
+    };
+    (@registration $module:expr, message: $key:expr => $codec:expr $(, $($rest:tt)*)?) => {
+        $crate::stateful_wasm_guest!(@registration $module.register_message($key, $codec) $(, $($rest)*)?)
+    };
+    (@registration $module:expr, worldgen: $key:expr $(, $($rest:tt)*)?) => {
+        $crate::stateful_wasm_guest!(@registration $module.register_worldgen($key) $(, $($rest)*)?)
+    };
+    (@registration $module:expr, character_controller: $key:expr $(, $($rest:tt)*)?) => {
+        $crate::stateful_wasm_guest!(@registration $module.register_character_controller($key) $(, $($rest)*)?)
+    };
+    (@registration $module:expr, client_control_provider: $key:expr $(, $($rest:tt)*)?) => {
+        $crate::stateful_wasm_guest!(@registration $module.register_client_control_provider($key) $(, $($rest)*)?)
+    };
+    (@registration $module:expr, channel: $key:expr => $config:expr $(, $($rest:tt)*)?) => {
+        $crate::stateful_wasm_guest!(@registration $module.register_channel($key, $config) $(, $($rest)*)?)
+    };
+    (@registration $module:expr, capability: $key:expr $(, $($rest:tt)*)?) => {
+        $crate::stateful_wasm_guest!(@registration $module.declare_capability($key) $(, $($rest)*)?)
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2477,6 +3181,10 @@ mod tests {
         }
 
         let input = StartInput {
+            session: RuntimeSessionInfo {
+                id: 7,
+                side: RuntimeSessionSide::Server,
+            },
             experience_id: "freven.test".to_string(),
             mod_id: "freven.test.guest".to_string(),
             config: ModConfigDocument {
@@ -2490,6 +3198,89 @@ mod tests {
             .expect("config_typed should decode TOML");
         assert_eq!(input.config_text(), "motd = \"hello\"");
         assert_eq!(decoded.motd, "hello");
+    }
+
+    #[test]
+    fn stateful_guest_module_rotates_state_by_runtime_session() {
+        #[derive(Debug, Default, PartialEq, Eq)]
+        struct TestState {
+            starts: u32,
+            actions: u32,
+        }
+
+        std::thread_local! {
+            static STORE: RefCell<StatefulGuestSessionStore<TestState>> =
+                const { RefCell::new(StatefulGuestSessionStore::new()) };
+        }
+
+        let module =
+            StatefulGuestModule::new("freven.test.stateful", |_| TestState::default(), &STORE)
+                .on_start_server(|state, ctx| {
+                    assert_eq!(ctx.session().side, RuntimeSessionSide::Server);
+                    state.starts += 1;
+                    LifecycleResponse::default().finish()
+                })
+                .action("freven.test:ping", 3, |state, _| {
+                    state.actions += 1;
+                    ActionResponse::applied().finish()
+                });
+
+        let start = StartInput {
+            session: RuntimeSessionInfo {
+                id: 11,
+                side: RuntimeSessionSide::Server,
+            },
+            experience_id: "freven.test".to_string(),
+            mod_id: "freven.test.stateful".to_string(),
+            config: ModConfigDocument::default(),
+        };
+        let action = ActionInput {
+            binding_id: 3,
+            player_id: 1,
+            level_id: 2,
+            stream_epoch: 4,
+            action_seq: 8,
+            at_input_seq: 16,
+            player_position_m: None,
+            payload: &[],
+        };
+
+        let _ = module.handle_start_server(&start);
+        let _ = module.handle_action(action.clone());
+        let _ = module.handle_action(action.clone());
+        STORE.with(|store| {
+            let state = store.borrow();
+            let current = state.current.as_ref().expect("session should exist");
+            assert_eq!(current.info.id, 11);
+            assert_eq!(
+                current.state,
+                TestState {
+                    starts: 1,
+                    actions: 2
+                }
+            );
+        });
+
+        let next_start = StartInput {
+            session: RuntimeSessionInfo {
+                id: 12,
+                side: RuntimeSessionSide::Server,
+            },
+            ..start
+        };
+        let _ = module.handle_start_server(&next_start);
+        STORE.with(|store| {
+            let state = store.borrow();
+            let current = state.current.as_ref().expect("new session should exist");
+            assert_eq!(current.info.id, 12);
+            assert_eq!(
+                current.state,
+                TestState {
+                    starts: 1,
+                    actions: 0
+                }
+            );
+        });
     }
 
     #[test]

@@ -29,7 +29,6 @@ Host and guest negotiate before any guest callback.
 
 - `NegotiationRequest`
   - `supported_contract_versions: Vec<u32>`
-  - `transport: GuestTransport`
 - `NegotiationResponse`
   - `selected_contract_version: u32`
   - `description: GuestDescription`
@@ -117,6 +116,7 @@ Current hosting policy:
 
 `StartInput` carries:
 
+- `session`
 - `experience_id`
 - `mod_id`
 - `config`
@@ -127,6 +127,7 @@ Contract v1 currently serializes that document as TOML text with an explicit
 
 Runtime/config/experience metadata is carried where it is semantically stable:
 
+- `StartInput.session`
 - `StartInput.experience_id`
 - `StartInput.mod_id`
 - `StartInput.config`
@@ -168,12 +169,30 @@ invent transport-specific truth about reads, messages, or command application.
 
 ## Disable-on-session semantics
 
+`StartInput.session` is the canonical runtime-session identity for one resolved
+guest mod on one hosted side.
+
+A runtime session begins when the host attaches that guest for a side, accepts
+negotiation, assigns the session id, and later delivers the matching
+`start_client` or `start_server` callback.
+
+A runtime session ends when that hosted side unloads, hot-reloads, world-reloads
+through runtime reconstruction, detaches, is reattached as a fresh host session,
+or the hosting process exits. Reconnect by itself is not a semantic session
+boundary unless it rebuilds the hosted guest runtime.
+
+Guest SDKs may keep per-session state, but that state is scoped to the
+`StartInput.session` identity and must be discarded when a new session id is
+started.
+
 If a guest violates the contract or faults during a runtime session:
 
 - that guest is disabled for the remainder of the runtime session
 - further action dispatches to that guest must reject
 - the host must stop routing later lifecycle and message callbacks to that guest for that
   session
+- provider wrappers and other runtime-owned adapters must also stop invoking the
+  guest for that session, even if the wrapper object itself still exists locally
 
 For action callbacks, "faults" include host-side failure to apply the guest's
 declared runtime commands after the `ActionResult` is decoded and validated.

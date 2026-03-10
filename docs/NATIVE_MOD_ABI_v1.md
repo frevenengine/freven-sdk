@@ -7,6 +7,9 @@ The canonical public guest contract is `freven_guest` as documented in
 `GUEST_CONTRACT_v1.md`. Native is a secondary unsafe transport that carries the
 same guest negotiation, declaration, and callback semantics over an in-process native-width ABI.
 
+The native FFI structs in this document are transport ABI types. They are not
+part of the semantic `freven_guest` contract crate.
+
 This is not the recommended public authoring path. Prefer Wasm with
 `freven_guest_sdk` unless you are intentionally doing low-level runtime work on
 trusted local code.
