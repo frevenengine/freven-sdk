@@ -4,6 +4,7 @@
 //! - define experience/mod descriptors used by boot/runtime layers
 //! - expose deterministic registration surfaces (components/messages/worldgen/modnet)
 //! - define stable hook contexts and registration errors
+//! - act as the compile-time facade over the canonical declaration model exposed by `freven_guest`
 //!
 //! Extension guidance:
 //! - add new registries behind stable string keys
@@ -14,6 +15,13 @@ use std::{sync::Arc, time::Duration};
 
 use serde::de::DeserializeOwned;
 
+pub use freven_guest::{
+    CharacterControllerDeclaration, ClientControlProviderDeclaration,
+    GuestCallbacks as ModCallbackModel, GuestRegistration as ModDeclarationModel,
+    LifecycleHooks as LifecycleCallbackModel, MessageHooks as MessageCallbackModel,
+    ModConfigDocument as GuestModConfigDocument, ModConfigFormat as GuestModConfigFormat,
+    WorldGenDeclaration,
+};
 pub use freven_sdk_types::blocks::{BlockDef, BlockRuntimeId, RenderLayer};
 pub use freven_sdk_types::{blocks, voxel};
 

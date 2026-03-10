@@ -7,13 +7,15 @@ use alloc::vec::Vec;
 pub use freven_guest::{
     ActionDeclaration, ActionInput, ActionOutcome, ActionResult, BlockDeclaration,
     CapabilityDeclaration, ChannelBudget, ChannelConfig, ChannelDeclaration, ChannelDirection,
-    ChannelOrdering, ChannelReliability, ClientInboundMessage, ClientMessageInput,
+    ChannelOrdering, ChannelReliability, CharacterControllerDeclaration,
+    ClientControlProviderDeclaration, ClientInboundMessage, ClientMessageInput,
     ClientMessageResult, ClientOutboundMessage, ClientOutboundMessageScope, ComponentCodec,
     ComponentDeclaration, EffectBatch, GUEST_CONTRACT_VERSION_1, GuestCallbacks, GuestDescription,
     GuestRegistration, GuestTransport, LifecycleAck, LifecycleHooks, MessageCodec,
-    MessageDeclaration, MessageHooks, MessageScope, NativeGuestBuffer, NativeGuestInput,
-    NegotiationRequest, NegotiationResponse, ServerInboundMessage, ServerMessageInput,
-    ServerMessageResult, ServerOutboundMessage, StartInput, TickInput, WorldEffect,
+    MessageDeclaration, MessageHooks, MessageScope, ModConfigDocument, ModConfigFormat,
+    NativeGuestBuffer, NativeGuestInput, NegotiationRequest, NegotiationResponse,
+    ServerInboundMessage, ServerMessageInput, ServerMessageResult, ServerOutboundMessage,
+    StartInput, TickInput, WorldEffect, WorldGenDeclaration,
 };
 pub use freven_sdk_types::blocks::{BlockDef, RenderLayer};
 use serde::de::DeserializeOwned;
@@ -29,6 +31,9 @@ pub struct GuestModule {
     blocks: Vec<BlockDeclaration>,
     components: Vec<ComponentDeclaration>,
     messages: Vec<MessageDeclaration>,
+    worldgen: Vec<WorldGenDeclaration>,
+    character_controllers: Vec<CharacterControllerDeclaration>,
+    client_control_providers: Vec<ClientControlProviderDeclaration>,
     channels: Vec<ChannelDeclaration>,
     actions: Vec<GuestAction>,
     capabilities: Vec<CapabilityDeclaration>,
@@ -52,6 +57,9 @@ impl GuestModule {
             blocks: Vec::new(),
             components: Vec::new(),
             messages: Vec::new(),
+            worldgen: Vec::new(),
+            character_controllers: Vec::new(),
+            client_control_providers: Vec::new(),
             channels: Vec::new(),
             actions: Vec::new(),
             capabilities: Vec::new(),
@@ -103,6 +111,51 @@ impl GuestModule {
             key: key.to_string(),
             codec,
         });
+        self
+    }
+
+    #[must_use]
+    pub fn register_worldgen(mut self, key: &'static str) -> Self {
+        assert_unique_key(
+            "worldgen",
+            key,
+            self.worldgen.iter().map(|entry| entry.key.as_str()),
+        );
+        self.worldgen.push(WorldGenDeclaration {
+            key: key.to_string(),
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn register_character_controller(mut self, key: &'static str) -> Self {
+        assert_unique_key(
+            "character_controller",
+            key,
+            self.character_controllers
+                .iter()
+                .map(|entry| entry.key.as_str()),
+        );
+        self.character_controllers
+            .push(CharacterControllerDeclaration {
+                key: key.to_string(),
+            });
+        self
+    }
+
+    #[must_use]
+    pub fn register_client_control_provider(mut self, key: &'static str) -> Self {
+        assert_unique_key(
+            "client_control_provider",
+            key,
+            self.client_control_providers
+                .iter()
+                .map(|entry| entry.key.as_str()),
+        );
+        self.client_control_providers
+            .push(ClientControlProviderDeclaration {
+                key: key.to_string(),
+            });
         self
     }
 
@@ -221,6 +274,9 @@ impl GuestModule {
                 blocks: self.blocks.clone(),
                 components: self.components.clone(),
                 messages: self.messages.clone(),
+                worldgen: self.worldgen.clone(),
+                character_controllers: self.character_controllers.clone(),
+                client_control_providers: self.client_control_providers.clone(),
                 channels: self.channels.clone(),
                 actions: self
                     .actions
@@ -362,6 +418,28 @@ impl<'a> ActionContext<'a> {
         T: DeserializeOwned,
     {
         postcard::from_bytes(self.input.payload)
+    }
+}
+
+pub trait StartInputExt {
+    fn config_text(&self) -> &str;
+    fn config_typed<T>(&self) -> Result<T, toml::de::Error>
+    where
+        T: DeserializeOwned;
+}
+
+impl StartInputExt for StartInput {
+    fn config_text(&self) -> &str {
+        &self.config.text
+    }
+
+    fn config_typed<T>(&self) -> Result<T, toml::de::Error>
+    where
+        T: DeserializeOwned,
+    {
+        match self.config.format {
+            ModConfigFormat::Toml => toml::from_str(&self.config.text),
+        }
     }
 }
 
@@ -1313,6 +1391,15 @@ macro_rules! wasm_guest {
     (@registration $module:expr, message: $key:expr => $codec:expr $(, $($rest:tt)*)?) => {
         $crate::wasm_guest!(@registration $module.register_message($key, $codec) $(, $($rest)*)?)
     };
+    (@registration $module:expr, worldgen: $key:expr $(, $($rest:tt)*)?) => {
+        $crate::wasm_guest!(@registration $module.register_worldgen($key) $(, $($rest)*)?)
+    };
+    (@registration $module:expr, character_controller: $key:expr $(, $($rest:tt)*)?) => {
+        $crate::wasm_guest!(@registration $module.register_character_controller($key) $(, $($rest)*)?)
+    };
+    (@registration $module:expr, client_control_provider: $key:expr $(, $($rest:tt)*)?) => {
+        $crate::wasm_guest!(@registration $module.register_client_control_provider($key) $(, $($rest)*)?)
+    };
     (@registration $module:expr, channel: $key:expr => $config:expr $(, $($rest:tt)*)?) => {
         $crate::wasm_guest!(@registration $module.register_channel($key, $config) $(, $($rest)*)?)
     };
@@ -1348,6 +1435,9 @@ mod tests {
             )
             .register_component("freven.test:name", ComponentCodec::RawBytes)
             .register_message("freven.test:echo", MessageCodec::RawBytes)
+            .register_worldgen("freven.test:flat")
+            .register_character_controller("freven.test:humanoid")
+            .register_client_control_provider("freven.test:controls")
             .register_channel("freven.test:echo", message_channel())
             .declare_capability("max_call_millis")
             .on_start_server(|_| {})
@@ -1383,6 +1473,9 @@ mod tests {
         assert_eq!(description.registration.blocks.len(), 1);
         assert_eq!(description.registration.components.len(), 1);
         assert_eq!(description.registration.messages.len(), 1);
+        assert_eq!(description.registration.worldgen.len(), 1);
+        assert_eq!(description.registration.character_controllers.len(), 1);
+        assert_eq!(description.registration.client_control_providers.len(), 1);
         assert_eq!(description.registration.channels.len(), 1);
         assert_eq!(description.registration.actions.len(), 1);
         assert_eq!(description.registration.capabilities.len(), 1);
@@ -1390,6 +1483,29 @@ mod tests {
         assert!(description.callbacks.lifecycle.tick_server);
         assert!(description.callbacks.action);
         assert!(description.callbacks.messages.server);
+    }
+
+    #[test]
+    fn start_input_ext_decodes_toml_config() {
+        #[derive(serde::Deserialize)]
+        struct TestConfig {
+            motd: String,
+        }
+
+        let input = StartInput {
+            experience_id: "freven.test".to_string(),
+            mod_id: "freven.test.guest".to_string(),
+            config: ModConfigDocument {
+                format: ModConfigFormat::Toml,
+                text: "motd = \"hello\"".to_string(),
+            },
+        };
+
+        let decoded: TestConfig = input
+            .config_typed()
+            .expect("config_typed should decode TOML");
+        assert_eq!(input.config_text(), "motd = \"hello\"");
+        assert_eq!(decoded.motd, "hello");
     }
 
     #[test]

@@ -79,6 +79,9 @@ pub struct GuestRegistration {
     pub blocks: Vec<BlockDeclaration>,
     pub components: Vec<ComponentDeclaration>,
     pub messages: Vec<MessageDeclaration>,
+    pub worldgen: Vec<WorldGenDeclaration>,
+    pub character_controllers: Vec<CharacterControllerDeclaration>,
+    pub client_control_providers: Vec<ClientControlProviderDeclaration>,
     pub channels: Vec<ChannelDeclaration>,
     pub actions: Vec<ActionDeclaration>,
     pub capabilities: Vec<CapabilityDeclaration>,
@@ -127,6 +130,21 @@ pub enum ComponentCodec {
 pub struct MessageDeclaration {
     pub key: String,
     pub codec: MessageCodec,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorldGenDeclaration {
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CharacterControllerDeclaration {
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientControlProviderDeclaration {
+    pub key: String,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -188,8 +206,27 @@ pub struct CapabilityDeclaration {
     pub key: String,
 }
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ModConfigFormat {
+    #[default]
+    Toml,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct StartInput {}
+#[serde(default)]
+pub struct ModConfigDocument {
+    pub format: ModConfigFormat,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct StartInput {
+    pub experience_id: String,
+    pub mod_id: String,
+    pub config: ModConfigDocument,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TickInput {

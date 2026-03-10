@@ -64,6 +64,8 @@ Host behavior:
 - validates `selected_contract_version`
 - validates `GuestDescription.callbacks` against exported Wasm symbols
 - registers `GuestDescription.registration` into the canonical host runtime
+- rejects canonically declared provider families when host execution/policy does
+  not support guest-side provider hosting yet
 - maps runtime action kind to `registration.actions[].binding_id` for callback dispatch
 
 ### Lifecycle inputs and outputs
@@ -71,6 +73,17 @@ Host behavior:
 - `freven_guest_on_start_*` input: `StartInput`
 - `freven_guest_on_tick_*` input: `TickInput`
 - lifecycle output: `LifecycleAck`
+
+`StartInput` includes:
+
+- `experience_id: String`
+- `mod_id: String`
+- `config: ModConfigDocument`
+
+`ModConfigDocument` is currently:
+
+- `format: ModConfigFormat` (`toml`)
+- `text: String`
 
 Lifecycle is intentionally ack-only in guest contract v1. Returning any richer
 lifecycle effect payload is not part of the contract.

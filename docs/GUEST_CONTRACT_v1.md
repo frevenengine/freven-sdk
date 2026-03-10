@@ -47,6 +47,9 @@ Host and guest negotiate before any guest callback.
 - `blocks`
 - `components`
 - `messages`
+- `worldgen`
+- `character_controllers`
+- `client_control_providers`
 - `channels`
 - `actions`
 - `capabilities`
@@ -70,8 +73,20 @@ Registration/callback invariants:
 - `registration.actions` and `callbacks.action` are one family:
   declaring actions requires `callbacks.action = true`
 - `callbacks.action = true` requires at least one declared action
+- provider families (`worldgen`, `character_controllers`,
+  `client_control_providers`) are part of the canonical public declaration
+  model even when a given execution/policy class does not host them yet
 - capability keys must be non-empty
 - declared capability keys must exist in the resolved host capability table
+
+Current hosting policy:
+
+- compile-time/builtin registration hosts all currently implemented declaration
+  families
+- runtime-loaded guest transports may declare provider families canonically, but
+  host policy currently rejects them explicitly because guest factory/runtime
+  hosting for those families does not exist yet
+- this is an execution/policy gate, not a separate public declaration model
 
 ## Action path
 
@@ -96,6 +111,16 @@ Lifecycle calls are currently ack-only.
 
 - Host sends `StartInput` or `TickInput`
 - Guest returns `LifecycleAck`
+
+`StartInput` carries:
+
+- `experience_id`
+- `mod_id`
+- `config`
+
+`config` is the resolved per-mod config document from `experience.config."<mod_id>"`.
+Contract v1 currently serializes that document as TOML text with an explicit
+`ModConfigFormat`.
 
 There is intentionally no lifecycle effect/output channel in contract v1.
 Lifecycle outputs are deferred until the runtime supports a real, honest

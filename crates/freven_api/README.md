@@ -19,6 +19,12 @@ Engine/app/bootstrap wiring does not belong in this crate.
 For runtime-loaded guests, the canonical public contract lives in
 `freven_guest`, not in transport-specific ABI docs.
 
+`freven_api` is the compile-time facade over that same canonical declaration
+model by breadth. Provider families such as worldgen, character controllers,
+and client control providers are no longer compile-time-only secret semantics;
+they exist canonically in `freven_guest` even when a runtime guest execution
+policy still gates hosting for them.
+
 ## Stability and semver stance
 
 - Public runtime/mod contracts are treated as stable API.

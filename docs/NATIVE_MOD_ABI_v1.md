@@ -78,6 +78,9 @@ Returned bytes are postcard-encoded `freven_guest` contract types:
 - `freven_guest_on_server_messages` takes `ServerMessageInput` and returns `ServerMessageResult`
 - lifecycle exports take `StartInput` or `TickInput` and return `LifecycleAck`
 
+`StartInput` carries `experience_id`, `mod_id`, and the resolved per-mod config
+document (`ModConfigDocument`, currently TOML text).
+
 `ActionInput` carries `binding_id`, `player_id`, `level_id`, `stream_epoch`,
 `action_seq`, `at_input_seq`, and opaque payload bytes. Those fields inside the
 postcard payload are the single source of truth for action context.
@@ -98,6 +101,10 @@ Runtime validates and enforces:
 - dual-side lifecycle declarations are allowed; the runtime hosts the active side as a subset for the current session
 - message routing uses the negotiated registration contract:
   inbound delivery only for declared side-appropriate readable channels, outbound sends only for declared side-appropriate writable channels and declared message ids
+- provider-family declarations (`worldgen`, `character_controllers`,
+  `client_control_providers`) are part of the canonical guest model, but native
+  guest execution still rejects them explicitly because guest-side provider
+  hosting is not implemented yet
 
 On decode/validation/contract errors, attach fails.
 On lifecycle, action-call, or message contract faults, runtime disables that guest mod for the
