@@ -47,7 +47,8 @@ Absolute paths, root/prefix components, and parent traversal are rejected during
 ## ABI boundary
 
 Native mods use the same semantic guest contract as Wasm, but not the same
-memory ABI. Native uses explicit in-process FFI structs:
+memory ABI. Native uses explicit in-process FFI structs, and those structs live
+at the transport boundary rather than in the semantic `freven_guest` crate:
 
 - `freven_guest_alloc(size: usize) -> *mut u8`
 - `freven_guest_dealloc(buffer: NativeGuestBuffer)`

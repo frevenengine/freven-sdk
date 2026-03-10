@@ -73,9 +73,12 @@ intentionally need to wire the raw surface yourself.
 - Declarations now cover blocks, components, messages, worldgen,
   character-controllers, client-control-providers, channels, actions, and
   capability keys in one transport-neutral registration model.
-- Guest start callbacks receive `StartInput { experience_id, mod_id, config }`.
+- Guest start callbacks receive `StartInput { session, experience_id, mod_id, config }`.
   `StartInputExt::config_typed::<T>()` decodes the canonical per-mod TOML
   config document for the guest path.
+- `StartInput.session` is the canonical runtime-session identity for that guest
+  instance on one hosted side. Stateful guests should key long-lived state off
+  that session identity instead of ad hoc process statics.
 - Capability declarations are validated honestly by the runtime:
   empty keys fail, and unknown capability keys are rejected against host policy.
 - Provider families use the same canonical declaration model as builtin mods.
@@ -83,7 +86,9 @@ intentionally need to wire the raw surface yourself.
   `client_control_providers`; transports that cannot support a family for a
   given execution/policy class must still declare it canonically and are gated
   explicitly by host policy.
-- Guest-side persistent instance state is not modeled by the SDK today. Use
-  explicit statics only when you fully control the implications.
+- Stateful guest authoring now has an explicit session model through
+  `StatefulGuestModule` / `stateful_wasm_guest!`: the SDK owns a per-runtime-session
+  state slot, reuses it across callbacks in that session, and rotates it when a
+  new `StartInput.session` arrives.
 - Wasm is the primary safe path. Native and external transports remain
   secondary transport integrations with separate operational tradeoffs.
