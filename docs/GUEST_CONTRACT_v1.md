@@ -83,9 +83,11 @@ Current hosting policy:
 
 - compile-time/builtin registration hosts all currently implemented declaration
   families
-- runtime-loaded guest transports may declare provider families canonically, but
-  host policy currently rejects them explicitly because guest factory/runtime
-  hosting for those families does not exist yet
+- Wasm and native guest transports host provider families
+  (`worldgen`, `character_controllers`, `client_control_providers`) through the
+  same canonical registration model used by builtin mods
+- external-process guest execution still policy-gates provider families
+  explicitly because that transport does not yet expose safe provider hosting
 - this is an execution/policy gate, not a separate public declaration model
 
 ## Action path

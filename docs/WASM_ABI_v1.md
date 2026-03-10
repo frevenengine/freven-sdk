@@ -41,6 +41,13 @@ Optional lifecycle exports:
 - `freven_guest_on_start_server(ptr: u32, len: u32) -> u64`
 - `freven_guest_on_tick_client(ptr: u32, len: u32) -> u64`
 - `freven_guest_on_tick_server(ptr: u32, len: u32) -> u64`
+- `freven_guest_generate_worldgen(ptr: u32, len: u32) -> u64`
+  when `callbacks.providers.worldgen = true`
+- `freven_guest_init_character_controller(ptr: u32, len: u32) -> u64` and
+  `freven_guest_step_character_controller(ptr: u32, len: u32) -> u64`
+  when `callbacks.providers.character_controller = true`
+- `freven_guest_sample_client_control_provider(ptr: u32, len: u32) -> u64`
+  when `callbacks.providers.client_control_provider = true`
 
 `freven_guest_negotiate`, lifecycle callbacks, and `freven_guest_handle_action`
 return packed `(ptr, len)` as:
@@ -73,8 +80,8 @@ Host behavior:
 - validates `selected_contract_version`
 - validates `GuestDescription.callbacks` against exported Wasm symbols
 - registers `GuestDescription.registration` into the canonical host runtime
-- rejects canonically declared provider families when host execution/policy does
-  not support guest-side provider hosting yet
+- hosts canonically declared provider families when the current side and policy
+  support them, and rejects them explicitly otherwise
 - maps runtime action kind to `registration.actions[].binding_id` for callback dispatch
 
 ### Lifecycle inputs and outputs

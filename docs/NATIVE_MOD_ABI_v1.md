@@ -34,6 +34,13 @@ A native mod dynamic library must export these symbols:
   when `callbacks.lifecycle.tick_client = true`
 - `freven_guest_on_tick_server(input: NativeGuestInput) -> NativeGuestBuffer`
   when `callbacks.lifecycle.tick_server = true`
+- `freven_guest_generate_worldgen(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.providers.worldgen = true`
+- `freven_guest_init_character_controller(input: NativeGuestInput) -> NativeGuestBuffer`
+  and `freven_guest_step_character_controller(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.providers.character_controller = true`
+- `freven_guest_sample_client_control_provider(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.providers.client_control_provider = true`
 
 FFI structs:
 
@@ -104,9 +111,9 @@ Runtime validates and enforces:
 - message routing uses the negotiated registration contract:
   inbound delivery only for declared side-appropriate readable channels, outbound sends only for declared side-appropriate writable channels and declared message ids
 - provider-family declarations (`worldgen`, `character_controllers`,
-  `client_control_providers`) are part of the canonical guest model, but native
-  guest execution still rejects them explicitly because guest-side provider
-  hosting is not implemented yet
+  `client_control_providers`) are hosted for native guest execution when the
+  active side supports them; unsupported execution/policy classes are rejected
+  explicitly instead of falling back to builtin-only semantics
 
 On decode/validation/contract errors, attach fails.
 On lifecycle, action-call, or message contract faults, runtime disables that

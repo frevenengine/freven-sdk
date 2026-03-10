@@ -8,18 +8,24 @@ use core::cell::RefCell;
 pub use freven_guest::{
     ActionDeclaration, ActionInput, ActionOutcome, ActionResult, BlockDeclaration,
     CapabilityDeclaration, ChannelBudget, ChannelConfig, ChannelDeclaration, ChannelDirection,
-    ChannelOrdering, ChannelReliability, CharacterControllerDeclaration,
-    ClientControlProviderDeclaration, ClientInboundMessage, ClientMessageInput,
-    ClientMessageResult, ClientOutboundMessage, ClientOutboundMessageScope, ComponentCodec,
-    ComponentDeclaration, GUEST_CONTRACT_VERSION_1, GuestCallbacks, GuestDescription,
-    GuestRegistration, GuestTransport, LifecycleHooks, LifecycleResult, MessageCodec,
-    MessageDeclaration, MessageHooks, MessageScope, ModConfigDocument, ModConfigFormat,
-    NativeGuestBuffer, NativeGuestInput, NativeRuntimeBridge, NegotiationRequest,
-    NegotiationResponse, RuntimeCommandOutput, RuntimeEntityTarget, RuntimeLevelRef,
-    RuntimeMessageOutput, RuntimeOutput, RuntimeReadRequest, RuntimeServiceRequest,
-    RuntimeServiceResponse, RuntimeSideRequest, ServerInboundMessage, ServerMessageInput,
-    ServerMessageResult, ServerOutboundMessage, StartInput, TickInput, WorldCommand,
-    WorldGenDeclaration,
+    ChannelOrdering, ChannelReliability, CharacterConfig, CharacterControllerDeclaration,
+    CharacterControllerInitInput, CharacterControllerInitResult, CharacterControllerInput,
+    CharacterControllerStepInput, CharacterControllerStepResult, CharacterShape, CharacterState,
+    ClientControlOutput, ClientControlProviderDeclaration, ClientControlSampleInput,
+    ClientControlSampleResult, ClientInboundMessage, ClientKeyCode, ClientMessageInput,
+    ClientMessageResult, ClientMouseButton, ClientNameplateDrawCmd, ClientOutboundMessage,
+    ClientOutboundMessageScope, ClientPlayerView, ComponentCodec, ComponentDeclaration,
+    GUEST_CONTRACT_VERSION_1, GuestCallbacks, GuestDescription, GuestRegistration, GuestTransport,
+    InputTimeline, KinematicMoveConfig, KinematicMoveResult, LifecycleHooks, LifecycleResult,
+    MessageCodec, MessageDeclaration, MessageHooks, MessageScope, ModConfigDocument,
+    ModConfigFormat, NativeGuestBuffer, NativeGuestInput, NativeRuntimeBridge, NegotiationRequest,
+    NegotiationResponse, ProviderHooks, RuntimeCharacterPhysicsRequest,
+    RuntimeClientControlRequest, RuntimeCommandOutput, RuntimeEntityTarget, RuntimeLevelRef,
+    RuntimeMessageOutput, RuntimeOutput, RuntimePresentationOutput, RuntimeReadRequest,
+    RuntimeServiceRequest, RuntimeServiceResponse, RuntimeSideRequest, ServerInboundMessage,
+    ServerMessageInput, ServerMessageResult, ServerOutboundMessage, StartInput, SweepHit,
+    TickInput, WorldCommand, WorldGenCallInput, WorldGenCallResult, WorldGenDeclaration,
+    WorldGenInit, WorldGenOutput, WorldGenRequest, WorldGenSection,
 };
 pub use freven_sdk_types::blocks::{BlockDef, RenderLayer};
 use serde::de::DeserializeOwned;
@@ -29,6 +35,13 @@ type TickHandler = fn(TickContext<'_>) -> LifecycleResult;
 type ActionHandler = fn(ActionContext<'_>) -> ActionResult;
 type ClientMessageHandler = fn(ClientMessageContext<'_>) -> ClientMessageResponse;
 type ServerMessageHandler = fn(ServerMessageContext<'_>) -> ServerMessageResponse;
+type WorldGenHandler = fn(WorldGenContext<'_>) -> WorldGenCallResult;
+type CharacterControllerInitHandler =
+    fn(CharacterControllerInitContext<'_>) -> CharacterControllerInitResult;
+type CharacterControllerStepHandler =
+    fn(CharacterControllerStepContext<'_>) -> CharacterControllerStepResult;
+type ClientControlProviderHandler =
+    fn(ClientControlProviderContext<'_>) -> ClientControlSampleResult;
 
 thread_local! {
     static NATIVE_RUNTIME_BRIDGE: RefCell<NativeRuntimeBridge> =
@@ -43,6 +56,9 @@ pub struct GuestModule {
     worldgen: Vec<WorldGenDeclaration>,
     character_controllers: Vec<CharacterControllerDeclaration>,
     client_control_providers: Vec<ClientControlProviderDeclaration>,
+    worldgen_handlers: Vec<GuestWorldGen>,
+    character_controller_handlers: Vec<GuestCharacterController>,
+    client_control_provider_handlers: Vec<GuestClientControlProvider>,
     channels: Vec<ChannelDeclaration>,
     actions: Vec<GuestAction>,
     capabilities: Vec<CapabilityDeclaration>,
@@ -69,6 +85,9 @@ impl GuestModule {
             worldgen: Vec::new(),
             character_controllers: Vec::new(),
             client_control_providers: Vec::new(),
+            worldgen_handlers: Vec::new(),
+            character_controller_handlers: Vec::new(),
+            client_control_provider_handlers: Vec::new(),
             channels: Vec::new(),
             actions: Vec::new(),
             capabilities: Vec::new(),
@@ -137,6 +156,17 @@ impl GuestModule {
     }
 
     #[must_use]
+    pub fn register_worldgen_handler(
+        mut self,
+        key: &'static str,
+        handler: WorldGenHandler,
+    ) -> Self {
+        self = self.register_worldgen(key);
+        self.worldgen_handlers.push(GuestWorldGen { key, handler });
+        self
+    }
+
+    #[must_use]
     pub fn register_character_controller(mut self, key: &'static str) -> Self {
         assert_unique_key(
             "character_controller",
@@ -153,6 +183,19 @@ impl GuestModule {
     }
 
     #[must_use]
+    pub fn register_character_controller_handler(
+        mut self,
+        key: &'static str,
+        init: CharacterControllerInitHandler,
+        step: CharacterControllerStepHandler,
+    ) -> Self {
+        self = self.register_character_controller(key);
+        self.character_controller_handlers
+            .push(GuestCharacterController { key, init, step });
+        self
+    }
+
+    #[must_use]
     pub fn register_client_control_provider(mut self, key: &'static str) -> Self {
         assert_unique_key(
             "client_control_provider",
@@ -165,6 +208,18 @@ impl GuestModule {
             .push(ClientControlProviderDeclaration {
                 key: key.to_string(),
             });
+        self
+    }
+
+    #[must_use]
+    pub fn register_client_control_provider_handler(
+        mut self,
+        key: &'static str,
+        handler: ClientControlProviderHandler,
+    ) -> Self {
+        self = self.register_client_control_provider(key);
+        self.client_control_provider_handlers
+            .push(GuestClientControlProvider { key, handler });
         self
     }
 
@@ -272,6 +327,11 @@ impl GuestModule {
                 client: self.on_client_messages.is_some(),
                 server: self.on_server_messages.is_some(),
             },
+            providers: ProviderHooks {
+                worldgen: !self.worldgen_handlers.is_empty(),
+                character_controller: !self.character_controller_handlers.is_empty(),
+                client_control_provider: !self.client_control_provider_handlers.is_empty(),
+            },
         }
     }
 
@@ -357,6 +417,69 @@ impl GuestModule {
         };
         handler(ServerMessageContext { input: &input }).finish()
     }
+
+    #[must_use]
+    pub fn handle_worldgen(&self, input: WorldGenCallInput) -> WorldGenCallResult {
+        let Some(entry) = self
+            .worldgen_handlers
+            .iter()
+            .find(|entry| entry.key == input.key)
+        else {
+            return WorldGenCallResult::default();
+        };
+        (entry.handler)(WorldGenContext { input: &input })
+    }
+
+    #[must_use]
+    pub fn handle_character_controller_init(
+        &self,
+        input: CharacterControllerInitInput,
+    ) -> CharacterControllerInitResult {
+        let Some(entry) = self
+            .character_controller_handlers
+            .iter()
+            .find(|entry| entry.key == input.key)
+        else {
+            panic!("freven_guest_sdk character controller init called for undeclared key");
+        };
+        (entry.init)(CharacterControllerInitContext { input: &input })
+    }
+
+    #[must_use]
+    pub fn handle_character_controller_step(
+        &self,
+        input: CharacterControllerStepInput,
+    ) -> CharacterControllerStepResult {
+        let Some(entry) = self
+            .character_controller_handlers
+            .iter()
+            .find(|entry| entry.key == input.key)
+        else {
+            return CharacterControllerStepResult { state: input.state };
+        };
+        (entry.step)(CharacterControllerStepContext { input: &input })
+    }
+
+    #[must_use]
+    pub fn handle_client_control_provider(
+        &self,
+        input: ClientControlSampleInput,
+    ) -> ClientControlSampleResult {
+        let Some(entry) = self
+            .client_control_provider_handlers
+            .iter()
+            .find(|entry| entry.key == input.key)
+        else {
+            return ClientControlSampleResult {
+                output: ClientControlOutput {
+                    input: Vec::new(),
+                    view_yaw_deg_mdeg: 0,
+                    view_pitch_deg_mdeg: 0,
+                },
+            };
+        };
+        (entry.handler)(ClientControlProviderContext { input: &input })
+    }
 }
 
 fn assert_unique_key<'a>(kind: &str, key: &'static str, existing: impl Iterator<Item = &'a str>) {
@@ -374,6 +497,22 @@ struct GuestAction {
     key: &'static str,
     binding_id: u32,
     handler: ActionHandler,
+}
+
+struct GuestWorldGen {
+    key: &'static str,
+    handler: WorldGenHandler,
+}
+
+struct GuestCharacterController {
+    key: &'static str,
+    init: CharacterControllerInitHandler,
+    step: CharacterControllerStepHandler,
+}
+
+struct GuestClientControlProvider {
+    key: &'static str,
+    handler: ClientControlProviderHandler,
 }
 
 pub struct ActionContext<'a> {
@@ -431,6 +570,105 @@ impl<'a> ActionContext<'a> {
         T: DeserializeOwned,
     {
         postcard::from_bytes(self.input.payload)
+    }
+
+    #[must_use]
+    pub fn services(&self) -> RuntimeServices {
+        RuntimeServices
+    }
+}
+
+pub struct WorldGenContext<'a> {
+    input: &'a WorldGenCallInput,
+}
+
+impl<'a> WorldGenContext<'a> {
+    #[must_use]
+    pub fn input(&self) -> &'a WorldGenCallInput {
+        self.input
+    }
+
+    #[must_use]
+    pub fn key(&self) -> &'a str {
+        &self.input.key
+    }
+
+    #[must_use]
+    pub fn init(&self) -> &'a WorldGenInit {
+        &self.input.init
+    }
+
+    #[must_use]
+    pub fn request(&self) -> &'a WorldGenRequest {
+        &self.input.request
+    }
+}
+
+pub struct CharacterControllerInitContext<'a> {
+    input: &'a CharacterControllerInitInput,
+}
+
+impl<'a> CharacterControllerInitContext<'a> {
+    #[must_use]
+    pub fn input(&self) -> &'a CharacterControllerInitInput {
+        self.input
+    }
+
+    #[must_use]
+    pub fn key(&self) -> &'a str {
+        &self.input.key
+    }
+}
+
+pub struct CharacterControllerStepContext<'a> {
+    input: &'a CharacterControllerStepInput,
+}
+
+impl<'a> CharacterControllerStepContext<'a> {
+    #[must_use]
+    pub fn input(&self) -> &'a CharacterControllerStepInput {
+        self.input
+    }
+
+    #[must_use]
+    pub fn key(&self) -> &'a str {
+        &self.input.key
+    }
+
+    #[must_use]
+    pub fn state(&self) -> CharacterState {
+        self.input.state
+    }
+
+    #[must_use]
+    pub fn controller_input(&self) -> &'a CharacterControllerInput {
+        &self.input.input
+    }
+
+    #[must_use]
+    pub fn dt_millis(&self) -> u32 {
+        self.input.dt_millis
+    }
+
+    #[must_use]
+    pub fn services(&self) -> RuntimeServices {
+        RuntimeServices
+    }
+}
+
+pub struct ClientControlProviderContext<'a> {
+    input: &'a ClientControlSampleInput,
+}
+
+impl<'a> ClientControlProviderContext<'a> {
+    #[must_use]
+    pub fn input(&self) -> &'a ClientControlSampleInput {
+        self.input
+    }
+
+    #[must_use]
+    pub fn key(&self) -> &'a str {
+        &self.input.key
     }
 
     #[must_use]
@@ -575,6 +813,26 @@ impl RuntimeServices {
     }
 
     #[must_use]
+    pub fn client_player_views(self) -> Vec<ClientPlayerView> {
+        match runtime_service_call(RuntimeServiceRequest::Read(
+            RuntimeReadRequest::ClientPlayerViews,
+        )) {
+            RuntimeServiceResponse::ClientPlayerViews(value) => value,
+            _ => Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn client_world_to_screen(self, world_pos_m: (f32, f32, f32)) -> Option<(i32, i32)> {
+        match runtime_service_call(RuntimeServiceRequest::Read(
+            RuntimeReadRequest::ClientWorldToScreen { world_pos_m },
+        )) {
+            RuntimeServiceResponse::ClientWorldToScreen(value) => value,
+            _ => None,
+        }
+    }
+
+    #[must_use]
     pub fn client_active_level(self) -> Option<RuntimeLevelRef> {
         match runtime_service_call(RuntimeServiceRequest::Side(
             RuntimeSideRequest::ClientActiveLevel,
@@ -601,6 +859,146 @@ impl RuntimeServices {
         )) {
             RuntimeServiceResponse::ServerPlayerConnected(value) => value,
             _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn bind_mouse_button(self, button: ClientMouseButton, owner: &str) -> bool {
+        matches!(
+            runtime_service_call(RuntimeServiceRequest::ClientControl(
+                RuntimeClientControlRequest::BindMouseButton {
+                    button,
+                    owner: owner.to_string(),
+                },
+            )),
+            RuntimeServiceResponse::ClientControlBool(true)
+        )
+    }
+
+    #[must_use]
+    pub fn bind_key(self, key: ClientKeyCode, owner: &str) -> bool {
+        matches!(
+            runtime_service_call(RuntimeServiceRequest::ClientControl(
+                RuntimeClientControlRequest::BindKey {
+                    key,
+                    owner: owner.to_string(),
+                },
+            )),
+            RuntimeServiceResponse::ClientControlBool(true)
+        )
+    }
+
+    #[must_use]
+    pub fn mouse_button_down(self, button: ClientMouseButton, owner: &str) -> bool {
+        matches!(
+            runtime_service_call(RuntimeServiceRequest::ClientControl(
+                RuntimeClientControlRequest::MouseButtonDown {
+                    button,
+                    owner: owner.to_string(),
+                },
+            )),
+            RuntimeServiceResponse::ClientControlBool(true)
+        )
+    }
+
+    #[must_use]
+    pub fn key_down(self, key: ClientKeyCode, owner: &str) -> bool {
+        matches!(
+            runtime_service_call(RuntimeServiceRequest::ClientControl(
+                RuntimeClientControlRequest::KeyDown {
+                    key,
+                    owner: owner.to_string(),
+                },
+            )),
+            RuntimeServiceResponse::ClientControlBool(true)
+        )
+    }
+
+    #[must_use]
+    pub fn mouse_delta(self) -> (i32, i32) {
+        match runtime_service_call(RuntimeServiceRequest::ClientControl(
+            RuntimeClientControlRequest::MouseDelta,
+        )) {
+            RuntimeServiceResponse::ClientControlMouseDelta(value) => value,
+            _ => (0, 0),
+        }
+    }
+
+    #[must_use]
+    pub fn cursor_locked(self) -> bool {
+        matches!(
+            runtime_service_call(RuntimeServiceRequest::ClientControl(
+                RuntimeClientControlRequest::CursorLocked,
+            )),
+            RuntimeServiceResponse::ClientControlBool(true)
+        )
+    }
+
+    #[must_use]
+    pub fn view_angles_deg_mdeg(self) -> (i32, i32) {
+        match runtime_service_call(RuntimeServiceRequest::ClientControl(
+            RuntimeClientControlRequest::ViewAnglesDegMdeg,
+        )) {
+            RuntimeServiceResponse::ClientControlViewAnglesDegMdeg(value) => value,
+            _ => (0, 0),
+        }
+    }
+
+    #[must_use]
+    pub fn is_solid_world_collision(self, wx: i32, wy: i32, wz: i32) -> bool {
+        matches!(
+            runtime_service_call(RuntimeServiceRequest::CharacterPhysics(
+                RuntimeCharacterPhysicsRequest::IsSolidWorldCollision { wx, wy, wz },
+            )),
+            RuntimeServiceResponse::CharacterPhysicsIsSolidWorldCollision(true)
+        )
+    }
+
+    #[must_use]
+    pub fn sweep_aabb(self, half_extents: [f32; 3], from: [f32; 3], to: [f32; 3]) -> SweepHit {
+        match runtime_service_call(RuntimeServiceRequest::CharacterPhysics(
+            RuntimeCharacterPhysicsRequest::SweepAabb {
+                half_extents,
+                from,
+                to,
+            },
+        )) {
+            RuntimeServiceResponse::CharacterPhysicsSweepAabb(value) => value,
+            _ => SweepHit {
+                hit: false,
+                toi: 1.0,
+                normal: [0.0, 0.0, 0.0],
+            },
+        }
+    }
+
+    #[must_use]
+    pub fn move_aabb_terrain(
+        self,
+        half_extents: [f32; 3],
+        pos: [f32; 3],
+        motion: [f32; 3],
+        cfg: KinematicMoveConfig,
+    ) -> KinematicMoveResult {
+        match runtime_service_call(RuntimeServiceRequest::CharacterPhysics(
+            RuntimeCharacterPhysicsRequest::MoveAabbTerrain {
+                half_extents,
+                pos,
+                motion,
+                cfg,
+            },
+        )) {
+            RuntimeServiceResponse::CharacterPhysicsMoveAabbTerrain(value) => value,
+            _ => KinematicMoveResult {
+                pos,
+                applied_motion: [0.0, 0.0, 0.0],
+                hit_x: false,
+                hit_y: false,
+                hit_z: false,
+                hit_ground: false,
+                started_overlapping: false,
+                collision_incomplete: true,
+            },
         }
     }
 }
@@ -754,6 +1152,12 @@ impl ClientMessageResponse {
     }
 
     #[must_use]
+    pub fn push_nameplate(mut self, cmd: ClientNameplateDrawCmd) -> Self {
+        self.output.presentation.nameplates.push(cmd);
+        self
+    }
+
+    #[must_use]
     pub fn finish(self) -> ClientMessageResult {
         ClientMessageResult {
             output: self.output,
@@ -816,6 +1220,12 @@ impl ServerMessageResponse {
     }
 
     #[must_use]
+    pub fn push_nameplate(mut self, cmd: ClientNameplateDrawCmd) -> Self {
+        self.output.presentation.nameplates.push(cmd);
+        self
+    }
+
+    #[must_use]
     pub fn finish(self) -> ServerMessageResult {
         ServerMessageResult {
             output: self.output,
@@ -848,6 +1258,12 @@ impl LifecycleResponse {
             block_id,
             expected_old: None,
         });
+        self
+    }
+
+    #[must_use]
+    pub fn push_nameplate(mut self, cmd: ClientNameplateDrawCmd) -> Self {
+        self.output.presentation.nameplates.push(cmd);
         self
     }
 
@@ -996,6 +1412,29 @@ pub mod __private {
             .expect("guest encoding must succeed")
     }
 
+    fn module_worldgen_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+        let input = decode_required_input::<WorldGenCallInput>(input);
+        postcard::to_allocvec(&module.handle_worldgen(input)).expect("guest encoding must succeed")
+    }
+
+    fn module_character_controller_init_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+        let input = decode_required_input::<CharacterControllerInitInput>(input);
+        postcard::to_allocvec(&module.handle_character_controller_init(input))
+            .expect("guest encoding must succeed")
+    }
+
+    fn module_character_controller_step_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+        let input = decode_required_input::<CharacterControllerStepInput>(input);
+        postcard::to_allocvec(&module.handle_character_controller_step(input))
+            .expect("guest encoding must succeed")
+    }
+
+    fn module_client_control_provider_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+        let input = decode_required_input::<ClientControlSampleInput>(input);
+        postcard::to_allocvec(&module.handle_client_control_provider(input))
+            .expect("guest encoding must succeed")
+    }
+
     pub fn wasm_guest_alloc(size: u32) -> u32 {
         let mut buf = Vec::<u8>::with_capacity(size as usize);
         let ptr = buf.as_mut_ptr();
@@ -1061,6 +1500,30 @@ pub mod __private {
     pub fn wasm_guest_server_messages(module: &GuestModule, ptr: u32, len: u32) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
             encode_to_wasm_guest(&module_server_messages_bytes(module, input))
+        })
+    }
+
+    pub fn wasm_guest_worldgen(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+        with_wasm_input_bytes(ptr, len, |input| {
+            encode_to_wasm_guest(&module_worldgen_bytes(module, input))
+        })
+    }
+
+    pub fn wasm_guest_character_controller_init(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+        with_wasm_input_bytes(ptr, len, |input| {
+            encode_to_wasm_guest(&module_character_controller_init_bytes(module, input))
+        })
+    }
+
+    pub fn wasm_guest_character_controller_step(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+        with_wasm_input_bytes(ptr, len, |input| {
+            encode_to_wasm_guest(&module_character_controller_step_bytes(module, input))
+        })
+    }
+
+    pub fn wasm_guest_client_control_provider(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+        with_wasm_input_bytes(ptr, len, |input| {
+            encode_to_wasm_guest(&module_client_control_provider_bytes(module, input))
         })
     }
 
@@ -1168,6 +1631,42 @@ pub mod __private {
         })
     }
 
+    pub fn native_guest_worldgen(
+        module: &GuestModule,
+        input: NativeGuestInput,
+    ) -> NativeGuestBuffer {
+        with_native_input_bytes(input, |input| {
+            encode_to_native_guest(module_worldgen_bytes(module, input))
+        })
+    }
+
+    pub fn native_guest_character_controller_init(
+        module: &GuestModule,
+        input: NativeGuestInput,
+    ) -> NativeGuestBuffer {
+        with_native_input_bytes(input, |input| {
+            encode_to_native_guest(module_character_controller_init_bytes(module, input))
+        })
+    }
+
+    pub fn native_guest_character_controller_step(
+        module: &GuestModule,
+        input: NativeGuestInput,
+    ) -> NativeGuestBuffer {
+        with_native_input_bytes(input, |input| {
+            encode_to_native_guest(module_character_controller_step_bytes(module, input))
+        })
+    }
+
+    pub fn native_guest_client_control_provider(
+        module: &GuestModule,
+        input: NativeGuestInput,
+    ) -> NativeGuestBuffer {
+        with_native_input_bytes(input, |input| {
+            encode_to_native_guest(module_client_control_provider_bytes(module, input))
+        })
+    }
+
     fn decode_default_input<T>(bytes: &[u8]) -> T
     where
         T: Default + serde::de::DeserializeOwned,
@@ -1231,6 +1730,7 @@ pub mod __private {
         lifecycle: LifecycleHooks,
         action: bool,
         messages: MessageHooks,
+        providers: ProviderHooks,
     ) {
         let callbacks = module.description().callbacks;
         assert_eq!(
@@ -1245,6 +1745,10 @@ pub mod __private {
             callbacks.messages, messages,
             "freven_guest_sdk message export surface does not match GuestModule::description()",
         );
+        assert_eq!(
+            callbacks.providers, providers,
+            "freven_guest_sdk provider export surface does not match GuestModule::description()",
+        );
     }
 }
 
@@ -1256,6 +1760,9 @@ macro_rules! export_wasm_guest {
         $(, actions: $actions:tt)?
         $(, client_messages: $client_messages:tt)?
         $(, server_messages: $server_messages:tt)?
+        $(, worldgen: $worldgen:tt)?
+        $(, character_controller: $character_controller:tt)?
+        $(, client_control_provider: $client_control_provider:tt)?
         $(,)?
     ) => {
         #[unsafe(no_mangle)]
@@ -1279,6 +1786,11 @@ macro_rules! export_wasm_guest {
                     client: $crate::export_wasm_guest!(@bool $($client_messages)?),
                     server: $crate::export_wasm_guest!(@bool $($server_messages)?),
                 },
+                $crate::ProviderHooks {
+                    worldgen: $crate::export_wasm_guest!(@bool $($worldgen)?),
+                    character_controller: $crate::export_wasm_guest!(@bool $($character_controller)?),
+                    client_control_provider: $crate::export_wasm_guest!(@bool $($client_control_provider)?),
+                },
             );
             $crate::__private::wasm_guest_negotiate(&module, ptr, len)
         }
@@ -1290,6 +1802,17 @@ macro_rules! export_wasm_guest {
         $crate::export_wasm_guest!(@maybe_export_action $factory, $($actions)?);
         $crate::export_wasm_guest!(@maybe_export_client_messages $factory, $($client_messages)?);
         $crate::export_wasm_guest!(@maybe_export_server_messages $factory, $($server_messages)?);
+        $crate::export_wasm_guest!(@maybe_export_worldgen $factory, $($worldgen)?);
+        $crate::export_wasm_guest!(
+            @maybe_export_character_controller
+            $factory,
+            $($character_controller)?
+        );
+        $crate::export_wasm_guest!(
+            @maybe_export_client_control_provider
+            $factory,
+            $($client_control_provider)?
+        );
     };
 
     (@lifecycle_struct $($hook:ident),*) => {{
@@ -1384,6 +1907,45 @@ macro_rules! export_wasm_guest {
     (@maybe_export_server_messages $factory:path,) => {};
     (@maybe_export_server_messages $factory:path, false) => {};
     (@maybe_export_server_messages $factory:path) => {};
+
+    (@maybe_export_worldgen $factory:path, true) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_generate_worldgen(ptr: u32, len: u32) -> u64 {
+            let module = $factory();
+            $crate::__private::wasm_guest_worldgen(&module, ptr, len)
+        }
+    };
+    (@maybe_export_worldgen $factory:path, false) => {};
+    (@maybe_export_worldgen $factory:path,) => {};
+    (@maybe_export_worldgen $factory:path) => {};
+
+    (@maybe_export_character_controller $factory:path, true) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_init_character_controller(ptr: u32, len: u32) -> u64 {
+            let module = $factory();
+            $crate::__private::wasm_guest_character_controller_init(&module, ptr, len)
+        }
+
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_step_character_controller(ptr: u32, len: u32) -> u64 {
+            let module = $factory();
+            $crate::__private::wasm_guest_character_controller_step(&module, ptr, len)
+        }
+    };
+    (@maybe_export_character_controller $factory:path, false) => {};
+    (@maybe_export_character_controller $factory:path,) => {};
+    (@maybe_export_character_controller $factory:path) => {};
+
+    (@maybe_export_client_control_provider $factory:path, true) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_sample_client_control_provider(ptr: u32, len: u32) -> u64 {
+            let module = $factory();
+            $crate::__private::wasm_guest_client_control_provider(&module, ptr, len)
+        }
+    };
+    (@maybe_export_client_control_provider $factory:path, false) => {};
+    (@maybe_export_client_control_provider $factory:path,) => {};
+    (@maybe_export_client_control_provider $factory:path) => {};
 }
 
 #[macro_export]
@@ -1394,6 +1956,9 @@ macro_rules! export_native_guest {
         $(, actions: $actions:tt)?
         $(, client_messages: $client_messages:tt)?
         $(, server_messages: $server_messages:tt)?
+        $(, worldgen: $worldgen:tt)?
+        $(, character_controller: $character_controller:tt)?
+        $(, client_control_provider: $client_control_provider:tt)?
         $(,)?
     ) => {
         #[unsafe(no_mangle)]
@@ -1426,6 +1991,11 @@ macro_rules! export_native_guest {
                     client: $crate::export_native_guest!(@bool $($client_messages)?),
                     server: $crate::export_native_guest!(@bool $($server_messages)?),
                 },
+                $crate::ProviderHooks {
+                    worldgen: $crate::export_native_guest!(@bool $($worldgen)?),
+                    character_controller: $crate::export_native_guest!(@bool $($character_controller)?),
+                    client_control_provider: $crate::export_native_guest!(@bool $($client_control_provider)?),
+                },
             );
             $crate::__private::native_guest_negotiate(&module, input)
         }
@@ -1437,6 +2007,17 @@ macro_rules! export_native_guest {
         $crate::export_native_guest!(@maybe_export_action $factory, $($actions)?);
         $crate::export_native_guest!(@maybe_export_client_messages $factory, $($client_messages)?);
         $crate::export_native_guest!(@maybe_export_server_messages $factory, $($server_messages)?);
+        $crate::export_native_guest!(@maybe_export_worldgen $factory, $($worldgen)?);
+        $crate::export_native_guest!(
+            @maybe_export_character_controller
+            $factory,
+            $($character_controller)?
+        );
+        $crate::export_native_guest!(
+            @maybe_export_client_control_provider
+            $factory,
+            $($client_control_provider)?
+        );
     };
 
     (@lifecycle_struct $($hook:ident),*) => {{
@@ -1545,6 +2126,53 @@ macro_rules! export_native_guest {
     (@maybe_export_server_messages $factory:path,) => {};
     (@maybe_export_server_messages $factory:path, false) => {};
     (@maybe_export_server_messages $factory:path) => {};
+
+    (@maybe_export_worldgen $factory:path, true) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_generate_worldgen(
+            input: $crate::NativeGuestInput,
+        ) -> $crate::NativeGuestBuffer {
+            let module = $factory();
+            $crate::__private::native_guest_worldgen(&module, input)
+        }
+    };
+    (@maybe_export_worldgen $factory:path, false) => {};
+    (@maybe_export_worldgen $factory:path,) => {};
+    (@maybe_export_worldgen $factory:path) => {};
+
+    (@maybe_export_character_controller $factory:path, true) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_init_character_controller(
+            input: $crate::NativeGuestInput,
+        ) -> $crate::NativeGuestBuffer {
+            let module = $factory();
+            $crate::__private::native_guest_character_controller_init(&module, input)
+        }
+
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_step_character_controller(
+            input: $crate::NativeGuestInput,
+        ) -> $crate::NativeGuestBuffer {
+            let module = $factory();
+            $crate::__private::native_guest_character_controller_step(&module, input)
+        }
+    };
+    (@maybe_export_character_controller $factory:path, false) => {};
+    (@maybe_export_character_controller $factory:path,) => {};
+    (@maybe_export_character_controller $factory:path) => {};
+
+    (@maybe_export_client_control_provider $factory:path, true) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_sample_client_control_provider(
+            input: $crate::NativeGuestInput,
+        ) -> $crate::NativeGuestBuffer {
+            let module = $factory();
+            $crate::__private::native_guest_client_control_provider(&module, input)
+        }
+    };
+    (@maybe_export_client_control_provider $factory:path, false) => {};
+    (@maybe_export_client_control_provider $factory:path,) => {};
+    (@maybe_export_client_control_provider $factory:path) => {};
 }
 
 #[macro_export]
@@ -1980,6 +2608,7 @@ mod tests {
                 client: false,
                 server: true,
             },
+            ProviderHooks::default(),
         );
     }
 
@@ -1994,6 +2623,7 @@ mod tests {
                 client: false,
                 server: true,
             },
+            ProviderHooks::default(),
         );
     }
 
@@ -2012,6 +2642,7 @@ mod tests {
                 client: false,
                 server: true,
             },
+            ProviderHooks::default(),
         );
     }
 
@@ -2030,6 +2661,7 @@ mod tests {
                 client: false,
                 server: false,
             },
+            ProviderHooks::default(),
         );
     }
 

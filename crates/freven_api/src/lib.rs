@@ -17,12 +17,15 @@ use serde::de::DeserializeOwned;
 
 pub use freven_guest::{
     CharacterControllerDeclaration, ClientControlProviderDeclaration,
-    GuestCallbacks as ModCallbackModel, GuestRegistration as ModDeclarationModel,
-    LifecycleHooks as LifecycleCallbackModel, MessageHooks as MessageCallbackModel,
-    ModConfigDocument as GuestModConfigDocument, ModConfigFormat as GuestModConfigFormat,
-    RuntimeCommandOutput, RuntimeEntityTarget, RuntimeLevelRef, RuntimeOutput, RuntimeReadRequest,
-    RuntimeServiceRequest, RuntimeServiceResponse, RuntimeSideRequest, WorldCommand,
-    WorldGenDeclaration,
+    ClientNameplateDrawCmd as GuestClientNameplateDrawCmd,
+    ClientPlayerView as GuestClientPlayerView, GuestCallbacks as ModCallbackModel,
+    GuestRegistration as ModDeclarationModel, LifecycleHooks as LifecycleCallbackModel,
+    MessageHooks as MessageCallbackModel, ModConfigDocument as GuestModConfigDocument,
+    ModConfigFormat as GuestModConfigFormat, ProviderHooks as ProviderCallbackModel,
+    RuntimeCharacterPhysicsRequest, RuntimeClientControlRequest, RuntimeCommandOutput,
+    RuntimeEntityTarget, RuntimeLevelRef, RuntimeOutput, RuntimePresentationOutput,
+    RuntimeReadRequest, RuntimeServiceRequest, RuntimeServiceResponse, RuntimeSideRequest,
+    WorldCommand, WorldGenDeclaration,
 };
 pub use freven_sdk_types::blocks::{BlockDef, BlockRuntimeId, RenderLayer};
 pub use freven_sdk_types::{blocks, voxel};
@@ -325,25 +328,33 @@ impl<'a> ModContext<'a> {
     pub fn register_worldgen(
         &mut self,
         key: &str,
-        factory: WorldGenFactory,
+        factory: impl Fn(WorldGenInit) -> Box<dyn WorldGenProvider> + Send + Sync + 'static,
     ) -> Result<WorldGenId, ModRegistrationError> {
-        self.backend.register_worldgen(key, factory)
+        self.backend.register_worldgen(key, Arc::new(factory))
     }
 
     pub fn register_character_controller(
         &mut self,
         key: &str,
-        factory: CharacterControllerFactory,
+        factory: impl Fn(CharacterControllerInit) -> Box<dyn CharacterController>
+        + Send
+        + Sync
+        + 'static,
     ) -> Result<CharacterControllerId, ModRegistrationError> {
-        self.backend.register_character_controller(key, factory)
+        self.backend
+            .register_character_controller(key, Arc::new(factory))
     }
 
     pub fn register_client_control_provider(
         &mut self,
         key: &str,
-        factory: ClientControlProviderFactory,
+        factory: impl Fn(ClientControlProviderInit) -> Box<dyn ClientControlProvider>
+        + Send
+        + Sync
+        + 'static,
     ) -> Result<ClientControlProviderId, ModRegistrationError> {
-        self.backend.register_client_control_provider(key, factory)
+        self.backend
+            .register_client_control_provider(key, Arc::new(factory))
     }
 
     pub fn register_channel(
@@ -545,6 +556,19 @@ pub trait Services {
             Ok(())
         } else {
             Err(RuntimeOutputApplyError::UnsupportedFamily { family: "commands" })
+        }
+    }
+
+    fn apply_guest_runtime_presentation(
+        &mut self,
+        presentation: &RuntimePresentationOutput,
+    ) -> Result<(), RuntimeOutputApplyError> {
+        if presentation.is_empty() {
+            Ok(())
+        } else {
+            Err(RuntimeOutputApplyError::UnsupportedFamily {
+                family: "presentation",
+            })
         }
     }
 }
@@ -1138,7 +1162,7 @@ impl WorldGenInit {
 }
 
 /// Worldgen provider factory. One provider instance can be created per world/session.
-pub type WorldGenFactory = fn(WorldGenInit) -> Box<dyn WorldGenProvider>;
+pub type WorldGenFactory = Arc<dyn Fn(WorldGenInit) -> Box<dyn WorldGenProvider> + Send + Sync>;
 
 /// Minimal worldgen request contract placeholder.
 #[derive(Debug, Default, Clone)]
@@ -1398,11 +1422,12 @@ pub trait CharacterController: Send + Sync {
 pub struct CharacterControllerInit {}
 
 /// Character controller factory.
-pub type CharacterControllerFactory = fn(CharacterControllerInit) -> Box<dyn CharacterController>;
+pub type CharacterControllerFactory =
+    Arc<dyn Fn(CharacterControllerInit) -> Box<dyn CharacterController> + Send + Sync>;
 
 /// Client control provider factory.
 pub type ClientControlProviderFactory =
-    fn(ClientControlProviderInit) -> Box<dyn ClientControlProvider>;
+    Arc<dyn Fn(ClientControlProviderInit) -> Box<dyn ClientControlProvider> + Send + Sync>;
 
 /// Channel reliability policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

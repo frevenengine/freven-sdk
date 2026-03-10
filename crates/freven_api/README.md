@@ -22,8 +22,8 @@ For runtime-loaded guests, the canonical public contract lives in
 `freven_api` is the compile-time facade over that same canonical declaration
 model by breadth. Provider families such as worldgen, character controllers,
 and client control providers are no longer compile-time-only secret semantics;
-they exist canonically in `freven_guest` even when a runtime guest execution
-policy still gates hosting for them.
+they exist canonically in `freven_guest`, and runtime guest execution either
+hosts them through the same model or gates them explicitly by policy.
 
 ## Stability and semver stance
 
