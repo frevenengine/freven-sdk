@@ -12,9 +12,10 @@ recommended getting-started path.
 
 ## Scope
 
-- Supports negotiation, declaration registration, lifecycle callbacks, side-specific message callbacks, and action handling over Wasm
-  ptr/len calls.
-- Host runs modules with no WASI and no host imports by default.
+- Supports negotiation, declaration registration, lifecycle callbacks,
+  side-specific message callbacks, action handling, and runtime-service calls
+  over Wasm ptr/len calls.
+- Host runs modules with no WASI.
 - `[capabilities]` in `mod.toml` is enforced by runtime with a strict allowlist.
 
 ## Required exports
@@ -49,6 +50,14 @@ return packed `(ptr, len)` as:
 The host copies returned bytes from guest memory and then calls
 `freven_guest_dealloc(ptr, len)`.
 
+Optional runtime-service import:
+
+- `env::freven_guest_host_service_call(req_ptr, req_len, resp_ptr, resp_cap) -> u32`
+- request/response payloads are postcard-encoded `RuntimeServiceRequest` /
+  `RuntimeServiceResponse`
+- host returns `u32::MAX` when the current host context does not expose runtime
+  services
+
 ## Encoding
 
 ABI payloads are `postcard` encoded values from `freven_guest`.
@@ -72,7 +81,7 @@ Host behavior:
 
 - `freven_guest_on_start_*` input: `StartInput`
 - `freven_guest_on_tick_*` input: `TickInput`
-- lifecycle output: `LifecycleAck`
+- lifecycle output: `LifecycleResult`
 
 `StartInput` includes:
 
@@ -85,8 +94,8 @@ Host behavior:
 - `format: ModConfigFormat` (`toml`)
 - `text: String`
 
-Lifecycle is intentionally ack-only in guest contract v1. Returning any richer
-lifecycle effect payload is not part of the contract.
+Lifecycle now uses the same canonical runtime-output model as actions and
+message callbacks through `LifecycleResult.output`.
 
 ### Action input (`freven_guest_handle_action` input bytes)
 
@@ -114,23 +123,26 @@ lifecycle effect payload is not part of the contract.
 `ActionResult`:
 
 - `outcome: ActionOutcome` (`applied` or `rejected`)
-- `effects: EffectBatch`
-
-`WorldEffect` is a `postcard`-encoded Rust enum carried inside
-`EffectBatch.world`.
+- `output: RuntimeOutput`
 
 ABI rule: enum variant order is ABI-significant.
 - Do NOT reorder variants.
 - Do NOT rename variants expecting any effect on binary encoding.
 - Only append new variants at the end.
 
-Currently supported variants:
+Current command family:
 
-- `SetBlock { pos: (i32, i32, i32), block_id: u8 }`
+- `RuntimeCommandOutput.world`
+- `WorldCommand::SetBlock { pos, block_id, expected_old }`
 
-Host applies `SetBlock` effects through server world-edit APIs. Any
+Current message families:
+
+- `RuntimeMessageOutput.client`
+- `RuntimeMessageOutput.server`
+
+Host applies runtime commands through authoritative host services. Any
 decode/trap/validation/apply failure disables that guest for the runtime
-session and the action rejects.
+session.
 
 ## Capability policy (implemented in `freven_runtime_wasm`)
 
@@ -151,7 +163,7 @@ Current host policy maxima/defaults:
 - `max_negotiation_bytes`: `64 KiB`
 - `max_result_bytes`: `256 KiB`
 - `max_input_payload_bytes`: `64 KiB`
-- `max_world_effects` per action result: `128`
+- `max_world_commands` per guest callback result: `128`
 
 Capabilities may tighten selected limits (`max_call_millis`, `max_linear_memory_bytes`) but cannot raise limits above policy maxima.
 
@@ -160,7 +172,7 @@ Capabilities may tighten selected limits (`max_call_millis`, `max_linear_memory_
 - No WASI.
 - No filesystem access.
 - No network access.
-- No host function imports.
+- No host function imports beyond the explicit runtime-service bridge when used.
 
 Only required guest exports are invoked.
 
@@ -172,7 +184,7 @@ Common limits include:
 - maximum call time budget
 - maximum linear memory usage
 - maximum input payload bytes accepted from runtime to guest
-- maximum output bytes for negotiation, lifecycle, and action result payloads
+- maximum output bytes for negotiation, lifecycle, message, and action payloads
 
 Guest modules must return packed `(ptr, len)` ranges that are valid and within
 host-configured size limits. If a call exceeds limits or violates the contract,

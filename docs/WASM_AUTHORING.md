@@ -26,10 +26,12 @@ The canonical guest lifecycle today is:
 - `on_server_messages`
 - action handling through one action entrypoint plus declared bindings
 
-Current contract limits:
+Current contract shape:
 
-- lifecycle hooks are ack-only in guest contract v1
-- lifecycle callbacks do not return effect batches yet
+- lifecycle hooks return `LifecycleResult`
+- action callbacks return `ActionResult`
+- message callbacks return `ClientMessageResult` / `ServerMessageResult`
+- all three callback families emit the same `RuntimeOutput` families
 - `on_start_common` is not part of the runtime-loaded guest contract
 
 Those boundaries are intentional. The SDK does not pretend lifecycle output or
@@ -79,7 +81,7 @@ What stays explicit:
 - declared lifecycle hooks
 - declared action bindings
 - exported Wasm capability surface generated from that same declaration
-- canonical action result semantics and world effects
+- canonical runtime output semantics and authoritative world commands
 
 `wasm_guest!` is intentionally declarative rather than magical. The lifecycle
 hooks and action bindings you write are the same data used to build the
@@ -110,13 +112,14 @@ not the recommended public authoring path.
 - `decode_payload::<T>()`
 
 Use `ActionResponse::applied()` or `ActionResponse::rejected()` to surface the
-canonical outcome, then attach effects such as `.set_block(...)`.
+canonical outcome, then attach runtime output such as `.set_block(...)` or
+message sends.
 
 Two SDK hardening rules matter here:
 
 - `ActionResponse::rejected()` is terminal at the API level:
   the rejected response builder can be finished, but it does not expose
-  world-effect builder methods.
+  authoritative-command builder methods.
 - Action callbacks require a real decoded `ActionInput`; empty or malformed
   action payload bytes are not silently synthesized by the SDK.
   In practice this means a contract / transport / host-delivery violation on
@@ -135,6 +138,18 @@ The config document is the resolved per-mod `experience.config."<mod_id>"`
 table serialized as TOML text. `freven_guest_sdk::StartInputExt` exposes
 `config_text()` and `config_typed::<T>()` helpers so guest authors can read the
 same per-mod config semantics compile-time mods already had.
+
+## Runtime services
+
+`freven_guest_sdk` exposes `RuntimeServices` for runtime-loaded guests:
+
+- reads: `block_world`, `player_position`, `player_display_name`,
+  `player_entity_id`, `entity_component_bytes`
+- side-specific facilities: `client_active_level`, `client_next_input_seq`,
+  `server_player_connected`
+
+These calls are semantic runtime services. They are not ad-hoc callback hacks
+and they are not encoded as fake action results.
 
 ## Transport guidance
 

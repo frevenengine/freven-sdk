@@ -7,6 +7,7 @@
 extern crate alloc;
 
 use alloc::{string::String, vec::Vec};
+use core::ffi::c_void;
 use freven_sdk_types::blocks::BlockDef;
 use serde::{Deserialize, Serialize};
 
@@ -50,6 +51,31 @@ impl NativeGuestBuffer {
         Self {
             ptr: core::ptr::null_mut(),
             len: 0,
+        }
+    }
+}
+
+pub type NativeRuntimeServiceCall = unsafe extern "C" fn(
+    ctx: *mut c_void,
+    req_ptr: *const u8,
+    req_len: usize,
+    resp_ptr: *mut u8,
+    resp_cap: usize,
+) -> usize;
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct NativeRuntimeBridge {
+    pub ctx: *mut c_void,
+    pub call: Option<NativeRuntimeServiceCall>,
+}
+
+impl NativeRuntimeBridge {
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            ctx: core::ptr::null_mut(),
+            call: None,
         }
     }
 }
@@ -262,24 +288,27 @@ pub struct ServerMessageInput {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct LifecycleAck {}
+#[serde(default)]
+pub struct LifecycleResult {
+    pub output: RuntimeOutput,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ActionResult {
     pub outcome: ActionOutcome,
-    pub effects: EffectBatch,
+    pub output: RuntimeOutput,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct ClientMessageResult {
-    pub outbound: Vec<ClientOutboundMessage>,
+    pub output: RuntimeOutput,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct ServerMessageResult {
-    pub outbound: Vec<ServerOutboundMessage>,
+    pub output: RuntimeOutput,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -291,11 +320,39 @@ pub enum ActionOutcome {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
-pub struct EffectBatch {
-    pub world: Vec<WorldEffect>,
+pub struct RuntimeOutput {
+    pub messages: RuntimeMessageOutput,
+    pub commands: RuntimeCommandOutput,
 }
 
-impl EffectBatch {
+impl RuntimeOutput {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.messages.is_empty() && self.commands.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct RuntimeMessageOutput {
+    pub client: Vec<ClientOutboundMessage>,
+    pub server: Vec<ServerOutboundMessage>,
+}
+
+impl RuntimeMessageOutput {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.client.is_empty() && self.server.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct RuntimeCommandOutput {
+    pub world: Vec<WorldCommand>,
+}
+
+impl RuntimeCommandOutput {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.world.is_empty()
@@ -303,8 +360,12 @@ impl EffectBatch {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum WorldEffect {
-    SetBlock { pos: (i32, i32, i32), block_id: u8 },
+pub enum WorldCommand {
+    SetBlock {
+        pos: (i32, i32, i32),
+        block_id: u8,
+        expected_old: Option<u8>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -357,4 +418,62 @@ pub enum MessageScope {
 pub enum ClientOutboundMessageScope {
     Global,
     ActiveLevel,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RuntimeLevelRef {
+    pub level_id: u32,
+    pub stream_epoch: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RuntimeEntityTarget {
+    Player { player_id: u64 },
+    Entity { entity_id: u32 },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RuntimeReadRequest {
+    WorldBlock {
+        pos: (i32, i32, i32),
+    },
+    PlayerPosition {
+        player_id: u64,
+    },
+    PlayerDisplayName {
+        player_id: u64,
+    },
+    PlayerEntityId {
+        player_id: u64,
+    },
+    EntityComponentBytes {
+        entity: RuntimeEntityTarget,
+        component_key: String,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RuntimeSideRequest {
+    ClientActiveLevel,
+    ClientNextInputSeq,
+    ServerPlayerConnected { player_id: u64 },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RuntimeServiceRequest {
+    Read(RuntimeReadRequest),
+    Side(RuntimeSideRequest),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum RuntimeServiceResponse {
+    WorldBlock(Option<u8>),
+    PlayerPosition(Option<[f32; 3]>),
+    PlayerDisplayName(Option<String>),
+    PlayerEntityId(Option<u32>),
+    EntityComponentBytes(Option<Vec<u8>>),
+    ClientActiveLevel(Option<RuntimeLevelRef>),
+    ClientNextInputSeq(Option<u32>),
+    ServerPlayerConnected(Option<bool>),
+    Unsupported,
 }

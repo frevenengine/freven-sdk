@@ -67,10 +67,14 @@ Non-null zero-length buffers are invalid.
 
 `freven_guest_negotiate` returns postcard bytes for `NegotiationResponse`.
 `freven_guest_handle_action` returns postcard bytes for `ActionResult`.
-Lifecycle exports return postcard bytes for `LifecycleAck`.
+Lifecycle exports return postcard bytes for `LifecycleResult`.
 Action input bytes passed to `freven_guest_handle_action` are postcard
 `ActionInput`, which is the only authority for action binding and runtime
 action context.
+
+Native guests may also expose `freven_guest_set_native_runtime_bridge(...)` to
+receive canonical runtime service requests during lifecycle, action, or message
+callbacks.
 
 For non-empty input, the host allocates guest-owned input buffers with
 `freven_guest_alloc`, passes them by `NativeGuestInput`, and releases them with
