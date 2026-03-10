@@ -18,16 +18,16 @@ pub use freven_guest::{
     ClientMessageResult, ClientMouseButton, ClientNameplateDrawCmd, ClientOutboundMessage,
     ClientOutboundMessageScope, ClientPlayerView, ComponentCodec, ComponentDeclaration,
     GUEST_CONTRACT_VERSION_1, GuestCallbacks, GuestDescription, GuestRegistration, InputTimeline,
-    KinematicMoveConfig, KinematicMoveResult, LifecycleHooks, LifecycleResult, MessageCodec,
-    MessageDeclaration, MessageHooks, MessageScope, ModConfigDocument, ModConfigFormat,
-    NegotiationRequest, NegotiationResponse, ProviderHooks, RuntimeCharacterPhysicsRequest,
-    RuntimeClientControlRequest, RuntimeCommandOutput, RuntimeEntityTarget, RuntimeLevelRef,
-    RuntimeMessageOutput, RuntimeOutput, RuntimePresentationOutput, RuntimeReadRequest,
-    RuntimeServiceRequest, RuntimeServiceResponse, RuntimeSessionInfo, RuntimeSessionSide,
-    RuntimeSideRequest, ServerInboundMessage, ServerMessageInput, ServerMessageResult,
-    ServerOutboundMessage, StartInput, SweepHit, TickInput, WorldCommand, WorldGenCallInput,
-    WorldGenCallResult, WorldGenDeclaration, WorldGenInit, WorldGenOutput, WorldGenRequest,
-    WorldGenSection,
+    KinematicMoveConfig, KinematicMoveResult, LifecycleHooks, LifecycleResult, LogLevel,
+    LogPayload, MessageCodec, MessageDeclaration, MessageHooks, MessageScope, ModConfigDocument,
+    ModConfigFormat, NegotiationRequest, NegotiationResponse, ProviderHooks,
+    RuntimeCharacterPhysicsRequest, RuntimeClientControlRequest, RuntimeCommandOutput,
+    RuntimeEntityTarget, RuntimeLevelRef, RuntimeMessageOutput, RuntimeObservabilityRequest,
+    RuntimeOutput, RuntimePresentationOutput, RuntimeReadRequest, RuntimeServiceRequest,
+    RuntimeServiceResponse, RuntimeSessionInfo, RuntimeSessionSide, RuntimeSideRequest,
+    ServerInboundMessage, ServerMessageInput, ServerMessageResult, ServerOutboundMessage,
+    StartInput, SweepHit, TickInput, WorldCommand, WorldGenCallInput, WorldGenCallResult,
+    WorldGenDeclaration, WorldGenInit, WorldGenOutput, WorldGenRequest, WorldGenSection,
 };
 pub use freven_sdk_types::blocks::{BlockDef, RenderLayer};
 use serde::de::DeserializeOwned;
@@ -1302,6 +1302,15 @@ impl StartInputExt for StartInput {
 pub struct RuntimeServices;
 
 impl RuntimeServices {
+    pub fn log(self, level: LogLevel, message: impl Into<String>) {
+        let _ = runtime_service_call(RuntimeServiceRequest::Observability(
+            RuntimeObservabilityRequest::Log(LogPayload {
+                level,
+                message: message.into(),
+            }),
+        ));
+    }
+
     #[must_use]
     pub fn block_world(self, pos: (i32, i32, i32)) -> Option<u8> {
         match runtime_service_call(RuntimeServiceRequest::Read(
