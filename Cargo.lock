@@ -30,17 +30,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
-name = "freven_api"
-version = "0.1.0"
-dependencies = [
- "freven_guest",
- "freven_sdk_types",
- "serde",
- "thiserror",
- "toml",
-]
-
-[[package]]
 name = "freven_guest"
 version = "0.1.0"
 dependencies = [
@@ -60,6 +49,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "freven_mod_api"
+version = "0.1.0"
+dependencies = [
+ "freven_guest",
+ "freven_sdk_types",
+ "serde",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
 name = "freven_sdk_types"
 version = "0.1.0"
 dependencies = [
@@ -70,7 +70,7 @@ dependencies = [
 name = "freven_std"
 version = "0.1.0"
 dependencies = [
- "freven_api",
+ "freven_mod_api",
  "thiserror",
 ]
 

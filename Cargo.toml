@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/freven_api",
+    "crates/freven_mod_api",
     "crates/freven_guest",
     "crates/freven_guest_sdk",
     "crates/freven_sdk_types",

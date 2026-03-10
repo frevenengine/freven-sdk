@@ -64,8 +64,8 @@ intentionally need to wire the raw surface yourself.
   empty or malformed action payload bytes are not silently synthesized by the
   SDK. On the runtime path, that becomes a contract / transport / host-delivery
   fault for the guest call rather than a fabricated placeholder input.
-- Runtime messaging is a dedicated callback family on both sides
-  (`on_client_messages`, `on_server_messages`) rather than being stuffed into lifecycle or actions.
+- Runtime messaging is a dedicated callback family on both sides rather than
+  being stuffed into lifecycle or actions.
 - Runtime-loaded guests use explicit runtime services for reads and side-specific
   facilities rather than callback-specific hacks.
 - Runtime delivery is contract-checked symmetrically:

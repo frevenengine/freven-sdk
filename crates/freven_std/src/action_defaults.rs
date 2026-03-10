@@ -1,4 +1,4 @@
-use freven_api::ActionKindId;
+use freven_mod_api::ActionKindId;
 
 /// Default action registration keys used by the standard break/place mechanics.
 pub mod action_keys {

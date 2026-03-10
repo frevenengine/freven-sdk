@@ -6,6 +6,9 @@ Most mod authors should consume this contract through `freven_guest_sdk`.
 Writing directly against `freven_guest` is mainly for low-level transport work,
 fixtures, and runtime validation.
 
+Builtin / compile-time authoring uses `freven_mod_api`, which is a facade over
+the same semantic registration and runtime-output model.
+
 ## Scope
 
 - Semantic contract only.
@@ -80,8 +83,8 @@ Registration/callback invariants:
 
 Current hosting policy:
 
-- compile-time/builtin registration hosts all currently implemented declaration
-  families
+- builtin / compile-time authoring through `freven_mod_api` hosts all currently
+  implemented declaration families
 - Wasm, native, and external guest transports host provider families
   (`worldgen`, `character_controllers`, `client_control_providers`) through the
   same canonical registration model used by builtin mods

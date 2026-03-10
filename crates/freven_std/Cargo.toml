@@ -6,5 +6,5 @@ license.workspace = true
 publish = false
 
 [dependencies]
-freven_api = { path = "../freven_api" }
+freven_mod_api = { path = "../freven_mod_api" }
 thiserror.workspace = true

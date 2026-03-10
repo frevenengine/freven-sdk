@@ -5,7 +5,7 @@ We follow a **GitHub-first** distribution model for the public Freven SDK.
 ## What is public-readable now
 
 This repository (`frevenengine/freven-sdk`) is public-readable and contains:
-- `freven_api`
+- `freven_mod_api`
 - `freven_guest`
 - `freven_guest_sdk`
 - `freven_sdk_types`
@@ -21,14 +21,19 @@ Now:
 - consume SDK crates via **git tags** from this repository.
 
 Later (planned):
-- publish `freven_api` and `freven_sdk_types` to crates.io.
+- publish `freven_mod_api` and `freven_sdk_types` to crates.io.
 - optionally publish `freven_std` after API hardening.
+
+Naming note:
+- `freven_api` has been retired in favor of `freven_mod_api`.
+- The new name reflects what the crate actually is: the builtin /
+  compile-time mod facade, not the whole public SDK story.
 
 ## How to depend today (Cargo + tag)
 
 ```toml
 [dependencies]
-freven_api = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_api" }
+freven_mod_api = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_mod_api" }
 freven_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_guest_sdk" }
 freven_sdk_types = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_sdk_types" }
 # Optional / unstable:
