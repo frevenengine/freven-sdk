@@ -118,6 +118,7 @@ pub struct GuestCallbacks {
     pub lifecycle: LifecycleHooks,
     pub action: bool,
     pub messages: MessageHooks,
+    pub providers: ProviderHooks,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -132,6 +133,13 @@ pub struct LifecycleHooks {
 pub struct MessageHooks {
     pub client: bool,
     pub server: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProviderHooks {
+    pub worldgen: bool,
+    pub character_controller: bool,
+    pub client_control_provider: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -232,6 +240,126 @@ pub struct CapabilityDeclaration {
     pub key: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorldGenCallInput {
+    pub key: String,
+    pub init: WorldGenInit,
+    pub request: WorldGenRequest,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct WorldGenCallResult {
+    pub output: WorldGenOutput,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct WorldGenInit {
+    pub seed: u64,
+    pub world_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct WorldGenRequest {
+    pub seed: u64,
+    pub cx: i32,
+    pub cz: i32,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct WorldGenOutput {
+    pub sections: Vec<WorldGenSection>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorldGenSection {
+    pub sy: i8,
+    pub blocks: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CharacterControllerInitInput {
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CharacterControllerInitResult {
+    pub config: CharacterConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CharacterControllerStepInput {
+    pub key: String,
+    pub state: CharacterState,
+    pub input: CharacterControllerInput,
+    pub dt_millis: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CharacterControllerStepResult {
+    pub state: CharacterState,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum CharacterShape {
+    Aabb { half_extents: [f32; 3] },
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct CharacterConfig {
+    pub shape: CharacterShape,
+    pub max_speed_ground: f32,
+    pub max_speed_air: f32,
+    pub accel_ground: f32,
+    pub accel_air: f32,
+    pub gravity: f32,
+    pub jump_impulse: f32,
+    pub step_height: f32,
+    pub skin_width: f32,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct CharacterState {
+    pub pos: [f32; 3],
+    pub vel: [f32; 3],
+    pub on_ground: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CharacterControllerInput {
+    pub input: Vec<u8>,
+    pub view_yaw_deg_mdeg: i32,
+    pub view_pitch_deg_mdeg: i32,
+    pub timeline: InputTimeline,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InputTimeline {
+    pub input_seq: u32,
+    pub sim_tick: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientControlSampleInput {
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientControlSampleResult {
+    pub output: ClientControlOutput,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientControlOutput {
+    pub input: Vec<u8>,
+    pub view_yaw_deg_mdeg: i32,
+    pub view_pitch_deg_mdeg: i32,
+}
+
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ModConfigFormat {
@@ -323,12 +451,13 @@ pub enum ActionOutcome {
 pub struct RuntimeOutput {
     pub messages: RuntimeMessageOutput,
     pub commands: RuntimeCommandOutput,
+    pub presentation: RuntimePresentationOutput,
 }
 
 impl RuntimeOutput {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.messages.is_empty() && self.commands.is_empty()
+        self.messages.is_empty() && self.commands.is_empty() && self.presentation.is_empty()
     }
 }
 
@@ -356,6 +485,19 @@ impl RuntimeCommandOutput {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.world.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct RuntimePresentationOutput {
+    pub nameplates: Vec<ClientNameplateDrawCmd>,
+}
+
+impl RuntimePresentationOutput {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.nameplates.is_empty()
     }
 }
 
@@ -426,13 +568,77 @@ pub struct RuntimeLevelRef {
     pub stream_epoch: u32,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct ClientPlayerView {
+    pub player_id: u64,
+    pub world_pos_m: (f32, f32, f32),
+    pub is_local: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientNameplateDrawCmd {
+    pub text: String,
+    pub screen_pos_px: (i32, i32),
+    pub rgba: (u8, u8, u8, u8),
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ClientMouseButton {
+    Left,
+    Right,
+    Middle,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ClientKeyCode {
+    KeyW,
+    KeyA,
+    KeyS,
+    KeyD,
+    KeyE,
+    KeyQ,
+    Space,
+    Shift,
+    Ctrl,
+    Escape,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct KinematicMoveConfig {
+    pub skin_width: f32,
+    pub contact_epsilon: f32,
+    pub max_substeps: u8,
+    pub max_motion_per_step: f32,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct SweepHit {
+    pub hit: bool,
+    pub toi: f32,
+    pub normal: [f32; 3],
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct KinematicMoveResult {
+    pub pos: [f32; 3],
+    pub applied_motion: [f32; 3],
+    pub hit_x: bool,
+    pub hit_y: bool,
+    pub hit_z: bool,
+    pub hit_ground: bool,
+    pub started_overlapping: bool,
+    pub collision_incomplete: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RuntimeEntityTarget {
     Player { player_id: u64 },
     Entity { entity_id: u32 },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum RuntimeReadRequest {
     WorldBlock {
         pos: (i32, i32, i32),
@@ -450,6 +656,10 @@ pub enum RuntimeReadRequest {
         entity: RuntimeEntityTarget,
         component_key: String,
     },
+    ClientPlayerViews,
+    ClientWorldToScreen {
+        world_pos_m: (f32, f32, f32),
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -460,9 +670,54 @@ pub enum RuntimeSideRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RuntimeClientControlRequest {
+    BindMouseButton {
+        button: ClientMouseButton,
+        owner: String,
+    },
+    BindKey {
+        key: ClientKeyCode,
+        owner: String,
+    },
+    MouseButtonDown {
+        button: ClientMouseButton,
+        owner: String,
+    },
+    KeyDown {
+        key: ClientKeyCode,
+        owner: String,
+    },
+    MouseDelta,
+    CursorLocked,
+    ViewAnglesDegMdeg,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum RuntimeCharacterPhysicsRequest {
+    IsSolidWorldCollision {
+        wx: i32,
+        wy: i32,
+        wz: i32,
+    },
+    SweepAabb {
+        half_extents: [f32; 3],
+        from: [f32; 3],
+        to: [f32; 3],
+    },
+    MoveAabbTerrain {
+        half_extents: [f32; 3],
+        pos: [f32; 3],
+        motion: [f32; 3],
+        cfg: KinematicMoveConfig,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum RuntimeServiceRequest {
     Read(RuntimeReadRequest),
     Side(RuntimeSideRequest),
+    ClientControl(RuntimeClientControlRequest),
+    CharacterPhysics(RuntimeCharacterPhysicsRequest),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -472,8 +727,16 @@ pub enum RuntimeServiceResponse {
     PlayerDisplayName(Option<String>),
     PlayerEntityId(Option<u32>),
     EntityComponentBytes(Option<Vec<u8>>),
+    ClientPlayerViews(Vec<ClientPlayerView>),
+    ClientWorldToScreen(Option<(i32, i32)>),
     ClientActiveLevel(Option<RuntimeLevelRef>),
     ClientNextInputSeq(Option<u32>),
     ServerPlayerConnected(Option<bool>),
+    ClientControlBool(bool),
+    ClientControlMouseDelta((i32, i32)),
+    ClientControlViewAnglesDegMdeg((i32, i32)),
+    CharacterPhysicsIsSolidWorldCollision(bool),
+    CharacterPhysicsSweepAabb(SweepHit),
+    CharacterPhysicsMoveAabbTerrain(KinematicMoveResult),
     Unsupported,
 }

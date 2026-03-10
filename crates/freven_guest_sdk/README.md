@@ -78,9 +78,11 @@ intentionally need to wire the raw surface yourself.
   config document for the guest path.
 - Capability declarations are validated honestly by the runtime:
   empty keys fail, and unknown capability keys are rejected against host policy.
-- Provider families are declared honestly but remain runtime-policy-gated for
-  guest transports today: guests can declare those keys, and the host will
-  reject them explicitly until provider hosting exists.
+- Provider families use the same canonical declaration model as builtin mods.
+  Wasm and native guests can now host `worldgen`, `character_controllers`, and
+  `client_control_providers`; transports that cannot support a family for a
+  given execution/policy class must still declare it canonically and are gated
+  explicitly by host policy.
 - Guest-side persistent instance state is not modeled by the SDK today. Use
   explicit statics only when you fully control the implications.
 - Wasm is the primary safe path. Native and external transports remain
