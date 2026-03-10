@@ -39,6 +39,18 @@ process boundary.
   - payload: `input: TickInput`
 - `handle_action`
   - payload: `input: ActionInput`
+- `client_messages`
+  - payload: `input: ClientMessageInput`
+- `server_messages`
+  - payload: `input: ServerMessageInput`
+- `generate_worldgen`
+  - payload: `input: WorldGenCallInput`
+- `init_character_controller`
+  - payload: `input: CharacterControllerInitInput`
+- `step_character_controller`
+  - payload: `input: CharacterControllerStepInput`
+- `sample_client_control_provider`
+  - payload: `input: ClientControlSampleInput`
 - `shutdown`
   - best-effort clean shutdown request sent by host before process kill fallback
 
@@ -58,6 +70,14 @@ process boundary.
   - payload: `result: ClientMessageResult`
 - `server_messages`
   - payload: `result: ServerMessageResult`
+- `generate_worldgen`
+  - payload: `result: WorldGenCallResult`
+- `init_character_controller`
+  - payload: `result: CharacterControllerInitResult`
+- `step_character_controller`
+  - payload: `result: CharacterControllerStepResult`
+- `sample_client_control_provider`
+  - payload: `result: ClientControlSampleResult`
 - `error`
   - payload: `message: String`
 
@@ -72,18 +92,33 @@ per-mod config document (`ModConfigDocument`, currently TOML text).
   `guest_id` that matches the resolved mod id.
 - Negotiated lifecycle declarations may include both client and server hooks.
   The runtime hosts the active side as a subset for the current session.
-- External transport supports the full `freven_guest` surface; if the guest
-  declares a lifecycle hook, the companion process must answer the
+- External transport supports the full `freven_guest` callback surface:
+  lifecycle, action, message, and provider families all use the same canonical
+  declaration model as builtin/Wasm/native guests.
+- Side-specific hosting matches the canonical runtime model:
+  `generate_worldgen` is issued only on server runtime sessions,
+  `sample_client_control_provider` only on client runtime sessions,
+  `init_character_controller` / `step_character_controller` on either side when
+  that provider family is hosted there.
+- If the guest declares a lifecycle hook, the companion process must answer the
   corresponding request with a `lifecycle` response carrying `LifecycleResult`.
+- If the guest declares a provider callback family, the companion process must
+  answer the corresponding provider request with the matching provider result
+  envelope. Declared provider families must not be left operationally dead.
 - A guest callback may emit one or more `service_request` envelopes before it
   emits its terminal `lifecycle` / `handle_action` / `client_messages` /
-  `server_messages` response.
+  `server_messages` / provider response.
 - The host answers each `service_request` with a matching `service_response`
   using the same envelope `id`, then continues waiting for the terminal
   callback response.
+- Provider callbacks share the same runtime session lifetime as lifecycle,
+  action, and message callbacks. A provider timeout, decode failure, protocol
+  violation, invalid result, or runtime-service misuse disables that guest for
+  the current runtime session and later callbacks/actions are rejected.
 - If a companion process exits/crashes, disconnects, violates protocol, or times out:
   - that mod is disabled for the current runtime session
   - later lifecycle callbacks stop
+  - later provider callbacks fault/reject through the disabled session
   - action calls for that mod return `ActionOutcome::Rejected`
   - host kills/waits child if still alive
 - If a valid `ActionResult` cannot be completed because host-side runtime-command
