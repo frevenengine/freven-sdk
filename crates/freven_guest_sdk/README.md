@@ -10,7 +10,7 @@ canonical `freven_guest` contract and hides the transport boilerplate:
 - Wasm export table wiring
 - native in-process export wiring for low-level fixtures/tests
 - canonical declaration builders for blocks/components/messages/channels/actions/capabilities
-- lifecycle/action/server-message dispatch lookup
+- lifecycle/action/message dispatch lookup
 - export-surface validation against the canonical `GuestDescription`
 
 Most mod authors should depend on `freven_guest_sdk`. Reach for
@@ -64,9 +64,9 @@ intentionally need to wire the raw surface yourself.
   empty or malformed action payload bytes are not silently synthesized by the
   SDK. On the runtime path, that becomes a contract / transport / host-delivery
   fault for the guest call rather than a fabricated placeholder input.
-- Server-side runtime messaging is now a dedicated callback family
-  (`on_server_messages`) rather than being stuffed into actions.
-- Runtime delivery of server messages is contract-checked symmetrically:
+- Runtime messaging is a dedicated callback family on both sides
+  (`on_client_messages`, `on_server_messages`) rather than being stuffed into lifecycle or actions.
+- Runtime delivery is contract-checked symmetrically:
   undeclared inbound channels/message ids fault the guest the same way undeclared outbound use does.
 - Declarations now cover blocks, components, messages, channels, actions, and
   capability keys in one transport-neutral registration model.

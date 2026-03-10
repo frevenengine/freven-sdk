@@ -22,13 +22,15 @@ The canonical guest lifecycle today is:
 - `on_start_server`
 - `on_tick_client`
 - `on_tick_server`
+- `on_client_messages`
+- `on_server_messages`
 - action handling through one action entrypoint plus declared bindings
 
 Current contract limits:
 
 - lifecycle hooks are ack-only in guest contract v1
 - lifecycle callbacks do not return effect batches yet
-- `on_start_common` is not part of the runtime-loaded guest contract yet
+- `on_start_common` is not part of the runtime-loaded guest contract
 
 Those boundaries are intentional. The SDK does not pretend lifecycle output or
 cross-transport parity exists when it does not.

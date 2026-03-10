@@ -20,8 +20,10 @@ A native mod dynamic library must export these symbols:
 - `freven_guest_negotiate(input: NativeGuestInput) -> NativeGuestBuffer`
 - `freven_guest_handle_action(input: NativeGuestInput) -> NativeGuestBuffer` when
   `callbacks.action = true`
+- `freven_guest_on_client_messages(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.messages.client = true`
 - `freven_guest_on_server_messages(input: NativeGuestInput) -> NativeGuestBuffer`
-  when `callbacks.server_messages = true`
+  when `callbacks.messages.server = true`
 - `freven_guest_on_start_client(input: NativeGuestInput) -> NativeGuestBuffer`
   when `callbacks.lifecycle.start_client = true`
 - `freven_guest_on_start_server(input: NativeGuestInput) -> NativeGuestBuffer`
@@ -72,6 +74,7 @@ Returned bytes are postcard-encoded `freven_guest` contract types:
 
 - `freven_guest_negotiate` takes `NegotiationRequest` and returns `NegotiationResponse`
 - `freven_guest_handle_action` takes `ActionInput` and returns `ActionResult`
+- `freven_guest_on_client_messages` takes `ClientMessageInput` and returns `ClientMessageResult`
 - `freven_guest_on_server_messages` takes `ServerMessageInput` and returns `ServerMessageResult`
 - lifecycle exports take `StartInput` or `TickInput` and return `LifecycleAck`
 
@@ -93,11 +96,11 @@ Runtime validates and enforces:
 - max byte caps for negotiation/result/input payload before copying
 - declared callback surface exactly matches the exported symbol surface
 - dual-side lifecycle declarations are allowed; the runtime hosts the active side as a subset for the current session
-- server-message routing uses the negotiated registration contract:
-  inbound delivery only for declared server-readable channels, outbound sends only for declared server-writable channels and declared message ids
+- message routing uses the negotiated registration contract:
+  inbound delivery only for declared side-appropriate readable channels, outbound sends only for declared side-appropriate writable channels and declared message ids
 
 On decode/validation/contract errors, attach fails.
-On lifecycle, action-call, or server-message contract faults, runtime disables that guest mod for the
+On lifecycle, action-call, or message contract faults, runtime disables that guest mod for the
 current runtime session and later lifecycle/action calls reject. That includes
 host-side failure to apply guest-declared world effects after a valid
 `ActionResult` returns.

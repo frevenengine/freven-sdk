@@ -7,12 +7,13 @@ use alloc::vec::Vec;
 pub use freven_guest::{
     ActionDeclaration, ActionInput, ActionOutcome, ActionResult, BlockDeclaration,
     CapabilityDeclaration, ChannelBudget, ChannelConfig, ChannelDeclaration, ChannelDirection,
-    ChannelOrdering, ChannelReliability, ComponentCodec, ComponentDeclaration, EffectBatch,
-    GUEST_CONTRACT_VERSION_1, GuestCallbacks, GuestDescription, GuestRegistration, GuestTransport,
-    LifecycleAck, LifecycleHooks, MessageCodec, MessageDeclaration, MessageScope,
-    NativeGuestBuffer, NativeGuestInput, NegotiationRequest, NegotiationResponse,
-    ServerInboundMessage, ServerMessageInput, ServerMessageResult, ServerOutboundMessage,
-    StartInput, TickInput, WorldEffect,
+    ChannelOrdering, ChannelReliability, ClientInboundMessage, ClientMessageInput,
+    ClientMessageResult, ClientOutboundMessage, ClientOutboundMessageScope, ComponentCodec,
+    ComponentDeclaration, EffectBatch, GUEST_CONTRACT_VERSION_1, GuestCallbacks, GuestDescription,
+    GuestRegistration, GuestTransport, LifecycleAck, LifecycleHooks, MessageCodec,
+    MessageDeclaration, MessageHooks, MessageScope, NativeGuestBuffer, NativeGuestInput,
+    NegotiationRequest, NegotiationResponse, ServerInboundMessage, ServerMessageInput,
+    ServerMessageResult, ServerOutboundMessage, StartInput, TickInput, WorldEffect,
 };
 pub use freven_sdk_types::blocks::{BlockDef, RenderLayer};
 use serde::de::DeserializeOwned;
@@ -20,6 +21,7 @@ use serde::de::DeserializeOwned;
 type StartHandler = fn(&StartInput);
 type TickHandler = fn(&TickInput);
 type ActionHandler = fn(ActionContext<'_>) -> ActionResult;
+type ClientMessageHandler = fn(ClientMessageContext<'_>) -> ClientMessageResponse;
 type ServerMessageHandler = fn(ServerMessageContext<'_>) -> ServerMessageResponse;
 
 pub struct GuestModule {
@@ -34,6 +36,7 @@ pub struct GuestModule {
     on_start_server: Option<StartHandler>,
     on_tick_client: Option<TickHandler>,
     on_tick_server: Option<TickHandler>,
+    on_client_messages: Option<ClientMessageHandler>,
     on_server_messages: Option<ServerMessageHandler>,
 }
 
@@ -56,6 +59,7 @@ impl GuestModule {
             on_start_server: None,
             on_tick_client: None,
             on_tick_server: None,
+            on_client_messages: None,
             on_server_messages: None,
         }
     }
@@ -154,6 +158,12 @@ impl GuestModule {
     }
 
     #[must_use]
+    pub fn on_client_messages(mut self, handler: ClientMessageHandler) -> Self {
+        self.on_client_messages = Some(handler);
+        self
+    }
+
+    #[must_use]
     pub fn on_server_messages(mut self, handler: ServerMessageHandler) -> Self {
         self.on_server_messages = Some(handler);
         self
@@ -196,7 +206,10 @@ impl GuestModule {
         GuestCallbacks {
             lifecycle: self.lifecycle_hooks(),
             action: !self.actions.is_empty(),
-            server_messages: self.on_server_messages.is_some(),
+            messages: MessageHooks {
+                client: self.on_client_messages.is_some(),
+                server: self.on_server_messages.is_some(),
+            },
         }
     }
 
@@ -245,6 +258,14 @@ impl GuestModule {
         if let Some(handler) = self.on_tick_server {
             handler(input);
         }
+    }
+
+    #[must_use]
+    pub fn handle_client_messages(&self, input: ClientMessageInput) -> ClientMessageResult {
+        let Some(handler) = self.on_client_messages else {
+            return ClientMessageResponse::default().finish();
+        };
+        handler(ClientMessageContext { input: &input }).finish()
     }
 
     #[must_use]
@@ -397,6 +418,47 @@ impl RejectedActionResponse {
     }
 }
 
+pub struct ClientMessageContext<'a> {
+    input: &'a ClientMessageInput,
+}
+
+impl<'a> ClientMessageContext<'a> {
+    #[must_use]
+    pub fn tick(&self) -> u64 {
+        self.input.tick
+    }
+
+    #[must_use]
+    pub fn dt_millis(&self) -> u32 {
+        self.input.dt_millis
+    }
+
+    #[must_use]
+    pub fn messages(&self) -> &'a [ClientInboundMessage] {
+        &self.input.messages
+    }
+}
+
+#[derive(Default)]
+pub struct ClientMessageResponse {
+    outbound: Vec<ClientOutboundMessage>,
+}
+
+impl ClientMessageResponse {
+    #[must_use]
+    pub fn send(mut self, message: ClientOutboundMessage) -> Self {
+        self.outbound.push(message);
+        self
+    }
+
+    #[must_use]
+    pub fn finish(self) -> ClientMessageResult {
+        ClientMessageResult {
+            outbound: self.outbound,
+        }
+    }
+}
+
 pub struct ServerMessageContext<'a> {
     input: &'a ServerMessageInput,
 }
@@ -497,6 +559,12 @@ pub mod __private {
         postcard::to_allocvec(&result).expect("guest encoding must succeed")
     }
 
+    fn module_client_messages_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
+        let input = decode_required_input::<ClientMessageInput>(input);
+        postcard::to_allocvec(&module.handle_client_messages(input))
+            .expect("guest encoding must succeed")
+    }
+
     fn module_server_messages_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
         let input = decode_required_input::<ServerMessageInput>(input);
         postcard::to_allocvec(&module.handle_server_messages(input))
@@ -556,6 +624,12 @@ pub mod __private {
     pub fn wasm_guest_handle_action(module: &GuestModule, ptr: u32, len: u32) -> u64 {
         with_wasm_input_bytes(ptr, len, |input| {
             encode_to_wasm_guest(&module_handle_action_bytes(module, input))
+        })
+    }
+
+    pub fn wasm_guest_client_messages(module: &GuestModule, ptr: u32, len: u32) -> u64 {
+        with_wasm_input_bytes(ptr, len, |input| {
+            encode_to_wasm_guest(&module_client_messages_bytes(module, input))
         })
     }
 
@@ -645,6 +719,15 @@ pub mod __private {
         })
     }
 
+    pub fn native_guest_client_messages(
+        module: &GuestModule,
+        input: NativeGuestInput,
+    ) -> NativeGuestBuffer {
+        with_native_input_bytes(input, |input| {
+            encode_to_native_guest(module_client_messages_bytes(module, input))
+        })
+    }
+
     pub fn native_guest_server_messages(
         module: &GuestModule,
         input: NativeGuestInput,
@@ -720,7 +803,7 @@ pub mod __private {
         module: &GuestModule,
         lifecycle: LifecycleHooks,
         action: bool,
-        server_messages: bool,
+        messages: MessageHooks,
     ) {
         let callbacks = module.description().callbacks;
         assert_eq!(
@@ -732,8 +815,8 @@ pub mod __private {
             "freven_guest_sdk action export does not match GuestModule::description()",
         );
         assert_eq!(
-            callbacks.server_messages, server_messages,
-            "freven_guest_sdk server message export does not match GuestModule::description()",
+            callbacks.messages, messages,
+            "freven_guest_sdk message export surface does not match GuestModule::description()",
         );
     }
 }
@@ -744,6 +827,7 @@ macro_rules! export_wasm_guest {
         factory: $factory:path
         $(, lifecycle: [$($lifecycle:ident),* $(,)?])?
         $(, actions: $actions:tt)?
+        $(, client_messages: $client_messages:tt)?
         $(, server_messages: $server_messages:tt)?
         $(,)?
     ) => {
@@ -764,7 +848,10 @@ macro_rules! export_wasm_guest {
                 &module,
                 $crate::export_wasm_guest!(@lifecycle_struct $($($lifecycle),*)?),
                 $crate::export_wasm_guest!(@bool $($actions)?),
-                $crate::export_wasm_guest!(@bool $($server_messages)?),
+                $crate::MessageHooks {
+                    client: $crate::export_wasm_guest!(@bool $($client_messages)?),
+                    server: $crate::export_wasm_guest!(@bool $($server_messages)?),
+                },
             );
             $crate::__private::wasm_guest_negotiate(&module, ptr, len)
         }
@@ -774,6 +861,7 @@ macro_rules! export_wasm_guest {
         $crate::export_wasm_guest!(@maybe_export $factory, tick_client, $($($lifecycle),*)?);
         $crate::export_wasm_guest!(@maybe_export $factory, tick_server, $($($lifecycle),*)?);
         $crate::export_wasm_guest!(@maybe_export_action $factory, $($actions)?);
+        $crate::export_wasm_guest!(@maybe_export_client_messages $factory, $($client_messages)?);
         $crate::export_wasm_guest!(@maybe_export_server_messages $factory, $($server_messages)?);
     };
 
@@ -848,6 +936,17 @@ macro_rules! export_wasm_guest {
     (@maybe_export_action $factory:path, false) => {};
     (@maybe_export_action $factory:path) => {};
 
+    (@maybe_export_client_messages $factory:path, true) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_on_client_messages(ptr: u32, len: u32) -> u64 {
+            let module = $factory();
+            $crate::__private::wasm_guest_client_messages(&module, ptr, len)
+        }
+    };
+    (@maybe_export_client_messages $factory:path,) => {};
+    (@maybe_export_client_messages $factory:path, false) => {};
+    (@maybe_export_client_messages $factory:path) => {};
+
     (@maybe_export_server_messages $factory:path, true) => {
         #[unsafe(no_mangle)]
         pub extern "C" fn freven_guest_on_server_messages(ptr: u32, len: u32) -> u64 {
@@ -866,6 +965,7 @@ macro_rules! export_native_guest {
         factory: $factory:path
         $(, lifecycle: [$($lifecycle:ident),* $(,)?])?
         $(, actions: $actions:tt)?
+        $(, client_messages: $client_messages:tt)?
         $(, server_messages: $server_messages:tt)?
         $(,)?
     ) => {
@@ -888,7 +988,10 @@ macro_rules! export_native_guest {
                 &module,
                 $crate::export_native_guest!(@lifecycle_struct $($($lifecycle),*)?),
                 $crate::export_native_guest!(@bool $($actions)?),
-                $crate::export_native_guest!(@bool $($server_messages)?),
+                $crate::MessageHooks {
+                    client: $crate::export_native_guest!(@bool $($client_messages)?),
+                    server: $crate::export_native_guest!(@bool $($server_messages)?),
+                },
             );
             $crate::__private::native_guest_negotiate(&module, input)
         }
@@ -898,6 +1001,7 @@ macro_rules! export_native_guest {
         $crate::export_native_guest!(@maybe_export $factory, tick_client, $($($lifecycle),*)?);
         $crate::export_native_guest!(@maybe_export $factory, tick_server, $($($lifecycle),*)?);
         $crate::export_native_guest!(@maybe_export_action $factory, $($actions)?);
+        $crate::export_native_guest!(@maybe_export_client_messages $factory, $($client_messages)?);
         $crate::export_native_guest!(@maybe_export_server_messages $factory, $($server_messages)?);
     };
 
@@ -982,6 +1086,19 @@ macro_rules! export_native_guest {
     (@maybe_export_action $factory:path, false) => {};
     (@maybe_export_action $factory:path) => {};
 
+    (@maybe_export_client_messages $factory:path, true) => {
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_on_client_messages(
+            input: $crate::NativeGuestInput,
+        ) -> $crate::NativeGuestBuffer {
+            let module = $factory();
+            $crate::__private::native_guest_client_messages(&module, input)
+        }
+    };
+    (@maybe_export_client_messages $factory:path,) => {};
+    (@maybe_export_client_messages $factory:path, false) => {};
+    (@maybe_export_client_messages $factory:path) => {};
+
     (@maybe_export_server_messages $factory:path, true) => {
         #[unsafe(no_mangle)]
         pub extern "C" fn freven_guest_on_server_messages(
@@ -1002,6 +1119,7 @@ macro_rules! wasm_guest {
         guest_id: $guest_id:expr
         $(, registration: { $($registration:tt)* })?
         $(, lifecycle: { $($lifecycle:ident : $lifecycle_handler:expr),* $(,)? })?
+        $(, client_messages: $client_messages_handler:expr)?
         $(, server_messages: $server_messages_handler:expr)?
         $(, actions: {
             $(
@@ -1021,6 +1139,7 @@ macro_rules! wasm_guest {
                 guest_id: $guest_id
                 $(, registration: { $($registration)* })?
                 $(, lifecycle: { $($lifecycle : $lifecycle_handler),* })?
+                $(, client_messages: $client_messages_handler)?
                 $(, server_messages: $server_messages_handler)?
                 $(, actions: {
                     $(
@@ -1037,6 +1156,7 @@ macro_rules! wasm_guest {
             @export
             factory: __freven_guest_sdk_module
             $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages_handler])?
             $(, server_messages: [$server_messages_handler])?
             $(, actions: [$($action_key),*])?
         );
@@ -1047,6 +1167,7 @@ macro_rules! wasm_guest {
         guest_id: $guest_id:expr
         $(, registration: { $($registration:tt)* })?
         $(, lifecycle: { $($lifecycle:ident : $lifecycle_handler:expr),* $(,)? })?
+        $(, client_messages: $client_messages_handler:expr)?
         $(, server_messages: $server_messages_handler:expr)?
         $(, actions: {
             $(
@@ -1074,6 +1195,9 @@ macro_rules! wasm_guest {
             )*
         )?
         $(
+            let module = module.on_client_messages($client_messages_handler);
+        )?
+        $(
             let module = module.on_server_messages($server_messages_handler);
         )?
         $(
@@ -1095,10 +1219,25 @@ macro_rules! wasm_guest {
             $(, lifecycle: [$($lifecycle),*])?
         );
     };
+    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, client_messages: [$handler:expr]) => {
+        $crate::export_wasm_guest!(
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            , client_messages: true
+        );
+    };
     (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, server_messages: [$handler:expr]) => {
         $crate::export_wasm_guest!(
             factory: $factory
             $(, lifecycle: [$($lifecycle),*])?
+            , server_messages: true
+        );
+    };
+    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, client_messages: [$client_handler:expr], server_messages: [$server_handler:expr]) => {
+        $crate::export_wasm_guest!(
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            , client_messages: true
             , server_messages: true
         );
     };
@@ -1115,6 +1254,21 @@ macro_rules! wasm_guest {
             , actions: true
         );
     };
+    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, client_messages: [$handler:expr], actions: []) => {
+        $crate::export_wasm_guest!(
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            , client_messages: true
+        );
+    };
+    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, client_messages: [$handler:expr], actions: [$first:expr $(, $rest:expr)*]) => {
+        $crate::export_wasm_guest!(
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            , actions: true
+            , client_messages: true
+        );
+    };
     (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, server_messages: [$handler:expr], actions: []) => {
         $crate::export_wasm_guest!(
             factory: $factory
@@ -1127,6 +1281,23 @@ macro_rules! wasm_guest {
             factory: $factory
             $(, lifecycle: [$($lifecycle),*])?
             , actions: true
+            , server_messages: true
+        );
+    };
+    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, client_messages: [$client_handler:expr], server_messages: [$server_handler:expr], actions: []) => {
+        $crate::export_wasm_guest!(
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            , client_messages: true
+            , server_messages: true
+        );
+    };
+    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, client_messages: [$client_handler:expr], server_messages: [$server_handler:expr], actions: [$first:expr $(, $rest:expr)*]) => {
+        $crate::export_wasm_guest!(
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            , actions: true
+            , client_messages: true
             , server_messages: true
         );
     };
@@ -1218,7 +1389,7 @@ mod tests {
         assert!(description.callbacks.lifecycle.start_server);
         assert!(description.callbacks.lifecycle.tick_server);
         assert!(description.callbacks.action);
-        assert!(description.callbacks.server_messages);
+        assert!(description.callbacks.messages.server);
     }
 
     #[test]
@@ -1333,14 +1504,25 @@ mod tests {
                 ..Default::default()
             },
             true,
-            true,
+            MessageHooks {
+                client: false,
+                server: true,
+            },
         );
     }
 
     #[test]
     #[should_panic(expected = "freven_guest_sdk export lifecycle does not match")]
     fn export_surface_assertion_rejects_lifecycle_mismatch() {
-        __private::assert_export_surface(&module(), LifecycleHooks::default(), true, true);
+        __private::assert_export_surface(
+            &module(),
+            LifecycleHooks::default(),
+            true,
+            MessageHooks {
+                client: false,
+                server: true,
+            },
+        );
     }
 
     #[test]
@@ -1354,12 +1536,15 @@ mod tests {
                 ..Default::default()
             },
             false,
-            true,
+            MessageHooks {
+                client: false,
+                server: true,
+            },
         );
     }
 
     #[test]
-    #[should_panic(expected = "freven_guest_sdk server message export does not match")]
+    #[should_panic(expected = "freven_guest_sdk message export surface does not match")]
     fn export_surface_assertion_rejects_server_message_mismatch() {
         __private::assert_export_surface(
             &module(),
@@ -1369,7 +1554,10 @@ mod tests {
                 ..Default::default()
             },
             true,
-            false,
+            MessageHooks {
+                client: false,
+                server: false,
+            },
         );
     }
 
@@ -1426,7 +1614,7 @@ mod tests {
             }
         );
         assert!(description.callbacks.action);
-        assert!(description.callbacks.server_messages);
+        assert!(description.callbacks.messages.server);
     }
 
     #[test]

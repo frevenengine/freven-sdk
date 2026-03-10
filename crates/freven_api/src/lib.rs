@@ -216,11 +216,12 @@ pub trait ModContextBackend {
         handler: Box<dyn ActionHandler>,
     ) -> Result<(), ModRegistrationError>;
     fn register_action_kind(&mut self, key: &str) -> Result<ActionKindId, ModRegistrationError>;
-    fn on_start_common(&mut self, hook: StartCommonHook);
     fn on_start_client(&mut self, hook: StartClientHook);
     fn on_start_server(&mut self, hook: StartServerHook);
     fn on_tick_client(&mut self, hook: TickClientHook);
     fn on_tick_server(&mut self, hook: TickServerHook);
+    fn on_client_messages(&mut self, hook: ClientMessagesHook);
+    fn on_server_messages(&mut self, hook: ServerMessagesHook);
 }
 
 /// Stable SDK-facing registration context passed to mods.
@@ -359,10 +360,6 @@ impl<'a> ModContext<'a> {
         self.backend.register_action_kind(key)
     }
 
-    pub fn on_start_common(&mut self, hook: StartCommonHook) {
-        self.backend.on_start_common(hook);
-    }
-
     pub fn on_start_client(&mut self, hook: StartClientHook) {
         self.backend.on_start_client(hook);
     }
@@ -377,6 +374,14 @@ impl<'a> ModContext<'a> {
 
     pub fn on_tick_server(&mut self, hook: TickServerHook) {
         self.backend.on_tick_server(hook);
+    }
+
+    pub fn on_client_messages(&mut self, hook: ClientMessagesHook) {
+        self.backend.on_client_messages(hook);
+    }
+
+    pub fn on_server_messages(&mut self, hook: ServerMessagesHook) {
+        self.backend.on_server_messages(hook);
     }
 }
 
@@ -492,9 +497,6 @@ pub enum ModConfigError {
     },
 }
 
-/// Lifecycle callback executed once for both sides when the mod starts.
-pub type StartCommonHook = for<'a> fn(&mut CommonApi<'a>);
-
 /// Lifecycle callback executed once when the client side starts.
 pub type StartClientHook = for<'a> fn(&mut ClientApi<'a>);
 
@@ -506,6 +508,12 @@ pub type TickClientHook = for<'a> fn(&mut ClientTickApi<'a>);
 
 /// Lifecycle callback executed on each server tick.
 pub type TickServerHook = for<'a> fn(&mut ServerTickApi<'a>);
+
+/// Message callback executed on each client message dispatch phase.
+pub type ClientMessagesHook = for<'a> fn(&mut ClientMessagesApi<'a>);
+
+/// Message callback executed on each server message dispatch phase.
+pub type ServerMessagesHook = for<'a> fn(&mut ServerMessagesApi<'a>);
 
 /// Runtime-provided services exposed to SDK hooks.
 pub trait Services {}
@@ -825,6 +833,42 @@ pub trait ServerMessageProvider {
     fn poll_msg(&mut self) -> Option<ServerInboundMessage>;
 }
 
+/// Engine-provided client message send surface.
+pub trait ClientMessageSender {
+    fn send_msg(&mut self, msg: ClientOutboundMessage) -> Result<(), ClientMessageSendError>;
+}
+
+impl<T> ClientMessageSender for T
+where
+    T: ClientMessageProvider + ?Sized,
+{
+    fn send_msg(&mut self, msg: ClientOutboundMessage) -> Result<(), ClientMessageSendError> {
+        ClientMessageProvider::send_msg(self, msg)
+    }
+}
+
+/// Engine-provided server message send surface.
+pub trait ServerMessageSender {
+    fn send_to(
+        &mut self,
+        player_id: u64,
+        msg: ServerOutboundMessage,
+    ) -> Result<(), ServerMessageSendError>;
+}
+
+impl<T> ServerMessageSender for T
+where
+    T: ServerMessageProvider + ?Sized,
+{
+    fn send_to(
+        &mut self,
+        player_id: u64,
+        msg: ServerOutboundMessage,
+    ) -> Result<(), ServerMessageSendError> {
+        ServerMessageProvider::send_to(self, player_id, msg)
+    }
+}
+
 /// Engine-provided player presentation query surface.
 pub trait ClientPlayerProvider {
     fn list_players(&self, out: &mut Vec<ClientPlayerView>);
@@ -839,31 +883,15 @@ pub trait ClientNameplateProvider {
     fn push_nameplate(&mut self, cmd: ClientNameplateDrawCmd);
 }
 
-/// Common side-independent lifecycle API.
-pub struct CommonApi<'a> {
-    pub services: &'a mut dyn Services,
-}
-
-impl<'a> CommonApi<'a> {
-    #[must_use]
-    pub fn new(services: &'a mut dyn Services) -> Self {
-        Self { services }
-    }
-}
-
 /// Server-side lifecycle API.
 pub struct ServerApi<'a> {
     pub services: &'a mut dyn Services,
-    pub messages: &'a mut dyn ServerMessageProvider,
 }
 
 impl<'a> ServerApi<'a> {
     #[must_use]
-    pub fn new(
-        services: &'a mut dyn Services,
-        messages: &'a mut dyn ServerMessageProvider,
-    ) -> Self {
-        Self { services, messages }
+    pub fn new(services: &'a mut dyn Services) -> Self {
+        Self { services }
     }
 }
 
@@ -873,7 +901,6 @@ pub struct ClientApi<'a> {
     pub input: &'a mut dyn ClientInputProvider,
     pub camera: &'a mut dyn ClientCameraHitProvider,
     pub interaction: &'a mut dyn ClientInteractionProvider,
-    pub messages: &'a mut dyn ClientMessageProvider,
     pub players: &'a mut dyn ClientPlayerProvider,
     pub nameplates: &'a mut dyn ClientNameplateProvider,
 }
@@ -885,7 +912,6 @@ impl<'a> ClientApi<'a> {
         input: &'a mut dyn ClientInputProvider,
         camera: &'a mut dyn ClientCameraHitProvider,
         interaction: &'a mut dyn ClientInteractionProvider,
-        messages: &'a mut dyn ClientMessageProvider,
         players: &'a mut dyn ClientPlayerProvider,
         nameplates: &'a mut dyn ClientNameplateProvider,
     ) -> Self {
@@ -894,7 +920,6 @@ impl<'a> ClientApi<'a> {
             input,
             camera,
             interaction,
-            messages,
             players,
             nameplates,
         }
@@ -907,9 +932,58 @@ impl<'a> ClientApi<'a> {
             input: self.input,
             camera: self.camera,
             interaction: self.interaction,
-            messages: self.messages,
             players: self.players,
             nameplates: self.nameplates,
+        }
+    }
+}
+
+/// Client-side message dispatch context.
+pub struct ClientMessagesApi<'a> {
+    pub tick: u64,
+    pub dt: Duration,
+    pub inbound: &'a [ClientInboundMessage],
+    pub sender: &'a mut dyn ClientMessageSender,
+}
+
+impl<'a> ClientMessagesApi<'a> {
+    #[must_use]
+    pub fn new(
+        tick: u64,
+        dt: Duration,
+        inbound: &'a [ClientInboundMessage],
+        sender: &'a mut dyn ClientMessageSender,
+    ) -> Self {
+        Self {
+            tick,
+            dt,
+            inbound,
+            sender,
+        }
+    }
+}
+
+/// Server-side message dispatch context.
+pub struct ServerMessagesApi<'a> {
+    pub tick: u64,
+    pub dt: Duration,
+    pub inbound: &'a [ServerInboundMessage],
+    pub sender: &'a mut dyn ServerMessageSender,
+}
+
+impl<'a> ServerMessagesApi<'a> {
+    #[must_use]
+    pub fn new(
+        tick: u64,
+        dt: Duration,
+        inbound: &'a [ServerInboundMessage],
+        sender: &'a mut dyn ServerMessageSender,
+    ) -> Self {
+        Self {
+            tick,
+            dt,
+            inbound,
+            sender,
         }
     }
 }

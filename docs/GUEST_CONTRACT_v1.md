@@ -58,7 +58,12 @@ Host and guest negotiate before any guest callback.
 - `tick_client`
 - `tick_server`
 
-`on_start_common` is intentionally not part of the guest contract yet.
+`MessageHooks` currently exposes:
+
+- `client`
+- `server`
+
+`on_start_common` is not part of the guest contract.
 
 Registration/callback invariants:
 
@@ -76,15 +81,13 @@ Registration/callback invariants:
 - `ActionResult.effects` currently supports world effects through `WorldEffect`
 - `ActionInput.player_position_m` is the first canonical player-read slice
 
-## Server message path
+## Message path
 
-- Host sends `ServerMessageInput`
-- Guest returns `ServerMessageResult`
-- This is a dedicated callback family, separate from actions and lifecycle
-- `ServerMessageResult.outbound` carries `ServerOutboundMessage` sends
-- host routing is channel/message-contract checked:
-  inbound messages are delivered only for declared server-readable channels and declared message ids
-- outbound sends must use declared message ids and declared server-writable channels
+- Host sends `ClientMessageInput` / `ServerMessageInput`
+- Guest returns `ClientMessageResult` / `ServerMessageResult`
+- Messaging is a dedicated callback family, separate from lifecycle and actions
+- outbound sends must use declared message ids and declared side-appropriate writable channels
+- inbound delivery is routed only for declared side-appropriate readable channels and declared message ids
 - unsupported/unknown message scope mapping is a guest fault, not a silent fallback
 
 ## Lifecycle path
@@ -110,5 +113,5 @@ If a guest violates the contract or faults during a runtime session:
 For action callbacks, "faults" include host-side failure to apply the guest's
 declared world effects after the `ActionResult` is decoded and validated.
 
-For server-message callbacks, faults include invalid inbound scope mapping and
+For message callbacks, faults include invalid inbound scope mapping and
 outbound sends that violate the negotiated channel/message contract.
