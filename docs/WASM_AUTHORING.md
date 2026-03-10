@@ -22,13 +22,15 @@ The canonical guest lifecycle today is:
 - `on_start_server`
 - `on_tick_client`
 - `on_tick_server`
+- `on_client_messages`
+- `on_server_messages`
 - action handling through one action entrypoint plus declared bindings
 
 Current contract limits:
 
 - lifecycle hooks are ack-only in guest contract v1
 - lifecycle callbacks do not return effect batches yet
-- `on_start_common` is not part of the runtime-loaded guest contract yet
+- `on_start_common` is not part of the runtime-loaded guest contract
 
 Those boundaries are intentional. The SDK does not pretend lifecycle output or
 cross-transport parity exists when it does not.
@@ -73,6 +75,7 @@ What the SDK hides:
 What stays explicit:
 
 - guest id
+- declared registration families
 - declared lifecycle hooks
 - declared action bindings
 - exported Wasm capability surface generated from that same declaration
@@ -82,6 +85,12 @@ What stays explicit:
 hooks and action bindings you write are the same data used to build the
 canonical `GuestDescription` and to emit the Wasm export table, so the two
 surfaces cannot drift in normal authoring.
+
+The canonical registration model now includes blocks, components, messages,
+channels, actions, capabilities, worldgen keys, character-controller keys, and
+client-control-provider keys. Wasm guests may declare the provider families,
+but the runtime still policy-gates them explicitly because guest-side provider
+hosting is not implemented yet.
 
 `GuestModule` plus `export_wasm_guest!(...)` still exist as a lower-level escape
 hatch for raw ABI fixtures, runtime validation, or unusual tests, but they are
@@ -113,6 +122,19 @@ Two SDK hardening rules matter here:
   In practice this means a contract / transport / host-delivery violation on
   the action callback path faults the guest call instead of fabricating a
   placeholder input.
+
+## Start-time config semantics
+
+`StartInput` now carries:
+
+- `experience_id`
+- `mod_id`
+- `config`
+
+The config document is the resolved per-mod `experience.config."<mod_id>"`
+table serialized as TOML text. `freven_guest_sdk::StartInputExt` exposes
+`config_text()` and `config_typed::<T>()` helpers so guest authors can read the
+same per-mod config semantics compile-time mods already had.
 
 ## Transport guidance
 

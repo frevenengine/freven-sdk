@@ -47,6 +47,9 @@ Host and guest negotiate before any guest callback.
 - `blocks`
 - `components`
 - `messages`
+- `worldgen`
+- `character_controllers`
+- `client_control_providers`
 - `channels`
 - `actions`
 - `capabilities`
@@ -58,15 +61,32 @@ Host and guest negotiate before any guest callback.
 - `tick_client`
 - `tick_server`
 
-`on_start_common` is intentionally not part of the guest contract yet.
+`MessageHooks` currently exposes:
+
+- `client`
+- `server`
+
+`on_start_common` is not part of the guest contract.
 
 Registration/callback invariants:
 
 - `registration.actions` and `callbacks.action` are one family:
   declaring actions requires `callbacks.action = true`
 - `callbacks.action = true` requires at least one declared action
+- provider families (`worldgen`, `character_controllers`,
+  `client_control_providers`) are part of the canonical public declaration
+  model even when a given execution/policy class does not host them yet
 - capability keys must be non-empty
 - declared capability keys must exist in the resolved host capability table
+
+Current hosting policy:
+
+- compile-time/builtin registration hosts all currently implemented declaration
+  families
+- runtime-loaded guest transports may declare provider families canonically, but
+  host policy currently rejects them explicitly because guest factory/runtime
+  hosting for those families does not exist yet
+- this is an execution/policy gate, not a separate public declaration model
 
 ## Action path
 
@@ -76,15 +96,13 @@ Registration/callback invariants:
 - `ActionResult.effects` currently supports world effects through `WorldEffect`
 - `ActionInput.player_position_m` is the first canonical player-read slice
 
-## Server message path
+## Message path
 
-- Host sends `ServerMessageInput`
-- Guest returns `ServerMessageResult`
-- This is a dedicated callback family, separate from actions and lifecycle
-- `ServerMessageResult.outbound` carries `ServerOutboundMessage` sends
-- host routing is channel/message-contract checked:
-  inbound messages are delivered only for declared server-readable channels and declared message ids
-- outbound sends must use declared message ids and declared server-writable channels
+- Host sends `ClientMessageInput` / `ServerMessageInput`
+- Guest returns `ClientMessageResult` / `ServerMessageResult`
+- Messaging is a dedicated callback family, separate from lifecycle and actions
+- outbound sends must use declared message ids and declared side-appropriate writable channels
+- inbound delivery is routed only for declared side-appropriate readable channels and declared message ids
 - unsupported/unknown message scope mapping is a guest fault, not a silent fallback
 
 ## Lifecycle path
@@ -93,6 +111,16 @@ Lifecycle calls are currently ack-only.
 
 - Host sends `StartInput` or `TickInput`
 - Guest returns `LifecycleAck`
+
+`StartInput` carries:
+
+- `experience_id`
+- `mod_id`
+- `config`
+
+`config` is the resolved per-mod config document from `experience.config."<mod_id>"`.
+Contract v1 currently serializes that document as TOML text with an explicit
+`ModConfigFormat`.
 
 There is intentionally no lifecycle effect/output channel in contract v1.
 Lifecycle outputs are deferred until the runtime supports a real, honest
@@ -110,5 +138,5 @@ If a guest violates the contract or faults during a runtime session:
 For action callbacks, "faults" include host-side failure to apply the guest's
 declared world effects after the `ActionResult` is decoded and validated.
 
-For server-message callbacks, faults include invalid inbound scope mapping and
+For message callbacks, faults include invalid inbound scope mapping and
 outbound sends that violate the negotiated channel/message contract.

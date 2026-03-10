@@ -6,7 +6,7 @@ The **engine source is private** and is **not** part of this repository.
 ## Public surface (GitHub-first)
 
 Current SDK crates:
-- `freven_api` - stable-ish SDK contracts (pre-1.0)
+- `freven_api` - compile-time facade over the canonical public declaration model
 - `freven_guest` - canonical transport-agnostic guest contract for runtime-loaded mods
 - `freven_guest_sdk` - high-level guest authoring SDK for the normal Wasm mod path
 - `freven_sdk_types` - pure shared SDK types
@@ -37,6 +37,9 @@ See [docs/SDK_DISTRIBUTION.md](docs/SDK_DISTRIBUTION.md) for the rollout plan an
 - Start with [docs/WASM_AUTHORING.md](docs/WASM_AUTHORING.md).
 - Use `freven_guest_sdk` for normal mod authoring.
 - Treat `freven_guest` and the transport ABI docs as reference material for low-level tests, fixtures, and runtime work.
+- Treat `freven_api` and `freven_guest` as two facades over one declaration
+  model by breadth; runtime guest execution still policy-gates provider-family
+  hosting where services do not exist yet.
 - Prefer Wasm for the primary safe path.
 - Treat native and external transports as secondary integrations with narrower maturity/safety guarantees.
 

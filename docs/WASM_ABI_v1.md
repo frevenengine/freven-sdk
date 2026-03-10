@@ -12,7 +12,7 @@ recommended getting-started path.
 
 ## Scope
 
-- Supports negotiation, declaration registration, lifecycle callbacks, server-message callbacks, and action handling over Wasm
+- Supports negotiation, declaration registration, lifecycle callbacks, side-specific message callbacks, and action handling over Wasm
   ptr/len calls.
 - Host runs modules with no WASI and no host imports by default.
 - `[capabilities]` in `mod.toml` is enforced by runtime with a strict allowlist.
@@ -25,7 +25,8 @@ A module must export these symbols:
 - `freven_guest_dealloc(ptr: u32, size: u32)`
 - `freven_guest_negotiate(ptr: u32, len: u32) -> u64`
 - `freven_guest_handle_action(ptr: u32, len: u32) -> u64` if `callbacks.action = true`
-- `freven_guest_on_server_messages(ptr: u32, len: u32) -> u64` if `callbacks.server_messages = true`
+- `freven_guest_on_client_messages(ptr: u32, len: u32) -> u64` if `callbacks.messages.client = true`
+- `freven_guest_on_server_messages(ptr: u32, len: u32) -> u64` if `callbacks.messages.server = true`
 - linear memory export named `memory`
 
 The negotiated `GuestDescription` must also be internally coherent:
@@ -63,6 +64,8 @@ Host behavior:
 - validates `selected_contract_version`
 - validates `GuestDescription.callbacks` against exported Wasm symbols
 - registers `GuestDescription.registration` into the canonical host runtime
+- rejects canonically declared provider families when host execution/policy does
+  not support guest-side provider hosting yet
 - maps runtime action kind to `registration.actions[].binding_id` for callback dispatch
 
 ### Lifecycle inputs and outputs
@@ -70,6 +73,17 @@ Host behavior:
 - `freven_guest_on_start_*` input: `StartInput`
 - `freven_guest_on_tick_*` input: `TickInput`
 - lifecycle output: `LifecycleAck`
+
+`StartInput` includes:
+
+- `experience_id: String`
+- `mod_id: String`
+- `config: ModConfigDocument`
+
+`ModConfigDocument` is currently:
+
+- `format: ModConfigFormat` (`toml`)
+- `text: String`
 
 Lifecycle is intentionally ack-only in guest contract v1. Returning any richer
 lifecycle effect payload is not part of the contract.
@@ -87,12 +101,12 @@ lifecycle effect payload is not part of the contract.
 - `player_position_m: Option<[f32; 3]>`
 - `payload: &[u8]` (opaque client/server action payload)
 
-### Server message callback
+### Message callbacks
 
-- `freven_guest_on_server_messages` input: `ServerMessageInput`
-- output: `ServerMessageResult`
-- the host routes inbound server-side mod messages only for the guest's declared server-readable channels
-- guest outbound sends must use declared message ids and declared server-writable channels
+- `freven_guest_on_client_messages` input: `ClientMessageInput`, output: `ClientMessageResult`
+- `freven_guest_on_server_messages` input: `ServerMessageInput`, output: `ServerMessageResult`
+- the host routes inbound mod messages only for the guest's declared side-appropriate readable channels
+- guest outbound sends must use declared message ids and declared side-appropriate writable channels
 - unsupported message-scope mapping is rejected explicitly; the runtime does not silently coerce scope
 
 ### Action result (`freven_guest_handle_action` return bytes)

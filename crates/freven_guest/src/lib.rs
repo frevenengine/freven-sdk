@@ -79,6 +79,9 @@ pub struct GuestRegistration {
     pub blocks: Vec<BlockDeclaration>,
     pub components: Vec<ComponentDeclaration>,
     pub messages: Vec<MessageDeclaration>,
+    pub worldgen: Vec<WorldGenDeclaration>,
+    pub character_controllers: Vec<CharacterControllerDeclaration>,
+    pub client_control_providers: Vec<ClientControlProviderDeclaration>,
     pub channels: Vec<ChannelDeclaration>,
     pub actions: Vec<ActionDeclaration>,
     pub capabilities: Vec<CapabilityDeclaration>,
@@ -88,7 +91,7 @@ pub struct GuestRegistration {
 pub struct GuestCallbacks {
     pub lifecycle: LifecycleHooks,
     pub action: bool,
-    pub server_messages: bool,
+    pub messages: MessageHooks,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -97,6 +100,12 @@ pub struct LifecycleHooks {
     pub start_server: bool,
     pub tick_client: bool,
     pub tick_server: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MessageHooks {
+    pub client: bool,
+    pub server: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,6 +130,21 @@ pub enum ComponentCodec {
 pub struct MessageDeclaration {
     pub key: String,
     pub codec: MessageCodec,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorldGenDeclaration {
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CharacterControllerDeclaration {
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientControlProviderDeclaration {
+    pub key: String,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -182,8 +206,27 @@ pub struct CapabilityDeclaration {
     pub key: String,
 }
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ModConfigFormat {
+    #[default]
+    Toml,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct StartInput {}
+#[serde(default)]
+pub struct ModConfigDocument {
+    pub format: ModConfigFormat,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct StartInput {
+    pub experience_id: String,
+    pub mod_id: String,
+    pub config: ModConfigDocument,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TickInput {
@@ -205,6 +248,13 @@ pub struct ActionInput<'a> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientMessageInput {
+    pub tick: u64,
+    pub dt_millis: u32,
+    pub messages: Vec<ClientInboundMessage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ServerMessageInput {
     pub tick: u64,
     pub dt_millis: u32,
@@ -218,6 +268,12 @@ pub struct LifecycleAck {}
 pub struct ActionResult {
     pub outcome: ActionOutcome,
     pub effects: EffectBatch,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct ClientMessageResult {
+    pub outbound: Vec<ClientOutboundMessage>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -252,6 +308,24 @@ pub enum WorldEffect {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientOutboundMessage {
+    pub scope: ClientOutboundMessageScope,
+    pub channel_id: u32,
+    pub message_id: u32,
+    pub seq: Option<u32>,
+    pub payload: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientInboundMessage {
+    pub scope: MessageScope,
+    pub channel_id: u32,
+    pub message_id: u32,
+    pub seq: Option<u32>,
+    pub payload: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ServerOutboundMessage {
     pub player_id: u64,
     pub scope: MessageScope,
@@ -276,4 +350,11 @@ pub struct ServerInboundMessage {
 pub enum MessageScope {
     Global,
     Level { level_id: u32, stream_epoch: u32 },
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ClientOutboundMessageScope {
+    Global,
+    ActiveLevel,
 }

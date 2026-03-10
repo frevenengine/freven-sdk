@@ -55,6 +55,9 @@ process boundary.
 
 ## Behavioral rules
 
+`StartInput` carries `experience_id`, `mod_id`, and the resolved per-mod config
+document (`ModConfigDocument`, currently TOML text).
+
 - Host enforces per-call timeout for handshake, negotiation, steady-state
   lifecycle calls, and action IPC.
 - Negotiation must select `GUEST_CONTRACT_VERSION_1` and return a
