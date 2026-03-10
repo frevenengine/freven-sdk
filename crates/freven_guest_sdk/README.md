@@ -82,10 +82,9 @@ intentionally need to wire the raw surface yourself.
 - Capability declarations are validated honestly by the runtime:
   empty keys fail, and unknown capability keys are rejected against host policy.
 - Provider families use the same canonical declaration model as builtin mods.
-  Wasm and native guests can now host `worldgen`, `character_controllers`, and
-  `client_control_providers`; transports that cannot support a family for a
-  given execution/policy class must still declare it canonically and are gated
-  explicitly by host policy.
+  Wasm, native, and external guests now host `worldgen`,
+  `character_controllers`, and `client_control_providers` through one runtime
+  model; side-specific hosting still follows the canonical runtime side rules.
 - Stateful guest authoring now has an explicit session model through
   `StatefulGuestModule` / `stateful_wasm_guest!`: the SDK owns a per-runtime-session
   state slot, reuses it across callbacks in that session, and rotates it when a

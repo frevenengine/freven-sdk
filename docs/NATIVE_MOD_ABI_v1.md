@@ -115,8 +115,8 @@ Runtime validates and enforces:
   inbound delivery only for declared side-appropriate readable channels, outbound sends only for declared side-appropriate writable channels and declared message ids
 - provider-family declarations (`worldgen`, `character_controllers`,
   `client_control_providers`) are hosted for native guest execution when the
-  active side supports them; unsupported execution/policy classes are rejected
-  explicitly instead of falling back to builtin-only semantics
+  active side supports them; this matches the same canonical provider model
+  used by builtin, Wasm, and external guests
 
 On decode/validation/contract errors, attach fails.
 On lifecycle, action-call, or message contract faults, runtime disables that

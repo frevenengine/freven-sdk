@@ -74,7 +74,7 @@ Registration/callback invariants:
 - `callbacks.action = true` requires at least one declared action
 - provider families (`worldgen`, `character_controllers`,
   `client_control_providers`) are part of the canonical public declaration
-  model even when a given execution/policy class does not host them yet
+  model across builtin, Wasm, native, and external guests
 - capability keys must be non-empty
 - declared capability keys must exist in the resolved host capability table
 
@@ -82,12 +82,16 @@ Current hosting policy:
 
 - compile-time/builtin registration hosts all currently implemented declaration
   families
-- Wasm and native guest transports host provider families
+- Wasm, native, and external guest transports host provider families
   (`worldgen`, `character_controllers`, `client_control_providers`) through the
   same canonical registration model used by builtin mods
-- external-process guest execution still policy-gates provider families
-  explicitly because that transport does not yet expose safe provider hosting
-- this is an execution/policy gate, not a separate public declaration model
+- side-specific hosting is explicit:
+  `worldgen` is hosted on server runtime sessions,
+  `client_control_providers` are hosted on client runtime sessions,
+  `character_controllers` are hosted on both sides
+- external-process execution may still be blocked by explicit trust/policy
+  settings such as `allow_external_mods`, but provider families are no longer a
+  separate external-only semantic exception
 
 ## Action path
 

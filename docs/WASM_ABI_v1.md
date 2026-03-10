@@ -49,6 +49,10 @@ Optional lifecycle exports:
 - `freven_guest_sample_client_control_provider(ptr: u32, len: u32) -> u64`
   when `callbacks.providers.client_control_provider = true`
 
+These provider exports participate in the same canonical provider-family model
+used by builtin, native, and external guest transports; side-specific hosting
+is decided by the runtime session, not by a separate Wasm-only semantic rule.
+
 `freven_guest_negotiate`, lifecycle callbacks, and `freven_guest_handle_action`
 return packed `(ptr, len)` as:
 
