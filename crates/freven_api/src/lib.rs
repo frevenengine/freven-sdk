@@ -20,6 +20,8 @@ pub use freven_guest::{
     GuestCallbacks as ModCallbackModel, GuestRegistration as ModDeclarationModel,
     LifecycleHooks as LifecycleCallbackModel, MessageHooks as MessageCallbackModel,
     ModConfigDocument as GuestModConfigDocument, ModConfigFormat as GuestModConfigFormat,
+    RuntimeCommandOutput, RuntimeEntityTarget, RuntimeLevelRef, RuntimeOutput, RuntimeReadRequest,
+    RuntimeServiceRequest, RuntimeServiceResponse, RuntimeSideRequest, WorldCommand,
     WorldGenDeclaration,
 };
 pub use freven_sdk_types::blocks::{BlockDef, BlockRuntimeId, RenderLayer};
@@ -92,6 +94,7 @@ pub struct ActionContext<'a> {
     pub world_read: Option<&'a dyn ActionWorldRead>,
     pub world_edit: Option<&'a mut dyn ActionWorldEdit>,
     pub character_physics: Option<&'a dyn CharacterPhysicsQuery>,
+    pub services: Option<&'a mut dyn Services>,
     pub player_id: u64,
     pub at_input_seq: u32,
 }
@@ -102,6 +105,7 @@ impl<'a> ActionContext<'a> {
         world_read: Option<&'a dyn ActionWorldRead>,
         world_edit: Option<&'a mut dyn ActionWorldEdit>,
         character_physics: Option<&'a dyn CharacterPhysicsQuery>,
+        services: Option<&'a mut dyn Services>,
         player_id: u64,
         at_input_seq: u32,
     ) -> Self {
@@ -109,6 +113,7 @@ impl<'a> ActionContext<'a> {
             world_read,
             world_edit,
             character_physics,
+            services,
             player_id,
             at_input_seq,
         }
@@ -524,7 +529,34 @@ pub type ClientMessagesHook = for<'a> fn(&mut ClientMessagesApi<'a>);
 pub type ServerMessagesHook = for<'a> fn(&mut ServerMessagesApi<'a>);
 
 /// Runtime-provided services exposed to SDK hooks.
-pub trait Services {}
+pub trait Services {
+    fn guest_runtime_service(
+        &mut self,
+        _request: &RuntimeServiceRequest,
+    ) -> RuntimeServiceResponse {
+        RuntimeServiceResponse::Unsupported
+    }
+
+    fn apply_guest_runtime_commands(
+        &mut self,
+        commands: &RuntimeCommandOutput,
+    ) -> Result<(), RuntimeOutputApplyError> {
+        if commands.is_empty() {
+            Ok(())
+        } else {
+            Err(RuntimeOutputApplyError::UnsupportedFamily { family: "commands" })
+        }
+    }
+}
+
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum RuntimeOutputApplyError {
+    #[error("runtime output family '{family}' is not supported in this host context")]
+    UnsupportedFamily { family: &'static str },
+    #[error("runtime output application failed: {message}")]
+    Rejected { message: String },
+}
 
 /// Empty services implementation used by runtimes that do not expose services yet.
 #[derive(Debug, Default)]
@@ -950,6 +982,7 @@ impl<'a> ClientApi<'a> {
 pub struct ClientMessagesApi<'a> {
     pub tick: u64,
     pub dt: Duration,
+    pub services: &'a mut dyn Services,
     pub inbound: &'a [ClientInboundMessage],
     pub sender: &'a mut dyn ClientMessageSender,
 }
@@ -959,12 +992,14 @@ impl<'a> ClientMessagesApi<'a> {
     pub fn new(
         tick: u64,
         dt: Duration,
+        services: &'a mut dyn Services,
         inbound: &'a [ClientInboundMessage],
         sender: &'a mut dyn ClientMessageSender,
     ) -> Self {
         Self {
             tick,
             dt,
+            services,
             inbound,
             sender,
         }
@@ -975,6 +1010,7 @@ impl<'a> ClientMessagesApi<'a> {
 pub struct ServerMessagesApi<'a> {
     pub tick: u64,
     pub dt: Duration,
+    pub services: &'a mut dyn Services,
     pub inbound: &'a [ServerInboundMessage],
     pub sender: &'a mut dyn ServerMessageSender,
 }
@@ -984,12 +1020,14 @@ impl<'a> ServerMessagesApi<'a> {
     pub fn new(
         tick: u64,
         dt: Duration,
+        services: &'a mut dyn Services,
         inbound: &'a [ServerInboundMessage],
         sender: &'a mut dyn ServerMessageSender,
     ) -> Self {
         Self {
             tick,
             dt,
+            services,
             inbound,
             sender,
         }

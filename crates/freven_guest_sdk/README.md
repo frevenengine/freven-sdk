@@ -54,18 +54,20 @@ intentionally need to wire the raw surface yourself.
 
 ## Current boundaries
 
-- Lifecycle hooks are still ack-only.
+- Lifecycle hooks return `LifecycleResult`.
 - `registration.actions` and `callbacks.action` stay coupled:
   actions imply the callback family, and the callback family is not valid without declared actions.
-- Rejected actions are effect-free by API shape in the SDK:
-  `ActionResponse::rejected()` can be finished, but it does not expose world-effect
-  builder methods.
+- Rejected actions are command-free by API shape in the SDK:
+  `ActionResponse::rejected()` can be finished, but it does not expose
+  authoritative-command builder methods.
 - Action callbacks require a real decoded `ActionInput`:
   empty or malformed action payload bytes are not silently synthesized by the
   SDK. On the runtime path, that becomes a contract / transport / host-delivery
   fault for the guest call rather than a fabricated placeholder input.
 - Runtime messaging is a dedicated callback family on both sides
   (`on_client_messages`, `on_server_messages`) rather than being stuffed into lifecycle or actions.
+- Runtime-loaded guests use explicit runtime services for reads and side-specific
+  facilities rather than callback-specific hacks.
 - Runtime delivery is contract-checked symmetrically:
   undeclared inbound channels/message ids fault the guest the same way undeclared outbound use does.
 - Declarations now cover blocks, components, messages, worldgen,

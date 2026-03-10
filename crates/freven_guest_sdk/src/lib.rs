@@ -2,7 +2,8 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
+use core::cell::RefCell;
 
 pub use freven_guest::{
     ActionDeclaration, ActionInput, ActionOutcome, ActionResult, BlockDeclaration,
@@ -10,21 +11,29 @@ pub use freven_guest::{
     ChannelOrdering, ChannelReliability, CharacterControllerDeclaration,
     ClientControlProviderDeclaration, ClientInboundMessage, ClientMessageInput,
     ClientMessageResult, ClientOutboundMessage, ClientOutboundMessageScope, ComponentCodec,
-    ComponentDeclaration, EffectBatch, GUEST_CONTRACT_VERSION_1, GuestCallbacks, GuestDescription,
-    GuestRegistration, GuestTransport, LifecycleAck, LifecycleHooks, MessageCodec,
+    ComponentDeclaration, GUEST_CONTRACT_VERSION_1, GuestCallbacks, GuestDescription,
+    GuestRegistration, GuestTransport, LifecycleHooks, LifecycleResult, MessageCodec,
     MessageDeclaration, MessageHooks, MessageScope, ModConfigDocument, ModConfigFormat,
-    NativeGuestBuffer, NativeGuestInput, NegotiationRequest, NegotiationResponse,
-    ServerInboundMessage, ServerMessageInput, ServerMessageResult, ServerOutboundMessage,
-    StartInput, TickInput, WorldEffect, WorldGenDeclaration,
+    NativeGuestBuffer, NativeGuestInput, NativeRuntimeBridge, NegotiationRequest,
+    NegotiationResponse, RuntimeCommandOutput, RuntimeEntityTarget, RuntimeLevelRef,
+    RuntimeMessageOutput, RuntimeOutput, RuntimeReadRequest, RuntimeServiceRequest,
+    RuntimeServiceResponse, RuntimeSideRequest, ServerInboundMessage, ServerMessageInput,
+    ServerMessageResult, ServerOutboundMessage, StartInput, TickInput, WorldCommand,
+    WorldGenDeclaration,
 };
 pub use freven_sdk_types::blocks::{BlockDef, RenderLayer};
 use serde::de::DeserializeOwned;
 
-type StartHandler = fn(&StartInput);
-type TickHandler = fn(&TickInput);
+type StartHandler = fn(StartContext<'_>) -> LifecycleResult;
+type TickHandler = fn(TickContext<'_>) -> LifecycleResult;
 type ActionHandler = fn(ActionContext<'_>) -> ActionResult;
 type ClientMessageHandler = fn(ClientMessageContext<'_>) -> ClientMessageResponse;
 type ServerMessageHandler = fn(ServerMessageContext<'_>) -> ServerMessageResponse;
+
+thread_local! {
+    static NATIVE_RUNTIME_BRIDGE: RefCell<NativeRuntimeBridge> =
+        const { RefCell::new(NativeRuntimeBridge::empty()) };
+}
 
 pub struct GuestModule {
     guest_id: &'static str,
@@ -292,28 +301,32 @@ impl GuestModule {
         }
     }
 
-    pub fn handle_start_client(&self, input: &StartInput) {
-        if let Some(handler) = self.on_start_client {
-            handler(input);
-        }
+    pub fn handle_start_client(&self, input: &StartInput) -> LifecycleResult {
+        let Some(handler) = self.on_start_client else {
+            return LifecycleResponse::default().finish();
+        };
+        handler(StartContext { input })
     }
 
-    pub fn handle_start_server(&self, input: &StartInput) {
-        if let Some(handler) = self.on_start_server {
-            handler(input);
-        }
+    pub fn handle_start_server(&self, input: &StartInput) -> LifecycleResult {
+        let Some(handler) = self.on_start_server else {
+            return LifecycleResponse::default().finish();
+        };
+        handler(StartContext { input })
     }
 
-    pub fn handle_tick_client(&self, input: &TickInput) {
-        if let Some(handler) = self.on_tick_client {
-            handler(input);
-        }
+    pub fn handle_tick_client(&self, input: &TickInput) -> LifecycleResult {
+        let Some(handler) = self.on_tick_client else {
+            return LifecycleResponse::default().finish();
+        };
+        handler(TickContext { input })
     }
 
-    pub fn handle_tick_server(&self, input: &TickInput) {
-        if let Some(handler) = self.on_tick_server {
-            handler(input);
-        }
+    pub fn handle_tick_server(&self, input: &TickInput) -> LifecycleResult {
+        let Some(handler) = self.on_tick_server else {
+            return LifecycleResponse::default().finish();
+        };
+        handler(TickContext { input })
     }
 
     #[must_use]
@@ -419,6 +432,63 @@ impl<'a> ActionContext<'a> {
     {
         postcard::from_bytes(self.input.payload)
     }
+
+    #[must_use]
+    pub fn services(&self) -> RuntimeServices {
+        RuntimeServices
+    }
+}
+
+pub struct StartContext<'a> {
+    input: &'a StartInput,
+}
+
+impl<'a> StartContext<'a> {
+    #[must_use]
+    pub fn input(&self) -> &'a StartInput {
+        self.input
+    }
+
+    #[must_use]
+    pub fn experience_id(&self) -> &'a str {
+        &self.input.experience_id
+    }
+
+    #[must_use]
+    pub fn mod_id(&self) -> &'a str {
+        &self.input.mod_id
+    }
+
+    #[must_use]
+    pub fn services(&self) -> RuntimeServices {
+        RuntimeServices
+    }
+}
+
+pub struct TickContext<'a> {
+    input: &'a TickInput,
+}
+
+impl<'a> TickContext<'a> {
+    #[must_use]
+    pub fn input(&self) -> &'a TickInput {
+        self.input
+    }
+
+    #[must_use]
+    pub fn tick(&self) -> u64 {
+        self.input.tick
+    }
+
+    #[must_use]
+    pub fn dt_millis(&self) -> u32 {
+        self.input.dt_millis
+    }
+
+    #[must_use]
+    pub fn services(&self) -> RuntimeServices {
+        RuntimeServices
+    }
 }
 
 pub trait StartInputExt {
@@ -443,55 +513,188 @@ impl StartInputExt for StartInput {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RuntimeServices;
+
+impl RuntimeServices {
+    #[must_use]
+    pub fn block_world(self, pos: (i32, i32, i32)) -> Option<u8> {
+        match runtime_service_call(RuntimeServiceRequest::Read(
+            RuntimeReadRequest::WorldBlock { pos },
+        )) {
+            RuntimeServiceResponse::WorldBlock(value) => value,
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn player_position(self, player_id: u64) -> Option<[f32; 3]> {
+        match runtime_service_call(RuntimeServiceRequest::Read(
+            RuntimeReadRequest::PlayerPosition { player_id },
+        )) {
+            RuntimeServiceResponse::PlayerPosition(value) => value,
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn player_display_name(self, player_id: u64) -> Option<String> {
+        match runtime_service_call(RuntimeServiceRequest::Read(
+            RuntimeReadRequest::PlayerDisplayName { player_id },
+        )) {
+            RuntimeServiceResponse::PlayerDisplayName(value) => value,
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn player_entity_id(self, player_id: u64) -> Option<u32> {
+        match runtime_service_call(RuntimeServiceRequest::Read(
+            RuntimeReadRequest::PlayerEntityId { player_id },
+        )) {
+            RuntimeServiceResponse::PlayerEntityId(value) => value,
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn entity_component_bytes(
+        self,
+        entity: RuntimeEntityTarget,
+        component_key: &str,
+    ) -> Option<Vec<u8>> {
+        match runtime_service_call(RuntimeServiceRequest::Read(
+            RuntimeReadRequest::EntityComponentBytes {
+                entity,
+                component_key: component_key.to_string(),
+            },
+        )) {
+            RuntimeServiceResponse::EntityComponentBytes(value) => value,
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn client_active_level(self) -> Option<RuntimeLevelRef> {
+        match runtime_service_call(RuntimeServiceRequest::Side(
+            RuntimeSideRequest::ClientActiveLevel,
+        )) {
+            RuntimeServiceResponse::ClientActiveLevel(value) => value,
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn client_next_input_seq(self) -> Option<u32> {
+        match runtime_service_call(RuntimeServiceRequest::Side(
+            RuntimeSideRequest::ClientNextInputSeq,
+        )) {
+            RuntimeServiceResponse::ClientNextInputSeq(value) => value,
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn server_player_connected(self, player_id: u64) -> Option<bool> {
+        match runtime_service_call(RuntimeServiceRequest::Side(
+            RuntimeSideRequest::ServerPlayerConnected { player_id },
+        )) {
+            RuntimeServiceResponse::ServerPlayerConnected(value) => value,
+            _ => None,
+        }
+    }
+}
+
 pub struct ActionResponse;
 
 pub struct AppliedActionResponse {
-    effects: EffectBatch,
+    output: RuntimeOutput,
 }
 
-pub struct RejectedActionResponse;
+pub struct RejectedActionResponse {
+    output: RuntimeOutput,
+}
 
 impl ActionResponse {
     #[must_use]
     pub fn applied() -> AppliedActionResponse {
         AppliedActionResponse {
-            effects: EffectBatch::default(),
+            output: RuntimeOutput::default(),
         }
     }
 
     #[must_use]
     pub fn rejected() -> RejectedActionResponse {
-        RejectedActionResponse
+        RejectedActionResponse {
+            output: RuntimeOutput::default(),
+        }
     }
 }
 
 impl AppliedActionResponse {
     #[must_use]
-    pub fn push_world_effect(mut self, effect: WorldEffect) -> Self {
-        self.effects.world.push(effect);
+    pub fn push_world_command(mut self, command: WorldCommand) -> Self {
+        self.output.commands.world.push(command);
         self
     }
 
     #[must_use]
     pub fn set_block(self, pos: (i32, i32, i32), block_id: u8) -> Self {
-        self.push_world_effect(WorldEffect::SetBlock { pos, block_id })
+        self.push_world_command(WorldCommand::SetBlock {
+            pos,
+            block_id,
+            expected_old: None,
+        })
+    }
+
+    #[must_use]
+    pub fn set_block_if(self, pos: (i32, i32, i32), expected_old: u8, block_id: u8) -> Self {
+        self.push_world_command(WorldCommand::SetBlock {
+            pos,
+            block_id,
+            expected_old: Some(expected_old),
+        })
+    }
+
+    #[must_use]
+    pub fn send_client(mut self, message: ClientOutboundMessage) -> Self {
+        self.output.messages.client.push(message);
+        self
+    }
+
+    #[must_use]
+    pub fn send_server(mut self, message: ServerOutboundMessage) -> Self {
+        self.output.messages.server.push(message);
+        self
     }
 
     #[must_use]
     pub fn finish(self) -> ActionResult {
         ActionResult {
             outcome: ActionOutcome::Applied,
-            effects: self.effects,
+            output: self.output,
         }
     }
 }
 
 impl RejectedActionResponse {
     #[must_use]
+    pub fn send_client(mut self, message: ClientOutboundMessage) -> Self {
+        self.output.messages.client.push(message);
+        self
+    }
+
+    #[must_use]
+    pub fn send_server(mut self, message: ServerOutboundMessage) -> Self {
+        self.output.messages.server.push(message);
+        self
+    }
+
+    #[must_use]
     pub fn finish(self) -> ActionResult {
         ActionResult {
             outcome: ActionOutcome::Rejected,
-            effects: EffectBatch::default(),
+            output: self.output,
         }
     }
 }
@@ -515,24 +718,45 @@ impl<'a> ClientMessageContext<'a> {
     pub fn messages(&self) -> &'a [ClientInboundMessage] {
         &self.input.messages
     }
+
+    #[must_use]
+    pub fn services(&self) -> RuntimeServices {
+        RuntimeServices
+    }
 }
 
 #[derive(Default)]
 pub struct ClientMessageResponse {
-    outbound: Vec<ClientOutboundMessage>,
+    output: RuntimeOutput,
 }
 
 impl ClientMessageResponse {
     #[must_use]
     pub fn send(mut self, message: ClientOutboundMessage) -> Self {
-        self.outbound.push(message);
+        self.output.messages.client.push(message);
+        self
+    }
+
+    #[must_use]
+    pub fn send_to(mut self, message: ServerOutboundMessage) -> Self {
+        self.output.messages.server.push(message);
+        self
+    }
+
+    #[must_use]
+    pub fn set_block(mut self, pos: (i32, i32, i32), block_id: u8) -> Self {
+        self.output.commands.world.push(WorldCommand::SetBlock {
+            pos,
+            block_id,
+            expected_old: None,
+        });
         self
     }
 
     #[must_use]
     pub fn finish(self) -> ClientMessageResult {
         ClientMessageResult {
-            outbound: self.outbound,
+            output: self.output,
         }
     }
 }
@@ -556,26 +780,149 @@ impl<'a> ServerMessageContext<'a> {
     pub fn messages(&self) -> &'a [ServerInboundMessage] {
         &self.input.messages
     }
+
+    #[must_use]
+    pub fn services(&self) -> RuntimeServices {
+        RuntimeServices
+    }
 }
 
 #[derive(Default)]
 pub struct ServerMessageResponse {
-    outbound: Vec<ServerOutboundMessage>,
+    output: RuntimeOutput,
 }
 
 impl ServerMessageResponse {
     #[must_use]
     pub fn send_to(mut self, message: ServerOutboundMessage) -> Self {
-        self.outbound.push(message);
+        self.output.messages.server.push(message);
+        self
+    }
+
+    #[must_use]
+    pub fn send(mut self, message: ClientOutboundMessage) -> Self {
+        self.output.messages.client.push(message);
+        self
+    }
+
+    #[must_use]
+    pub fn set_block(mut self, pos: (i32, i32, i32), block_id: u8) -> Self {
+        self.output.commands.world.push(WorldCommand::SetBlock {
+            pos,
+            block_id,
+            expected_old: None,
+        });
         self
     }
 
     #[must_use]
     pub fn finish(self) -> ServerMessageResult {
         ServerMessageResult {
-            outbound: self.outbound,
+            output: self.output,
         }
     }
+}
+
+#[derive(Default)]
+pub struct LifecycleResponse {
+    output: RuntimeOutput,
+}
+
+impl LifecycleResponse {
+    #[must_use]
+    pub fn send(mut self, message: ClientOutboundMessage) -> Self {
+        self.output.messages.client.push(message);
+        self
+    }
+
+    #[must_use]
+    pub fn send_to(mut self, message: ServerOutboundMessage) -> Self {
+        self.output.messages.server.push(message);
+        self
+    }
+
+    #[must_use]
+    pub fn set_block(mut self, pos: (i32, i32, i32), block_id: u8) -> Self {
+        self.output.commands.world.push(WorldCommand::SetBlock {
+            pos,
+            block_id,
+            expected_old: None,
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn finish(self) -> LifecycleResult {
+        LifecycleResult {
+            output: self.output,
+        }
+    }
+}
+
+fn runtime_service_call(request: RuntimeServiceRequest) -> RuntimeServiceResponse {
+    let request_bytes =
+        postcard::to_allocvec(&request).expect("runtime service request encoding must succeed");
+    let mut response = vec![0u8; 64 * 1024];
+
+    let len = if cfg!(target_arch = "wasm32") {
+        wasm_runtime_service_call(&request_bytes, &mut response)
+    } else {
+        native_runtime_service_call(&request_bytes, &mut response)
+    };
+
+    let Some(len) = len else {
+        return RuntimeServiceResponse::Unsupported;
+    };
+
+    postcard::from_bytes(&response[..len]).expect("runtime service response decoding must succeed")
+}
+
+#[cfg(target_arch = "wasm32")]
+fn wasm_runtime_service_call(request: &[u8], response: &mut [u8]) -> Option<usize> {
+    unsafe extern "C" {
+        fn freven_guest_host_service_call(
+            req_ptr: u32,
+            req_len: u32,
+            resp_ptr: u32,
+            resp_cap: u32,
+        ) -> u32;
+    }
+
+    let req_ptr = request.as_ptr() as usize as u32;
+    let req_len = u32::try_from(request.len()).ok()?;
+    let resp_ptr = response.as_mut_ptr() as usize as u32;
+    let resp_cap = u32::try_from(response.len()).ok()?;
+    let len = unsafe { freven_guest_host_service_call(req_ptr, req_len, resp_ptr, resp_cap) };
+    if len == u32::MAX {
+        return None;
+    }
+    Some(len as usize)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn wasm_runtime_service_call(_request: &[u8], _response: &mut [u8]) -> Option<usize> {
+    None
+}
+
+fn native_runtime_service_call(request: &[u8], response: &mut [u8]) -> Option<usize> {
+    NATIVE_RUNTIME_BRIDGE.with(|bridge| {
+        let bridge = *bridge.borrow();
+        let call = bridge.call?;
+        let len = unsafe {
+            call(
+                bridge.ctx,
+                request.as_ptr(),
+                request.len(),
+                response.as_mut_ptr(),
+                response.len(),
+            )
+        };
+        if len == usize::MAX || len > response.len() {
+            None
+        } else {
+            Some(len)
+        }
+    })
 }
 
 #[doc(hidden)]
@@ -607,26 +954,26 @@ pub mod __private {
 
     fn module_start_client_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
         let input = decode_default_input::<StartInput>(input);
-        module.handle_start_client(&input);
-        encode_lifecycle_ack_bytes()
+        postcard::to_allocvec(&module.handle_start_client(&input))
+            .expect("guest encoding must succeed")
     }
 
     fn module_start_server_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
         let input = decode_default_input::<StartInput>(input);
-        module.handle_start_server(&input);
-        encode_lifecycle_ack_bytes()
+        postcard::to_allocvec(&module.handle_start_server(&input))
+            .expect("guest encoding must succeed")
     }
 
     fn module_tick_client_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
         let input = decode_required_input::<TickInput>(input);
-        module.handle_tick_client(&input);
-        encode_lifecycle_ack_bytes()
+        postcard::to_allocvec(&module.handle_tick_client(&input))
+            .expect("guest encoding must succeed")
     }
 
     fn module_tick_server_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
         let input = decode_required_input::<TickInput>(input);
-        module.handle_tick_server(&input);
-        encode_lifecycle_ack_bytes()
+        postcard::to_allocvec(&module.handle_tick_server(&input))
+            .expect("guest encoding must succeed")
     }
 
     fn module_handle_action_bytes(module: &GuestModule, input: &[u8]) -> Vec<u8> {
@@ -739,6 +1086,12 @@ pub mod __private {
         }
     }
 
+    pub fn native_guest_set_runtime_bridge(bridge: NativeRuntimeBridge) {
+        NATIVE_RUNTIME_BRIDGE.with(|slot| {
+            *slot.borrow_mut() = bridge;
+        });
+    }
+
     pub fn native_guest_negotiate(
         module: &GuestModule,
         input: NativeGuestInput,
@@ -831,10 +1184,6 @@ pub mod __private {
     {
         assert!(!bytes.is_empty(), "guest input must not be empty");
         postcard::from_bytes(bytes).expect("valid guest input")
-    }
-
-    fn encode_lifecycle_ack_bytes() -> Vec<u8> {
-        postcard::to_allocvec(&LifecycleAck::default()).expect("guest encoding must succeed")
     }
 
     fn with_wasm_input_bytes<R>(ptr: u32, len: u32, f: impl FnOnce(&[u8]) -> R) -> R {
@@ -1055,6 +1404,13 @@ macro_rules! export_native_guest {
         #[unsafe(no_mangle)]
         pub extern "C" fn freven_guest_dealloc(buffer: $crate::NativeGuestBuffer) {
             $crate::__private::native_guest_dealloc(buffer)
+        }
+
+        #[unsafe(no_mangle)]
+        pub extern "C" fn freven_guest_set_native_runtime_bridge(
+            bridge: $crate::NativeRuntimeBridge,
+        ) {
+            $crate::__private::native_guest_set_runtime_bridge(bridge)
         }
 
         #[unsafe(no_mangle)]
@@ -1440,8 +1796,8 @@ mod tests {
             .register_client_control_provider("freven.test:controls")
             .register_channel("freven.test:echo", message_channel())
             .declare_capability("max_call_millis")
-            .on_start_server(|_| {})
-            .on_tick_server(|_| {})
+            .on_start_server(|_| LifecycleResponse::default().finish())
+            .on_tick_server(|_| LifecycleResponse::default().finish())
             .on_server_messages(|ctx| {
                 let Some(msg) = ctx.messages().first() else {
                     return ServerMessageResponse::default();
@@ -1522,7 +1878,7 @@ mod tests {
         });
 
         assert_eq!(result.outcome, ActionOutcome::Rejected);
-        assert!(result.effects.is_empty());
+        assert!(result.output.is_empty());
     }
 
     #[test]
@@ -1539,8 +1895,8 @@ mod tests {
                 payload: b"hello".to_vec(),
             }],
         });
-        assert_eq!(result.outbound.len(), 1);
-        assert_eq!(result.outbound[0].payload, b"hello");
+        assert_eq!(result.output.messages.server.len(), 1);
+        assert_eq!(result.output.messages.server[0].payload, b"hello");
     }
 
     #[test]
@@ -1599,7 +1955,7 @@ mod tests {
     fn rejected_action_response_finishes_without_effects() {
         let result = ActionResponse::rejected().finish();
         assert_eq!(result.outcome, ActionOutcome::Rejected);
-        assert!(result.effects.is_empty());
+        assert!(result.output.is_empty());
     }
 
     #[test]
@@ -1688,8 +2044,8 @@ mod tests {
                 capability: "max_call_millis"
             }
             , lifecycle: {
-                start_server: |_| {},
-                tick_server: |_| {}
+                start_server: |_| LifecycleResponse::default().finish(),
+                tick_server: |_| LifecycleResponse::default().finish()
             }
             , server_messages: |_| ServerMessageResponse::default()
             , actions: {

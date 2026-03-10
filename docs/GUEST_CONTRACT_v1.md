@@ -93,24 +93,25 @@ Current hosting policy:
 - Host sends `ActionInput`
 - Guest returns `ActionResult`
 - `ActionResult.outcome` is `applied` or `rejected`
-- `ActionResult.effects` currently supports world effects through `WorldEffect`
-- `ActionInput.player_position_m` is the first canonical player-read slice
+- `ActionResult.output` carries canonical runtime output families
+- rejected actions may carry message output, but must not carry command output
+- `ActionInput.player_position_m` remains an action-scoped convenience slice, not the runtime service model
 
 ## Message path
 
 - Host sends `ClientMessageInput` / `ServerMessageInput`
 - Guest returns `ClientMessageResult` / `ServerMessageResult`
-- Messaging is a dedicated callback family, separate from lifecycle and actions
+- Messaging is one canonical runtime-output family (`RuntimeOutput.messages`)
+- lifecycle, action, and message callbacks all use the same message semantics
 - outbound sends must use declared message ids and declared side-appropriate writable channels
 - inbound delivery is routed only for declared side-appropriate readable channels and declared message ids
 - unsupported/unknown message scope mapping is a guest fault, not a silent fallback
 
 ## Lifecycle path
 
-Lifecycle calls are currently ack-only.
-
 - Host sends `StartInput` or `TickInput`
-- Guest returns `LifecycleAck`
+- Guest returns `LifecycleResult`
+- `LifecycleResult.output` uses the same canonical runtime output families as actions and message callbacks
 
 `StartInput` carries:
 
@@ -122,9 +123,46 @@ Lifecycle calls are currently ack-only.
 Contract v1 currently serializes that document as TOML text with an explicit
 `ModConfigFormat`.
 
-There is intentionally no lifecycle effect/output channel in contract v1.
-Lifecycle outputs are deferred until the runtime supports a real, honest
-end-to-end lifecycle output model.
+Runtime/config/experience metadata is carried where it is semantically stable:
+
+- `StartInput.experience_id`
+- `StartInput.mod_id`
+- `StartInput.config`
+- `TickInput.tick`
+- `TickInput.dt_millis`
+
+There is intentionally no separate lifecycle-only side channel.
+
+## Runtime services
+
+Guest/runtime-loaded mods now use explicit runtime service families:
+
+- `RuntimeServiceRequest::Read(...)`
+- `RuntimeServiceRequest::Side(...)`
+- `RuntimeOutput.messages`
+- `RuntimeOutput.commands`
+
+Current read requests include:
+
+- world/block reads
+- player position reads
+- player display-name reads
+- player-to-entity resolution
+- entity component-byte reads
+
+Current side-specific requests include:
+
+- client active level
+- client next input sequence
+- server player-connected checks
+
+Current command families include:
+
+- `RuntimeCommandOutput.world`
+- `WorldCommand::SetBlock { pos, block_id, expected_old }`
+
+Transport adapters must carry these semantic families unchanged. They must not
+invent transport-specific truth about reads, messages, or command application.
 
 ## Disable-on-session semantics
 
@@ -136,7 +174,7 @@ If a guest violates the contract or faults during a runtime session:
   session
 
 For action callbacks, "faults" include host-side failure to apply the guest's
-declared world effects after the `ActionResult` is decoded and validated.
+declared runtime commands after the `ActionResult` is decoded and validated.
 
 For message callbacks, faults include invalid inbound scope mapping and
 outbound sends that violate the negotiated channel/message contract.

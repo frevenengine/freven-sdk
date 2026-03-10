@@ -27,6 +27,8 @@ process boundary.
   - required first call after spawn
 - `negotiate`
   - payload: `request: NegotiationRequest`
+- `service_response`
+  - payload: `response: RuntimeServiceResponse`
 - `start_client`
   - payload: `input: StartInput`
 - `start_server`
@@ -46,10 +48,16 @@ process boundary.
   - payload: `protocol_version: u32`
 - `negotiate`
   - payload: `response: NegotiationResponse`
+- `service_request`
+  - payload: `request: RuntimeServiceRequest`
 - `lifecycle`
-  - payload: `ack: LifecycleAck`
+  - payload: `result: LifecycleResult`
 - `handle_action`
   - payload: `result: ActionResult`
+- `client_messages`
+  - payload: `result: ClientMessageResult`
+- `server_messages`
+  - payload: `result: ServerMessageResult`
 - `error`
   - payload: `message: String`
 
@@ -66,13 +74,19 @@ document (`ModConfigDocument`, currently TOML text).
   The runtime hosts the active side as a subset for the current session.
 - External transport supports the full `freven_guest` surface; if the guest
   declares a lifecycle hook, the companion process must answer the
-  corresponding request with a `lifecycle` response carrying `LifecycleAck`.
+  corresponding request with a `lifecycle` response carrying `LifecycleResult`.
+- A guest callback may emit one or more `service_request` envelopes before it
+  emits its terminal `lifecycle` / `handle_action` / `client_messages` /
+  `server_messages` response.
+- The host answers each `service_request` with a matching `service_response`
+  using the same envelope `id`, then continues waiting for the terminal
+  callback response.
 - If a companion process exits/crashes, disconnects, violates protocol, or times out:
   - that mod is disabled for the current runtime session
   - later lifecycle callbacks stop
   - action calls for that mod return `ActionOutcome::Rejected`
   - host kills/waits child if still alive
-- If a valid `ActionResult` cannot be completed because host-side world-effect
+- If a valid `ActionResult` cannot be completed because host-side runtime-command
   application fails, that still counts as a guest session fault:
   - the mod is disabled for the current runtime session
   - follow-up lifecycle/action calls are rejected

@@ -18,6 +18,8 @@ A native mod dynamic library must export these symbols:
 - `freven_guest_alloc(size: usize) -> *mut u8`
 - `freven_guest_dealloc(buffer: NativeGuestBuffer)`
 - `freven_guest_negotiate(input: NativeGuestInput) -> NativeGuestBuffer`
+- `freven_guest_set_native_runtime_bridge(bridge: NativeRuntimeBridge)` when
+  the guest wants host runtime services
 - `freven_guest_handle_action(input: NativeGuestInput) -> NativeGuestBuffer` when
   `callbacks.action = true`
 - `freven_guest_on_client_messages(input: NativeGuestInput) -> NativeGuestBuffer`
@@ -76,7 +78,7 @@ Returned bytes are postcard-encoded `freven_guest` contract types:
 - `freven_guest_handle_action` takes `ActionInput` and returns `ActionResult`
 - `freven_guest_on_client_messages` takes `ClientMessageInput` and returns `ClientMessageResult`
 - `freven_guest_on_server_messages` takes `ServerMessageInput` and returns `ServerMessageResult`
-- lifecycle exports take `StartInput` or `TickInput` and return `LifecycleAck`
+- lifecycle exports take `StartInput` or `TickInput` and return `LifecycleResult`
 
 `StartInput` carries `experience_id`, `mod_id`, and the resolved per-mod config
 document (`ModConfigDocument`, currently TOML text).
@@ -107,10 +109,23 @@ Runtime validates and enforces:
   hosting is not implemented yet
 
 On decode/validation/contract errors, attach fails.
-On lifecycle, action-call, or message contract faults, runtime disables that guest mod for the
-current runtime session and later lifecycle/action calls reject. That includes
-host-side failure to apply guest-declared world effects after a valid
-`ActionResult` returns.
+On lifecycle, action-call, or message contract faults, runtime disables that
+guest mod for the current runtime session and later lifecycle/action calls
+reject. That includes host-side failure to apply guest-declared runtime
+commands after a valid `ActionResult` returns.
+
+## Runtime services
+
+Native guests can issue canonical runtime service requests through the installed
+`NativeRuntimeBridge`.
+
+- requests use `RuntimeServiceRequest`
+- responses use `RuntimeServiceResponse`
+- runtime output still flows separately through `RuntimeOutput.messages` and
+  `RuntimeOutput.commands`
+
+The bridge is transport plumbing only. It must not redefine the semantic
+service families documented in `freven_guest`.
 
 ## Safety model
 
