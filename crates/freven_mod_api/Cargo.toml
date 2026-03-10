@@ -1,12 +1,12 @@
 [package]
-name = "freven_api"
+name = "freven_mod_api"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 documentation.workspace = true
-description = "Stable SDK contracts for Freven experiences and compile-time mods."
+description = "Stable SDK contracts for Freven builtin and compile-time mod authoring."
 readme = "README.md"
 publish = false
 

@@ -4,12 +4,14 @@ This document defines the companion-process protocol for mods with
 `execution = "external_guest"`.
 
 The canonical public guest contract is `freven_guest` as documented in
-`GUEST_CONTRACT_v1.md`. External is a secondary transport that carries the same
-guest negotiation and action semantics over a JSON envelope.
+`GUEST_CONTRACT_v1.md`. External is a secondary execution path that carries the
+same guest negotiation, lifecycle, action, message, provider, and runtime
+service semantics over a JSON envelope.
 
 This is a secondary transport integration, not the default authoring story.
 Prefer Wasm with `freven_guest_sdk` unless you specifically need a companion
-process boundary.
+process boundary. Builtin mods use the same semantic system through
+`freven_mod_api`, but they do not use this IPC transport.
 
 ## Transport
 

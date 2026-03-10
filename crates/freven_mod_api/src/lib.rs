@@ -1,10 +1,10 @@
-//! Stable SDK contracts for Freven experiences and compile-time mods.
+//! Stable SDK contracts for Freven builtin / compile-time mod authoring.
 //!
 //! Responsibilities:
 //! - define experience/mod descriptors used by boot/runtime layers
 //! - expose deterministic registration surfaces (components/messages/worldgen/modnet)
 //! - define stable hook contexts and registration errors
-//! - act as the compile-time facade over the canonical declaration model exposed by `freven_guest`
+//! - act as the builtin / compile-time facade over the canonical declaration model exposed by `freven_guest`
 //!
 //! Extension guidance:
 //! - add new registries behind stable string keys
