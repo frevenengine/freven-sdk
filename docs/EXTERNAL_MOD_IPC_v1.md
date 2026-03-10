@@ -111,6 +111,8 @@ per-mod config document (`ModConfigDocument`, currently TOML text).
 - The host answers each `service_request` with a matching `service_response`
   using the same envelope `id`, then continues waiting for the terminal
   callback response.
+- Logging for external guests is not `stderr`-based. It uses the same explicit
+  `service_request` path as other canonical runtime services.
 - Provider callbacks share the same runtime session lifetime as lifecycle,
   action, and message callbacks. A provider timeout, decode failure, protocol
   violation, invalid result, or runtime-service misuse disables that guest for
@@ -127,3 +129,37 @@ per-mod config document (`ModConfigDocument`, currently TOML text).
   - follow-up lifecycle/action calls are rejected
   - host kills/waits the companion child
 - External mods are loaded only when explicit policy is enabled (for example `--allow-external-mods` or `FREVEN_ALLOW_EXTERNAL_MODS=1`).
+
+## Observability / logging
+
+External guests emit logs through the canonical service channel:
+
+- response envelope: `service_request`
+- request payload: `RuntimeServiceRequest::Observability(RuntimeObservabilityRequest::Log(LogPayload))`
+- canonical payload: `LogPayload { level, message }`
+- levels: `debug`, `info`, `warn`, `error`
+
+The process boundary does not create separate logging semantics. External mods
+still provide only level and message text. The host/runtime owns attribution,
+policy, filtering, sanitization, truncation, rate limiting, routing, and final
+presentation.
+
+Every accepted external log is enriched host-side where available with mod
+identity, execution kind (`external`), side, runtime session id, source,
+artifact, trust, policy, and active callback family.
+
+Session enforcement is mandatory:
+
+- log ingestion is valid only while the active runtime session is alive
+- after disable-for-session, detach, restart, unload, hot reload, world reload,
+  or reattach, later logs from the old binding must be ignored/rejected
+- host teardown must close the effective ingestion path so the old process
+  cannot keep producing semantically live logs after session end
+
+Fault policy distinguishes policy outcomes from boundary violations:
+
+- oversized messages may be truncated safely
+- spam may be dropped or summarized by host policy
+- debug logs may be hidden by host policy
+- malformed JSON/envelopes, impossible logging payloads, or protocol misuse are
+  contract violations that disable the guest for the current runtime session

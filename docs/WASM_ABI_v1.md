@@ -69,6 +69,9 @@ Optional runtime-service import:
 - host returns `u32::MAX` when the current host context does not expose runtime
   services
 
+The Wasm hostcall is transport plumbing only. Observability/logging semantics
+come from `freven_guest`, not from the Wasm ABI.
+
 ## Encoding
 
 ABI payloads are `postcard` encoded values from `freven_guest`.
@@ -154,6 +157,41 @@ Current message families:
 Host applies runtime commands through authoritative host services. Any
 decode/trap/validation/apply failure disables that guest for the runtime
 session.
+
+## Observability / logging
+
+Wasm guests emit logs through the same canonical runtime-service family used by
+other guest transports:
+
+- request: `RuntimeServiceRequest::Observability(RuntimeObservabilityRequest::Log(LogPayload))`
+- payload: `LogPayload { level, message }`
+- levels: `debug`, `info`, `warn`, `error`
+
+The payload remains intentionally minimal. The guest provides only level and
+message text. The host/runtime owns attribution, filtering, truncation, rate
+limiting, formatting, and sink routing.
+
+Accepted log records are enriched host-side with runtime context where
+available, including mod identity, execution kind (`wasm`), side, runtime
+session id, source/artifact/trust/policy metadata, and active callback family.
+
+Logging is fire-and-forget:
+
+- it does not change action/lifecycle/message semantics
+- it is not part of `ActionResult` or `LifecycleResult`
+- host sink failures or filtering do not become gameplay protocol
+
+Session enforcement matches the canonical runtime-session model:
+
+- a Wasm instance may log only while its current runtime session is alive
+- after disable-for-session, detach, unload, hot reload, world reload, or
+  reattach, old log emissions must no longer be accepted
+- malformed service payloads or impossible logging requests are contract faults
+  and may disable the guest for that runtime session
+
+Host policy may suppress debug logs by default, safely truncate oversized
+messages, sanitize dirty/control-heavy text, and drop/summarize spam without
+crashing or destabilizing the runtime.
 
 ## Capability policy (implemented in `freven_runtime_wasm`)
 

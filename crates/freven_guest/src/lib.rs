@@ -8,6 +8,7 @@ extern crate alloc;
 
 use alloc::{string::String, vec::Vec};
 use freven_sdk_types::blocks::BlockDef;
+pub use freven_sdk_types::observability::{LogLevel, LogPayload};
 use serde::{Deserialize, Serialize};
 
 pub const GUEST_CONTRACT_VERSION_1: u32 = 1;
@@ -658,12 +659,18 @@ pub enum RuntimeCharacterPhysicsRequest {
     },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RuntimeObservabilityRequest {
+    Log(LogPayload),
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum RuntimeServiceRequest {
     Read(RuntimeReadRequest),
     Side(RuntimeSideRequest),
     ClientControl(RuntimeClientControlRequest),
     CharacterPhysics(RuntimeCharacterPhysicsRequest),
+    Observability(RuntimeObservabilityRequest),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -684,5 +691,6 @@ pub enum RuntimeServiceResponse {
     CharacterPhysicsIsSolidWorldCollision(bool),
     CharacterPhysicsSweepAabb(SweepHit),
     CharacterPhysicsMoveAabbTerrain(KinematicMoveResult),
+    Acknowledged,
     Unsupported,
 }

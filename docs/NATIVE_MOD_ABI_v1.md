@@ -137,6 +137,35 @@ Native guests can issue canonical runtime service requests through the installed
 The bridge is transport plumbing only. It must not redefine the semantic
 service families documented in `freven_guest`.
 
+Observability/logging uses that same canonical service surface:
+
+- request: `RuntimeServiceRequest::Observability(RuntimeObservabilityRequest::Log(LogPayload))`
+- payload: `LogPayload { level, message }`
+- levels: `debug`, `info`, `warn`, `error`
+
+Native transport does not get a separate privileged logging meaning. The guest
+provides only log level and UTF-8 message text. The host/runtime owns
+attribution, policy, sanitization, truncation, rate limiting, routing, and
+presentation.
+
+Every accepted native guest log is enriched host-side where available with mod
+identity, execution kind (`native`), side, runtime session id, source,
+artifact, trust, policy, and active callback family.
+
+Logging is fire-and-forget and remains outside gameplay semantics:
+
+- not part of `ActionResult`
+- not part of `LifecycleResult`
+- not part of message/output semantics
+
+Session enforcement is canonical rather than native-specific:
+
+- a native guest may log only while its active runtime-session binding is alive
+- after disable-for-session or session teardown, stale bridges/handles must no
+  longer produce accepted logs
+- malformed logging requests or bridge misuse are contract faults that may
+  disable the guest for the current runtime session
+
 ## Safety model
 
 Native mods are UNSAFE by design:

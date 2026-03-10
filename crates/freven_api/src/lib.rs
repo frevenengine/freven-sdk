@@ -11,7 +11,7 @@
 //! - keep hook/context types engine-agnostic
 //! - avoid leaking runtime/transport implementation details
 
-use std::{sync::Arc, time::Duration};
+use std::{cell::RefCell, ffi::c_void, sync::Arc, time::Duration};
 
 use serde::de::DeserializeOwned;
 
@@ -19,13 +19,13 @@ pub use freven_guest::{
     CharacterControllerDeclaration, ClientControlProviderDeclaration,
     ClientNameplateDrawCmd as GuestClientNameplateDrawCmd,
     ClientPlayerView as GuestClientPlayerView, GuestCallbacks as ModCallbackModel,
-    GuestRegistration as ModDeclarationModel, LifecycleHooks as LifecycleCallbackModel,
-    MessageHooks as MessageCallbackModel, ModConfigDocument as GuestModConfigDocument,
+    GuestRegistration as ModDeclarationModel, LifecycleHooks as LifecycleCallbackModel, LogLevel,
+    LogPayload, MessageHooks as MessageCallbackModel, ModConfigDocument as GuestModConfigDocument,
     ModConfigFormat as GuestModConfigFormat, ProviderHooks as ProviderCallbackModel,
     RuntimeCharacterPhysicsRequest, RuntimeClientControlRequest, RuntimeCommandOutput,
-    RuntimeEntityTarget, RuntimeLevelRef, RuntimeOutput, RuntimePresentationOutput,
-    RuntimeReadRequest, RuntimeServiceRequest, RuntimeServiceResponse, RuntimeSideRequest,
-    WorldCommand, WorldGenDeclaration,
+    RuntimeEntityTarget, RuntimeLevelRef, RuntimeObservabilityRequest, RuntimeOutput,
+    RuntimePresentationOutput, RuntimeReadRequest, RuntimeServiceRequest, RuntimeServiceResponse,
+    RuntimeSessionInfo, RuntimeSessionSide, RuntimeSideRequest, WorldCommand, WorldGenDeclaration,
 };
 pub use freven_sdk_types::blocks::{BlockDef, BlockRuntimeId, RenderLayer};
 pub use freven_sdk_types::{blocks, voxel};
@@ -34,6 +34,86 @@ pub use freven_sdk_types::{blocks, voxel};
 pub mod engine_components {
     /// Optional per-player display name payload (UTF-8 bytes).
     pub const PLAYER_NAMEPLATE_TEXT: &str = "freven.engine:player_nameplate_text";
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostExecutionKind {
+    Builtin,
+    Wasm,
+    Native,
+    External,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogCallbackFamily {
+    StartClient,
+    StartServer,
+    TickClient,
+    TickServer,
+    ClientMessages,
+    ServerMessages,
+    Action,
+    Worldgen,
+    CharacterControllerInit,
+    CharacterControllerStep,
+    ClientControlSample,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostLogContext {
+    pub mod_id: String,
+    pub execution: HostExecutionKind,
+    pub side: RuntimeSessionSide,
+    pub runtime_session_id: u64,
+    pub source: Option<String>,
+    pub artifact: Option<String>,
+    pub trust: Option<String>,
+    pub policy: Option<String>,
+    pub callback: Option<LogCallbackFamily>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostLogRecord {
+    pub payload: LogPayload,
+    pub context: HostLogContext,
+}
+
+pub type ObservabilityEmitFn =
+    unsafe fn(ctx: *mut c_void, level: LogLevel, message_ptr: *const u8, message_len: usize);
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct ObservabilityBridge {
+    pub ctx: *mut c_void,
+    pub emit: Option<ObservabilityEmitFn>,
+}
+
+impl ObservabilityBridge {
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            ctx: core::ptr::null_mut(),
+            emit: None,
+        }
+    }
+}
+
+thread_local! {
+    static OBSERVABILITY_BRIDGE: RefCell<ObservabilityBridge> =
+        const { RefCell::new(ObservabilityBridge::empty()) };
+}
+
+pub fn emit_log(level: LogLevel, message: impl AsRef<str>) {
+    let message = message.as_ref();
+    OBSERVABILITY_BRIDGE.with(|slot| {
+        let bridge = *slot.borrow();
+        let Some(emit) = bridge.emit else {
+            return;
+        };
+        unsafe {
+            emit(bridge.ctx, level, message.as_ptr(), message.len());
+        }
+    });
 }
 
 /// Stable id for a logical player action kind.
@@ -120,6 +200,11 @@ impl<'a> ActionContext<'a> {
             player_id,
             at_input_seq,
         }
+    }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        let _ = &self.services;
+        emit_log(level, message);
     }
 }
 
@@ -571,6 +656,8 @@ pub trait Services {
             })
         }
     }
+
+    fn record_guest_log(&mut self, _record: &HostLogRecord) {}
 }
 
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
@@ -957,6 +1044,11 @@ impl<'a> ServerApi<'a> {
     pub fn new(services: &'a mut dyn Services) -> Self {
         Self { services }
     }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        let _ = &self.services;
+        emit_log(level, message);
+    }
 }
 
 /// Client-side lifecycle API.
@@ -1000,6 +1092,11 @@ impl<'a> ClientApi<'a> {
             nameplates: self.nameplates,
         }
     }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        let _ = &self.services;
+        emit_log(level, message);
+    }
 }
 
 /// Client-side message dispatch context.
@@ -1028,6 +1125,11 @@ impl<'a> ClientMessagesApi<'a> {
             sender,
         }
     }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        let _ = &self.services;
+        emit_log(level, message);
+    }
 }
 
 /// Server-side message dispatch context.
@@ -1055,6 +1157,11 @@ impl<'a> ServerMessagesApi<'a> {
             inbound,
             sender,
         }
+    }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        let _ = &self.services;
+        emit_log(level, message);
     }
 }
 
@@ -1116,6 +1223,10 @@ impl<'a> ClientTickApi<'a> {
     pub fn new(tick: u64, dt: Duration, client: ClientApi<'a>) -> Self {
         Self { tick, dt, client }
     }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        self.client.log(level, message);
+    }
 }
 
 /// Server-side lifecycle tick context.
@@ -1129,6 +1240,10 @@ impl<'a> ServerTickApi<'a> {
     #[must_use]
     pub fn new(tick: u64, dt: Duration, server: ServerApi<'a>) -> Self {
         Self { tick, dt, server }
+    }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        self.server.log(level, message);
     }
 }
 
@@ -1468,4 +1583,21 @@ pub struct ChannelConfig {
     pub ordering: ChannelOrdering,
     pub direction: ChannelDirection,
     pub budget: Option<ChannelBudget>,
+}
+
+#[doc(hidden)]
+pub mod __private {
+    use super::{OBSERVABILITY_BRIDGE, ObservabilityBridge};
+
+    pub fn with_observability_bridge<T>(
+        bridge: ObservabilityBridge,
+        call: impl FnOnce() -> T,
+    ) -> T {
+        OBSERVABILITY_BRIDGE.with(|slot| {
+            let previous = slot.replace(bridge);
+            let result = call();
+            slot.replace(previous);
+            result
+        })
+    }
 }

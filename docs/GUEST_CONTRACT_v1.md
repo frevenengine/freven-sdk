@@ -146,6 +146,7 @@ Guest/runtime-loaded mods now use explicit runtime service families:
 
 - `RuntimeServiceRequest::Read(...)`
 - `RuntimeServiceRequest::Side(...)`
+- `RuntimeServiceRequest::Observability(...)`
 - `RuntimeOutput.messages`
 - `RuntimeOutput.commands`
 
@@ -163,6 +164,37 @@ Current side-specific requests include:
 - client next input sequence
 - server player-connected checks
 
+Observability is a canonical semantic family owned by the host/runtime.
+In contract v1, observability currently contains only logging:
+
+- `RuntimeObservabilityRequest::Log(LogPayload)`
+- `LogPayload.level`
+- `LogPayload.message`
+
+Canonical log levels are:
+
+- `debug`
+- `info`
+- `warn`
+- `error`
+
+Logging is intentionally outside gameplay/result/effect semantics:
+
+- it is fire-and-forget from the guest perspective
+- it is not part of `ActionResult`
+- it is not part of `LifecycleResult`
+- it is not part of canonical message output
+- sink failures, filtering, or suppression do not become gameplay protocol
+
+The canonical guest log payload is intentionally minimal:
+
+- severity/level
+- UTF-8 message text
+
+Guests do not define custom categories, arbitrary key/value fields, trace/span
+ids, or sink selection in this phase. The host/runtime owns attribution,
+formatting, routing, filtering, truncation, and final presentation.
+
 Current command families include:
 
 - `RuntimeCommandOutput.world`
@@ -170,6 +202,7 @@ Current command families include:
 
 Transport adapters must carry these semantic families unchanged. They must not
 invent transport-specific truth about reads, messages, or command application.
+The same rule applies to observability/logging.
 
 ## Disable-on-session semantics
 
@@ -189,6 +222,30 @@ Guest SDKs may keep per-session state, but that state is scoped to the
 `StartInput.session` identity and must be discarded when a new session id is
 started.
 
+Observability/logging is also session-bound:
+
+- log capability exists only while the guest instance is bound to the active
+  runtime session
+- after disable-for-session, later log emissions from that guest/session must
+  be rejected or ignored by the host
+- after unload, detach, hot reload, world reload, or reattach, the old session
+  binding must no longer be accepted for further logs
+- transport carriers must not keep stale log handles/channels alive after
+  session end
+
+For every accepted guest log record, the host/runtime enriches the record with
+runtime-owned attribution where available:
+
+- mod/guest identity
+- execution kind
+- side
+- runtime session identity
+- runtime source/artifact/trust/policy context
+- active callback family or phase when honestly available
+
+Guests must not be required to prefix messages manually with their own runtime
+identity/context.
+
 If a guest violates the contract or faults during a runtime session:
 
 - that guest is disabled for the remainder of the runtime session
@@ -203,3 +260,15 @@ declared runtime commands after the `ActionResult` is decoded and validated.
 
 For message callbacks, faults include invalid inbound scope mapping and
 outbound sends that violate the negotiated channel/message contract.
+
+For observability/logging, ordinary host policy outcomes are not session faults:
+
+- oversized messages may be truncated
+- debug visibility may be suppressed
+- rate-limited records may be dropped or summarized
+
+True boundary violations in the logging path are session faults:
+
+- malformed transport envelopes
+- invalid enum or impossible payload shapes
+- adapter/bridge misuse that breaks the logging contract
