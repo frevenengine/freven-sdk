@@ -12,11 +12,17 @@ and the recommended public authoring path is `freven_guest_sdk` on Wasm.
 `freven_mod_api` still participates in the same semantic system:
 
 - deterministic registration via `ModContext`
+- canonical capability declarations via `ModContext::declare_capability(...)`
 - activation hooks via `on_start_client` / `on_start_server`
 - runtime hooks via `on_tick_client` / `on_tick_server`
 - dedicated client/server message phases
 - the same declaration families, runtime output model, and observability model
   used by runtime-loaded guests
+
+Builtin / compile-time capability declarations use the same
+`CapabilityDeclaration` model as `freven_guest`. When a builtin mod is hosted
+from a resolved `mod.toml`, declared capability keys are validated against that
+resolved capability table before the runtime records them.
 
 `ExperienceSpec` in this crate is a compile-time convenience surface. Canonical
 boot/load/runtime truth lives in the engine runtime activation model, not here.

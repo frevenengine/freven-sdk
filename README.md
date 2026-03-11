@@ -30,6 +30,9 @@ Start with [docs/WASM_AUTHORING.md](docs/WASM_AUTHORING.md).
   as equal onboarding stories.
 - Treat builtin mods as the same semantic system through a different execution
   path, not as a separate mod model.
+- `freven_mod_api` now covers the full declaration families exposed publicly:
+  blocks, components, messages, channels, actions, capabilities, providers,
+  and lifecycle hooks.
 
 ## Depend on the SDK today
 

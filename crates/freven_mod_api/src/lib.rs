@@ -2,7 +2,7 @@
 //!
 //! Responsibilities:
 //! - define experience/mod descriptors used by boot/runtime layers
-//! - expose deterministic registration surfaces (components/messages/worldgen/modnet)
+//! - expose deterministic registration surfaces (components/messages/worldgen/modnet/capabilities)
 //! - define stable hook contexts and registration errors
 //! - act as the builtin / compile-time facade over the canonical declaration model exposed by `freven_guest`
 //!
@@ -16,7 +16,7 @@ use std::{cell::RefCell, ffi::c_void, sync::Arc, time::Duration};
 use serde::de::DeserializeOwned;
 
 pub use freven_guest::{
-    CharacterControllerDeclaration, ClientControlProviderDeclaration,
+    CapabilityDeclaration, CharacterControllerDeclaration, ClientControlProviderDeclaration,
     ClientNameplateDrawCmd as GuestClientNameplateDrawCmd,
     ClientPlayerView as GuestClientPlayerView, GuestCallbacks as ModCallbackModel,
     GuestRegistration as ModDeclarationModel, LifecycleHooks as LifecycleCallbackModel, LogLevel,
@@ -317,6 +317,10 @@ pub trait ModContextBackend {
         handler: Box<dyn ActionHandler>,
     ) -> Result<(), ModRegistrationError>;
     fn register_action_kind(&mut self, key: &str) -> Result<ActionKindId, ModRegistrationError>;
+    fn declare_capability(
+        &mut self,
+        capability: CapabilityDeclaration,
+    ) -> Result<(), ModRegistrationError>;
     fn on_start_client(&mut self, hook: StartClientHook);
     fn on_start_server(&mut self, hook: StartServerHook);
     fn on_tick_client(&mut self, hook: TickClientHook);
@@ -469,6 +473,19 @@ impl<'a> ModContext<'a> {
         self.backend.register_action_kind(key)
     }
 
+    pub fn declare_capability(&mut self, key: &str) -> Result<(), ModRegistrationError> {
+        self.declare_capability_declaration(CapabilityDeclaration {
+            key: key.to_string(),
+        })
+    }
+
+    pub fn declare_capability_declaration(
+        &mut self,
+        capability: CapabilityDeclaration,
+    ) -> Result<(), ModRegistrationError> {
+        self.backend.declare_capability(capability)
+    }
+
     pub fn on_start_client(&mut self, hook: StartClientHook) {
         self.backend.on_start_client(hook);
     }
@@ -592,6 +609,28 @@ pub enum ModRegistrationError {
         kind: &'static str,
         reason: String,
     },
+}
+
+pub fn validate_capability_declaration(
+    mod_id: &str,
+    capability: &CapabilityDeclaration,
+    allowed: Option<&toml::Table>,
+) -> Result<(), ModRegistrationError> {
+    if capability.key.trim().is_empty() {
+        return Err(ModRegistrationError::EmptyKey {
+            mod_id: mod_id.to_string(),
+            registry: "capability",
+        });
+    }
+    if let Some(allowed) = allowed
+        && !allowed.contains_key(&capability.key)
+    {
+        return Err(ModRegistrationError::UndeclaredCapability {
+            mod_id: mod_id.to_string(),
+            key: capability.key.clone(),
+        });
+    }
+    Ok(())
 }
 
 /// Error type for mod config decode failures.
