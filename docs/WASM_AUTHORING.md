@@ -93,14 +93,34 @@ surfaces cannot drift in normal authoring.
 
 The canonical registration model includes blocks, components, messages,
 channels, actions, capabilities, worldgen keys, character-controller keys, and
-client-control-provider keys. Wasm guests may declare provider families, and
-the runtime now hosts them through the same semantic registration model used by
-builtin, native, and external execution. Side and policy still gate which
-providers are actually hosted in a given runtime session.
+client-control-provider keys. Provider-family authoring on the normal public
+path is done directly in `registration` with handlers:
+
+```rust
+registration: {
+    worldgen: "freven.example:flat" => generate_worldgen,
+    character_controller: "freven.example:walker" => {
+        init: init_character_controller,
+        step: step_character_controller,
+    },
+    client_control_provider: "freven.example:controls" => sample_client_control,
+}
+```
+
+That one declaration now drives all three truths together:
+
+- `GuestRegistration`
+- `callbacks.providers`
+- emitted Wasm provider exports
+
+The runtime hosts those provider families through the same semantic
+registration model used by builtin, native, and external execution. Side and
+policy still gate which providers are actually hosted in a given runtime
+session.
 
 `GuestModule` plus `export_wasm_guest!(...)` still exist as a lower-level escape
 hatch for raw ABI fixtures, runtime validation, or unusual tests, but they are
-not the recommended public authoring path.
+not required for normal provider authoring on the public Wasm path.
 
 ## Payload ergonomics
 
