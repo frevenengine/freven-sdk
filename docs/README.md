@@ -14,4 +14,5 @@ Read them in this order:
 - [UNSAFE_NATIVE_MODS.md](UNSAFE_NATIVE_MODS.md): native trust / policy notes
 
 `freven_mod_api` is the builtin / compile-time facade over the same semantic
-system. `freven_guest` remains the canonical runtime-loaded guest contract.
+system, including capability declarations through `ModContext::declare_capability`.
+`freven_guest` remains the canonical runtime-loaded guest contract.
