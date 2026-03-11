@@ -893,13 +893,38 @@ pub struct ClientNameplateDrawCmd {
 
 /// Engine-provided client input surface.
 pub trait ClientInputProvider {
+    /// Raw device hold state for the current engine frame.
     fn mouse_button_down(&self, button: ClientMouseButton) -> bool;
+
+    /// Raw render/update-frame press edge.
+    ///
+    /// This is frame-scoped engine input state, not a gameplay-tick latch. Gameplay systems that
+    /// can tick at a different cadence must not rely on this for durable action submission.
     fn mouse_button_just_pressed(&self, button: ClientMouseButton) -> bool;
+
+    /// Raw device hold state for the current engine frame.
     fn key_down(&self, key: ClientKeyCode) -> bool;
+
+    /// Raw render/update-frame press edge.
+    ///
+    /// This is frame-scoped engine input state, not a gameplay-tick latch. Gameplay systems that
+    /// can tick at a different cadence must not rely on this for durable action submission.
     fn key_just_pressed(&self, key: ClientKeyCode) -> bool;
     fn bind_mouse_button(&mut self, button: ClientMouseButton, owner: &str) -> bool;
     fn bind_key(&mut self, key: ClientKeyCode, owner: &str) -> bool;
+
+    /// Consume one buffered mouse press for a gameplay-tick owner.
+    ///
+    /// Contract:
+    /// - each successful consume corresponds to one raw press edge captured by the engine
+    /// - presses are buffered across render frames until consumed or a gameplay reset clears them
+    /// - multiple render-frame presses before the next gameplay tick must be delivered one-by-one
+    /// - multiple gameplay ticks in one render frame must not re-consume the same raw edge
     fn consume_mouse_button_press(&mut self, button: ClientMouseButton, owner: &str) -> bool;
+
+    /// Consume one buffered key press for a gameplay-tick owner.
+    ///
+    /// Semantics match `consume_mouse_button_press`.
     fn consume_key_press(&mut self, key: ClientKeyCode, owner: &str) -> bool;
 }
 
@@ -917,8 +942,30 @@ pub trait ClientControlDeviceState {
 /// Engine-provided camera and block-hit query surface.
 pub trait ClientCameraHitProvider {
     fn camera_ray(&self) -> Option<ClientCameraRay>;
-    fn cursor_hit(&self, max_distance_m: f32) -> Option<ClientCursorHit>;
-    fn block_id_at(&self, pos: (i32, i32, i32)) -> Option<u8>;
+
+    /// Authoritative hit query against the last streamed base world state.
+    ///
+    /// Use this when gameplay needs to encode or validate a world target that must agree with
+    /// server-side authoritative block state. This intentionally ignores pending local predicted
+    /// edits so local overlay previews cannot retarget gameplay actions.
+    fn authoritative_cursor_hit(&self, max_distance_m: f32) -> Option<ClientCursorHit>;
+
+    /// Prediction-aware hit query against the client-visible world.
+    ///
+    /// This includes pending local predicted edits when they affect the current ray. Use it for
+    /// previews, client-only UX, or debug tooling that intentionally wants overlay-aware picks.
+    fn predicted_cursor_hit(&self, max_distance_m: f32) -> Option<ClientCursorHit>;
+
+    /// Prediction-aware block query against the client-visible world.
+    ///
+    /// Use this for local preview/UI decisions, not as an authoritative submit gate.
+    fn predicted_block_id_at(&self, pos: (i32, i32, i32)) -> Option<u8>;
+
+    /// Last authoritative streamed block state, excluding pending local predicted edits.
+    ///
+    /// This is still client-side knowledge and may be absent for unloaded terrain, but it is the
+    /// correct query when gameplay needs the replicated base world rather than preview state.
+    fn authoritative_block_id_at(&self, pos: (i32, i32, i32)) -> Option<u8>;
 }
 
 /// Engine-provided interaction request/result surface.
@@ -933,6 +980,9 @@ pub trait ClientInteractionProvider {
     fn next_input_seq(&self) -> u32;
 
     /// Submit an action request. Engine assigns and returns `action_seq`.
+    ///
+    /// Call sites must handle `Err(...)` explicitly. Local rejection is part of the normal engine
+    /// contract boundary and should not be silently swallowed by gameplay code.
     fn submit_action(&mut self, req: ClientActionRequest) -> Result<u32, ClientActionSubmitError>;
 
     fn poll_action_result(&mut self) -> Option<ClientActionResultEvent>;
