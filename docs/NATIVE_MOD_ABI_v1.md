@@ -1,54 +1,170 @@
 # Native Mod ABI v1
 
-This document defines the in-process native dynamic-library ABI for Freven native mods.
+This document defines the in-process native dynamic-library transport ABI for
+Freven native mods.
+
+The canonical public guest contract is `freven_guest` as documented in
+`GUEST_CONTRACT_v1.md`. Native is a secondary unsafe transport that carries the
+same guest negotiation, declaration, and callback semantics over an in-process native-width ABI.
+
+The native FFI structs in this document are transport ABI types. They are not
+part of the semantic `freven_guest` contract crate.
+
+This is not the recommended public authoring path. Prefer Wasm with
+`freven_guest_sdk` unless you are intentionally doing low-level runtime work on
+trusted local code.
 
 ## Required exports
 
 A native mod dynamic library must export these symbols:
 
-- `freven_alloc(size: u32) -> u32`
-- `freven_dealloc(ptr: u32, len: u32)`
-- `freven_init() -> u64`
-- `freven_handle_action(kind: u32, payload_ptr: u32, payload_len: u32) -> u64`
+- `freven_guest_alloc(size: usize) -> *mut u8`
+- `freven_guest_dealloc(buffer: NativeGuestBuffer)`
+- `freven_guest_negotiate(input: NativeGuestInput) -> NativeGuestBuffer`
+- `freven_guest_set_native_runtime_bridge(bridge: NativeRuntimeBridge)` when
+  the guest wants host runtime services
+- `freven_guest_handle_action(input: NativeGuestInput) -> NativeGuestBuffer` when
+  `callbacks.action = true`
+- `freven_guest_on_client_messages(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.messages.client = true`
+- `freven_guest_on_server_messages(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.messages.server = true`
+- `freven_guest_on_start_client(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.lifecycle.start_client = true`
+- `freven_guest_on_start_server(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.lifecycle.start_server = true`
+- `freven_guest_on_tick_client(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.lifecycle.tick_client = true`
+- `freven_guest_on_tick_server(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.lifecycle.tick_server = true`
+- `freven_guest_generate_worldgen(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.providers.worldgen = true`
+- `freven_guest_init_character_controller(input: NativeGuestInput) -> NativeGuestBuffer`
+  and `freven_guest_step_character_controller(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.providers.character_controller = true`
+- `freven_guest_sample_client_control_provider(input: NativeGuestInput) -> NativeGuestBuffer`
+  when `callbacks.providers.client_control_provider = true`
 
-## Packed pointer/len format
+FFI structs:
 
-`freven_init` and `freven_handle_action` return a packed `(ptr,len)` value:
+```rust
+#[repr(C)]
+struct NativeGuestInput {
+    ptr: *const u8,
+    len: usize,
+}
 
-- `((ptr as u64) << 32) | (len as u64)`
+#[repr(C)]
+struct NativeGuestBuffer {
+    ptr: *mut u8,
+    len: usize,
+}
+```
 
-Host decodes:
+`usize` tracks the platform-native pointer width. On 64-bit targets the ABI is
+64-bit-safe; on 32-bit targets it naturally narrows with the target ABI.
 
-- `ptr = (packed >> 32) as u32`
-- `len = packed as u32`
+## Memory contract
 
-`ptr/len` refer to process address space memory owned by the native mod.
-Host copies bytes directly and then calls `freven_dealloc(ptr, len)`.
+- Host-to-guest input:
+  - non-empty input: host allocates guest-owned memory with `freven_guest_alloc`
+  - non-empty input: host copies input bytes into that allocation
+  - host calls guest entrypoints with `NativeGuestInput { ptr, len }`
+  - non-empty input: host frees the input allocation with `freven_guest_dealloc`
+  - empty input is passed canonically as `ptr = null` with `len = 0`
+- Guest-to-host output:
+  - guest returns `NativeGuestBuffer { ptr, len }`
+  - buffer refers to process memory owned by the native mod
+  - host copies bytes directly
+  - host frees the returned buffer with `freven_guest_dealloc`
+- Zero-length buffers must use `ptr = null` with `len = 0`
+- Native does not use Wasm-style packed `(ptr,len)` integers anywhere
 
 ## Encoding
 
-Returned bytes are postcard-encoded Rust ABI types from `crates/freven_wasm_abi`:
+Returned bytes are postcard-encoded `freven_guest` contract types:
 
-- `freven_init` -> `ModManifestV1`
-- `freven_handle_action` -> `ActionResultV1`
+- `freven_guest_negotiate` takes `NegotiationRequest` and returns `NegotiationResponse`
+- `freven_guest_handle_action` takes `ActionInput` and returns `ActionResult`
+- `freven_guest_on_client_messages` takes `ClientMessageInput` and returns `ClientMessageResult`
+- `freven_guest_on_server_messages` takes `ServerMessageInput` and returns `ServerMessageResult`
+- lifecycle exports take `StartInput` or `TickInput` and return `LifecycleResult`
 
-Action input bytes passed to `freven_handle_action` are postcard-encoded `ActionInputV1`.
+`StartInput` carries `experience_id`, `mod_id`, and the resolved per-mod config
+document (`ModConfigDocument`, currently TOML text).
 
-`ActionInputV1` carries `player_id` and `at_input_seq`; these fields inside the postcard payload are
-the single source of truth for action context.
+`ActionInput` carries `binding_id`, `player_id`, `level_id`, `stream_epoch`,
+`action_seq`, `at_input_seq`, and opaque payload bytes. Those fields inside the
+postcard payload are the single source of truth for action context.
 
 ## Runtime behavior
 
 Runtime validates and enforces:
 
-- `manifest.abi_version == 1`
+- negotiation selects `GUEST_CONTRACT_VERSION_1`
+- `guest_id` matches the resolved mod id
 - non-empty action keys
-- no duplicate action keys within a mod manifest
-- no duplicate host `kind` values within a mod manifest
-- max byte caps for manifest/result/input payload before copying
+- no duplicate action keys within one guest description
+- no duplicate `binding_id` values within one guest description
+- declared actions require `callbacks.action = true`
+- `callbacks.action = true` requires at least one declared action
+- max byte caps for negotiation/result/input payload before copying
+- declared callback surface exactly matches the exported symbol surface
+- dual-side lifecycle declarations are allowed; the runtime hosts the active side as a subset for the current session
+- message routing uses the negotiated registration contract:
+  inbound delivery only for declared side-appropriate readable channels, outbound sends only for declared side-appropriate writable channels and declared message ids
+- provider-family declarations (`worldgen`, `character_controllers`,
+  `client_control_providers`) are hosted for native guest execution when the
+  active side supports them; this matches the same canonical provider model
+  used by builtin, Wasm, and external guests
 
-On decode/validation/ABI errors, attach fails.
-On action-call failures, runtime treats the action as rejected.
+On decode/validation/contract errors, attach fails.
+On lifecycle, action-call, or message contract faults, runtime disables that
+guest mod for the current runtime session and later lifecycle/action calls
+reject. That includes host-side failure to apply guest-declared runtime
+commands after a valid `ActionResult` returns.
+
+## Runtime services
+
+Native guests can issue canonical runtime service requests through the installed
+`NativeRuntimeBridge`.
+
+- requests use `RuntimeServiceRequest`
+- responses use `RuntimeServiceResponse`
+- runtime output still flows separately through `RuntimeOutput.messages` and
+  `RuntimeOutput.commands`
+
+The bridge is transport plumbing only. It must not redefine the semantic
+service families documented in `freven_guest`.
+
+Observability/logging uses that same canonical service surface:
+
+- request: `RuntimeServiceRequest::Observability(RuntimeObservabilityRequest::Log(LogPayload))`
+- payload: `LogPayload { level, message }`
+- levels: `debug`, `info`, `warn`, `error`
+
+Native transport does not get a separate privileged logging meaning. The guest
+provides only log level and UTF-8 message text. The host/runtime owns
+attribution, policy, sanitization, truncation, rate limiting, routing, and
+presentation.
+
+Every accepted native guest log is enriched host-side where available with mod
+identity, execution kind (`native`), side, runtime session id, source,
+artifact, trust, policy, and active callback family.
+
+Logging is fire-and-forget and remains outside gameplay semantics:
+
+- not part of `ActionResult`
+- not part of `LifecycleResult`
+- not part of message/output semantics
+
+Session enforcement is canonical rather than native-specific:
+
+- a native guest may log only while its active runtime-session binding is alive
+- after disable-for-session or session teardown, stale bridges/handles must no
+  longer produce accepted logs
+- malformed logging requests or bridge misuse are contract faults that may
+  disable the guest for the current runtime session
 
 ## Safety model
 
@@ -59,4 +175,4 @@ Native mods are UNSAFE by design:
 - no CPU timeout enforcement
 - full process privileges
 
-Use external mods (`kind = "external"`) when process isolation/timeouts are required.
+Use external guest execution (`execution = "external_guest"`) when process isolation/timeouts are required.

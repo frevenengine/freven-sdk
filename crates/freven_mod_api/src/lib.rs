@@ -1,34 +1,119 @@
-//! Stable SDK contracts for Freven experiences and compile-time mods.
+//! Stable SDK contracts for Freven builtin / compile-time mod authoring.
 //!
 //! Responsibilities:
 //! - define experience/mod descriptors used by boot/runtime layers
-//! - expose deterministic registration surfaces (components/messages/worldgen/modnet)
+//! - expose deterministic registration surfaces (components/messages/worldgen/modnet/capabilities)
 //! - define stable hook contexts and registration errors
+//! - act as the builtin / compile-time facade over the canonical declaration model exposed by `freven_guest`
 //!
 //! Extension guidance:
 //! - add new registries behind stable string keys
 //! - keep hook/context types engine-agnostic
 //! - avoid leaking runtime/transport implementation details
 
-use std::{sync::Arc, time::Duration};
+use std::{cell::RefCell, ffi::c_void, sync::Arc, time::Duration};
 
 use serde::de::DeserializeOwned;
 
+pub use freven_guest::{
+    CapabilityDeclaration, CharacterControllerDeclaration, ClientControlProviderDeclaration,
+    ClientNameplateDrawCmd as GuestClientNameplateDrawCmd,
+    ClientPlayerView as GuestClientPlayerView, GuestCallbacks as ModCallbackModel,
+    GuestRegistration as ModDeclarationModel, LifecycleHooks as LifecycleCallbackModel, LogLevel,
+    LogPayload, MessageHooks as MessageCallbackModel, ModConfigDocument as GuestModConfigDocument,
+    ModConfigFormat as GuestModConfigFormat, ProviderHooks as ProviderCallbackModel,
+    RuntimeCharacterPhysicsRequest, RuntimeClientControlRequest, RuntimeCommandOutput,
+    RuntimeEntityTarget, RuntimeLevelRef, RuntimeObservabilityRequest, RuntimeOutput,
+    RuntimePresentationOutput, RuntimeReadRequest, RuntimeServiceRequest, RuntimeServiceResponse,
+    RuntimeSessionInfo, RuntimeSessionSide, RuntimeSideRequest, WorldCommand, WorldGenDeclaration,
+};
 pub use freven_sdk_types::blocks::{BlockDef, BlockRuntimeId, RenderLayer};
 pub use freven_sdk_types::{blocks, voxel};
-
-/// Engine-owned feature keys (requested by mods via `ClientAppInstaller`).
-///
-/// These are stable string contracts and must remain engine-agnostic.
-pub mod engine_features {
-    /// Engine feature: action prediction/reconcile pipeline for universal actions.
-    pub const ACTION_PREDICTION: &str = "freven.engine.client:action_prediction";
-}
 
 /// Engine-owned replicated component keys.
 pub mod engine_components {
     /// Optional per-player display name payload (UTF-8 bytes).
     pub const PLAYER_NAMEPLATE_TEXT: &str = "freven.engine:player_nameplate_text";
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostExecutionKind {
+    Builtin,
+    Wasm,
+    Native,
+    External,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogCallbackFamily {
+    StartClient,
+    StartServer,
+    TickClient,
+    TickServer,
+    ClientMessages,
+    ServerMessages,
+    Action,
+    Worldgen,
+    CharacterControllerInit,
+    CharacterControllerStep,
+    ClientControlSample,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostLogContext {
+    pub mod_id: String,
+    pub execution: HostExecutionKind,
+    pub side: RuntimeSessionSide,
+    pub runtime_session_id: u64,
+    pub source: Option<String>,
+    pub artifact: Option<String>,
+    pub trust: Option<String>,
+    pub policy: Option<String>,
+    pub callback: Option<LogCallbackFamily>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostLogRecord {
+    pub payload: LogPayload,
+    pub context: HostLogContext,
+}
+
+pub type ObservabilityEmitFn =
+    unsafe fn(ctx: *mut c_void, level: LogLevel, message_ptr: *const u8, message_len: usize);
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct ObservabilityBridge {
+    pub ctx: *mut c_void,
+    pub emit: Option<ObservabilityEmitFn>,
+}
+
+impl ObservabilityBridge {
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            ctx: core::ptr::null_mut(),
+            emit: None,
+        }
+    }
+}
+
+thread_local! {
+    static OBSERVABILITY_BRIDGE: RefCell<ObservabilityBridge> =
+        const { RefCell::new(ObservabilityBridge::empty()) };
+}
+
+pub fn emit_log(level: LogLevel, message: impl AsRef<str>) {
+    let message = message.as_ref();
+    OBSERVABILITY_BRIDGE.with(|slot| {
+        let bridge = *slot.borrow();
+        let Some(emit) = bridge.emit else {
+            return;
+        };
+        unsafe {
+            emit(bridge.ctx, level, message.as_ptr(), message.len());
+        }
+    });
 }
 
 /// Stable id for a logical player action kind.
@@ -92,6 +177,7 @@ pub struct ActionContext<'a> {
     pub world_read: Option<&'a dyn ActionWorldRead>,
     pub world_edit: Option<&'a mut dyn ActionWorldEdit>,
     pub character_physics: Option<&'a dyn CharacterPhysicsQuery>,
+    pub services: Option<&'a mut dyn Services>,
     pub player_id: u64,
     pub at_input_seq: u32,
 }
@@ -102,6 +188,7 @@ impl<'a> ActionContext<'a> {
         world_read: Option<&'a dyn ActionWorldRead>,
         world_edit: Option<&'a mut dyn ActionWorldEdit>,
         character_physics: Option<&'a dyn CharacterPhysicsQuery>,
+        services: Option<&'a mut dyn Services>,
         player_id: u64,
         at_input_seq: u32,
     ) -> Self {
@@ -109,9 +196,15 @@ impl<'a> ActionContext<'a> {
             world_read,
             world_edit,
             character_physics,
+            services,
             player_id,
             at_input_seq,
         }
+    }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        let _ = &self.services;
+        emit_log(level, message);
     }
 }
 
@@ -152,7 +245,7 @@ impl ModSide {
     }
 }
 
-/// Experience specification selected by boot.
+/// Compile-time convenience experience specification.
 ///
 /// `config` is a top-level table keyed by mod id. Each mod receives its own value.
 #[derive(Clone)]
@@ -161,6 +254,7 @@ pub struct ExperienceSpec {
     pub mods: Vec<ModDescriptor>,
     pub default_worldgen: Option<String>,
     pub default_character_controller: Option<String>,
+    pub default_client_control_provider: Option<String>,
     pub config: toml::Table,
 }
 
@@ -173,18 +267,6 @@ impl ExperienceSpec {
 
 /// Mod registration entrypoint type.
 pub type ModRegisterFn = for<'a> fn(&'a mut ModContext<'a>);
-
-/// Client app installer backend used by client-app hooks.
-///
-/// Responsibilities:
-/// - expose stable plugin installation requests from mods
-/// - keep SDK hooks free of engine crate dependencies
-pub trait ClientAppInstaller {
-    fn install_plugin(&mut self, key: &'static str);
-}
-
-/// Client app configuration hook installed by compile-time mods.
-pub type ClientAppHook = fn(&mut dyn ClientAppInstaller);
 
 /// Compile-time mod descriptor used by an experience.
 #[derive(Clone)]
@@ -235,15 +317,16 @@ pub trait ModContextBackend {
         handler: Box<dyn ActionHandler>,
     ) -> Result<(), ModRegistrationError>;
     fn register_action_kind(&mut self, key: &str) -> Result<ActionKindId, ModRegistrationError>;
-    fn set_should_load(&mut self, hook: ShouldLoadHook);
-    fn on_start_common(&mut self, hook: StartCommonHook);
+    fn declare_capability(
+        &mut self,
+        capability: CapabilityDeclaration,
+    ) -> Result<(), ModRegistrationError>;
     fn on_start_client(&mut self, hook: StartClientHook);
     fn on_start_server(&mut self, hook: StartServerHook);
     fn on_tick_client(&mut self, hook: TickClientHook);
     fn on_tick_server(&mut self, hook: TickServerHook);
-    fn on_server_tick(&mut self, hook: ServerTickHook);
-    fn on_client_tick(&mut self, hook: ClientTickHook);
-    fn on_client_app(&mut self, hook: ClientAppHook);
+    fn on_client_messages(&mut self, hook: ClientMessagesHook);
+    fn on_server_messages(&mut self, hook: ServerMessagesHook);
 }
 
 /// Stable SDK-facing registration context passed to mods.
@@ -334,25 +417,33 @@ impl<'a> ModContext<'a> {
     pub fn register_worldgen(
         &mut self,
         key: &str,
-        factory: WorldGenFactory,
+        factory: impl Fn(WorldGenInit) -> Box<dyn WorldGenProvider> + Send + Sync + 'static,
     ) -> Result<WorldGenId, ModRegistrationError> {
-        self.backend.register_worldgen(key, factory)
+        self.backend.register_worldgen(key, Arc::new(factory))
     }
 
     pub fn register_character_controller(
         &mut self,
         key: &str,
-        factory: CharacterControllerFactory,
+        factory: impl Fn(CharacterControllerInit) -> Box<dyn CharacterController>
+        + Send
+        + Sync
+        + 'static,
     ) -> Result<CharacterControllerId, ModRegistrationError> {
-        self.backend.register_character_controller(key, factory)
+        self.backend
+            .register_character_controller(key, Arc::new(factory))
     }
 
     pub fn register_client_control_provider(
         &mut self,
         key: &str,
-        factory: ClientControlProviderFactory,
+        factory: impl Fn(ClientControlProviderInit) -> Box<dyn ClientControlProvider>
+        + Send
+        + Sync
+        + 'static,
     ) -> Result<ClientControlProviderId, ModRegistrationError> {
-        self.backend.register_client_control_provider(key, factory)
+        self.backend
+            .register_client_control_provider(key, Arc::new(factory))
     }
 
     pub fn register_channel(
@@ -382,16 +473,17 @@ impl<'a> ModContext<'a> {
         self.backend.register_action_kind(key)
     }
 
-    pub fn on_server_tick(&mut self, hook: ServerTickHook) {
-        self.backend.on_server_tick(hook);
+    pub fn declare_capability(&mut self, key: &str) -> Result<(), ModRegistrationError> {
+        self.declare_capability_declaration(CapabilityDeclaration {
+            key: key.to_string(),
+        })
     }
 
-    pub fn set_should_load(&mut self, hook: ShouldLoadHook) {
-        self.backend.set_should_load(hook);
-    }
-
-    pub fn on_start_common(&mut self, hook: StartCommonHook) {
-        self.backend.on_start_common(hook);
+    pub fn declare_capability_declaration(
+        &mut self,
+        capability: CapabilityDeclaration,
+    ) -> Result<(), ModRegistrationError> {
+        self.backend.declare_capability(capability)
     }
 
     pub fn on_start_client(&mut self, hook: StartClientHook) {
@@ -410,12 +502,12 @@ impl<'a> ModContext<'a> {
         self.backend.on_tick_server(hook);
     }
 
-    pub fn on_client_tick(&mut self, hook: ClientTickHook) {
-        self.backend.on_client_tick(hook);
+    pub fn on_client_messages(&mut self, hook: ClientMessagesHook) {
+        self.backend.on_client_messages(hook);
     }
 
-    pub fn on_client_app(&mut self, hook: ClientAppHook) {
-        self.backend.on_client_app(hook);
+    pub fn on_server_messages(&mut self, hook: ServerMessagesHook) {
+        self.backend.on_server_messages(hook);
     }
 }
 
@@ -487,6 +579,11 @@ pub enum ModRegistrationError {
         registry: &'static str,
         key: String,
     },
+    #[error("empty {registry} key registered by mod '{mod_id}'")]
+    EmptyKey {
+        mod_id: String,
+        registry: &'static str,
+    },
     #[error("too many blocks registered by mod '{mod_id}' for key '{key}': limit is {limit}")]
     TooManyBlocks {
         mod_id: String,
@@ -502,6 +599,38 @@ pub enum ModRegistrationError {
         reliability: ChannelReliability,
         ordering: ChannelOrdering,
     },
+    #[error(
+        "mod '{mod_id}' declared capability '{key}' but it is not present in the resolved capability table"
+    )]
+    UndeclaredCapability { mod_id: String, key: String },
+    #[error("invalid {kind} declaration for mod '{mod_id}': {reason}")]
+    InvalidDeclaration {
+        mod_id: String,
+        kind: &'static str,
+        reason: String,
+    },
+}
+
+pub fn validate_capability_declaration(
+    mod_id: &str,
+    capability: &CapabilityDeclaration,
+    allowed: Option<&toml::Table>,
+) -> Result<(), ModRegistrationError> {
+    if capability.key.trim().is_empty() {
+        return Err(ModRegistrationError::EmptyKey {
+            mod_id: mod_id.to_string(),
+            registry: "capability",
+        });
+    }
+    if let Some(allowed) = allowed
+        && !allowed.contains_key(&capability.key)
+    {
+        return Err(ModRegistrationError::UndeclaredCapability {
+            mod_id: mod_id.to_string(),
+            key: capability.key.clone(),
+        });
+    }
+    Ok(())
 }
 
 /// Error type for mod config decode failures.
@@ -516,18 +645,6 @@ pub enum ModConfigError {
     },
 }
 
-/// Hook callback executed on server ticks.
-pub type ServerTickHook = for<'a> fn(&mut ServerHookCtx<'a>);
-
-/// Hook callback executed on client frame/tick updates.
-pub type ClientTickHook = for<'a> fn(&mut ClientHookCtx<'a>);
-
-/// Lifecycle predicate used to decide if a mod should load for the runtime side.
-pub type ShouldLoadHook = fn(Side) -> bool;
-
-/// Lifecycle callback executed once for both sides when the mod starts.
-pub type StartCommonHook = for<'a> fn(&mut CommonApi<'a>);
-
 /// Lifecycle callback executed once when the client side starts.
 pub type StartClientHook = for<'a> fn(&mut ClientApi<'a>);
 
@@ -540,8 +657,56 @@ pub type TickClientHook = for<'a> fn(&mut ClientTickApi<'a>);
 /// Lifecycle callback executed on each server tick.
 pub type TickServerHook = for<'a> fn(&mut ServerTickApi<'a>);
 
+/// Message callback executed on each client message dispatch phase.
+pub type ClientMessagesHook = for<'a> fn(&mut ClientMessagesApi<'a>);
+
+/// Message callback executed on each server message dispatch phase.
+pub type ServerMessagesHook = for<'a> fn(&mut ServerMessagesApi<'a>);
+
 /// Runtime-provided services exposed to SDK hooks.
-pub trait Services {}
+pub trait Services {
+    fn guest_runtime_service(
+        &mut self,
+        _request: &RuntimeServiceRequest,
+    ) -> RuntimeServiceResponse {
+        RuntimeServiceResponse::Unsupported
+    }
+
+    fn apply_guest_runtime_commands(
+        &mut self,
+        commands: &RuntimeCommandOutput,
+    ) -> Result<(), RuntimeOutputApplyError> {
+        if commands.is_empty() {
+            Ok(())
+        } else {
+            Err(RuntimeOutputApplyError::UnsupportedFamily { family: "commands" })
+        }
+    }
+
+    fn apply_guest_runtime_presentation(
+        &mut self,
+        presentation: &RuntimePresentationOutput,
+    ) -> Result<(), RuntimeOutputApplyError> {
+        if presentation.is_empty() {
+            Ok(())
+        } else {
+            Err(RuntimeOutputApplyError::UnsupportedFamily {
+                family: "presentation",
+            })
+        }
+    }
+
+    fn record_guest_log(&mut self, _record: &HostLogRecord) {}
+}
+
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum RuntimeOutputApplyError {
+    #[error("runtime output family '{family}' is not supported in this host context")]
+    UnsupportedFamily { family: &'static str },
+    #[error("runtime output application failed: {message}")]
+    Rejected { message: String },
+}
 
 /// Empty services implementation used by runtimes that do not expose services yet.
 #[derive(Debug, Default)]
@@ -728,13 +893,38 @@ pub struct ClientNameplateDrawCmd {
 
 /// Engine-provided client input surface.
 pub trait ClientInputProvider {
+    /// Raw device hold state for the current engine frame.
     fn mouse_button_down(&self, button: ClientMouseButton) -> bool;
+
+    /// Raw render/update-frame press edge.
+    ///
+    /// This is frame-scoped engine input state, not a gameplay-tick latch. Gameplay systems that
+    /// can tick at a different cadence must not rely on this for durable action submission.
     fn mouse_button_just_pressed(&self, button: ClientMouseButton) -> bool;
+
+    /// Raw device hold state for the current engine frame.
     fn key_down(&self, key: ClientKeyCode) -> bool;
+
+    /// Raw render/update-frame press edge.
+    ///
+    /// This is frame-scoped engine input state, not a gameplay-tick latch. Gameplay systems that
+    /// can tick at a different cadence must not rely on this for durable action submission.
     fn key_just_pressed(&self, key: ClientKeyCode) -> bool;
     fn bind_mouse_button(&mut self, button: ClientMouseButton, owner: &str) -> bool;
     fn bind_key(&mut self, key: ClientKeyCode, owner: &str) -> bool;
+
+    /// Consume one buffered mouse press for a gameplay-tick owner.
+    ///
+    /// Contract:
+    /// - each successful consume corresponds to one raw press edge captured by the engine
+    /// - presses are buffered across render frames until consumed or a gameplay reset clears them
+    /// - multiple render-frame presses before the next gameplay tick must be delivered one-by-one
+    /// - multiple gameplay ticks in one render frame must not re-consume the same raw edge
     fn consume_mouse_button_press(&mut self, button: ClientMouseButton, owner: &str) -> bool;
+
+    /// Consume one buffered key press for a gameplay-tick owner.
+    ///
+    /// Semantics match `consume_mouse_button_press`.
     fn consume_key_press(&mut self, key: ClientKeyCode, owner: &str) -> bool;
 }
 
@@ -752,8 +942,30 @@ pub trait ClientControlDeviceState {
 /// Engine-provided camera and block-hit query surface.
 pub trait ClientCameraHitProvider {
     fn camera_ray(&self) -> Option<ClientCameraRay>;
-    fn cursor_hit(&self, max_distance_m: f32) -> Option<ClientCursorHit>;
-    fn block_id_at(&self, pos: (i32, i32, i32)) -> Option<u8>;
+
+    /// Authoritative hit query against the last streamed base world state.
+    ///
+    /// Use this when gameplay needs to encode or validate a world target that must agree with
+    /// server-side authoritative block state. This intentionally ignores pending local predicted
+    /// edits so local overlay previews cannot retarget gameplay actions.
+    fn authoritative_cursor_hit(&self, max_distance_m: f32) -> Option<ClientCursorHit>;
+
+    /// Prediction-aware hit query against the client-visible world.
+    ///
+    /// This includes pending local predicted edits when they affect the current ray. Use it for
+    /// previews, client-only UX, or debug tooling that intentionally wants overlay-aware picks.
+    fn predicted_cursor_hit(&self, max_distance_m: f32) -> Option<ClientCursorHit>;
+
+    /// Prediction-aware block query against the client-visible world.
+    ///
+    /// Use this for local preview/UI decisions, not as an authoritative submit gate.
+    fn predicted_block_id_at(&self, pos: (i32, i32, i32)) -> Option<u8>;
+
+    /// Last authoritative streamed block state, excluding pending local predicted edits.
+    ///
+    /// This is still client-side knowledge and may be absent for unloaded terrain, but it is the
+    /// correct query when gameplay needs the replicated base world rather than preview state.
+    fn authoritative_block_id_at(&self, pos: (i32, i32, i32)) -> Option<u8>;
 }
 
 /// Engine-provided interaction request/result surface.
@@ -768,6 +980,9 @@ pub trait ClientInteractionProvider {
     fn next_input_seq(&self) -> u32;
 
     /// Submit an action request. Engine assigns and returns `action_seq`.
+    ///
+    /// Call sites must handle `Err(...)` explicitly. Local rejection is part of the normal engine
+    /// contract boundary and should not be silently swallowed by gameplay code.
     fn submit_action(&mut self, req: ClientActionRequest) -> Result<u32, ClientActionSubmitError>;
 
     fn poll_action_result(&mut self) -> Option<ClientActionResultEvent>;
@@ -858,6 +1073,42 @@ pub trait ServerMessageProvider {
     fn poll_msg(&mut self) -> Option<ServerInboundMessage>;
 }
 
+/// Engine-provided client message send surface.
+pub trait ClientMessageSender {
+    fn send_msg(&mut self, msg: ClientOutboundMessage) -> Result<(), ClientMessageSendError>;
+}
+
+impl<T> ClientMessageSender for T
+where
+    T: ClientMessageProvider + ?Sized,
+{
+    fn send_msg(&mut self, msg: ClientOutboundMessage) -> Result<(), ClientMessageSendError> {
+        ClientMessageProvider::send_msg(self, msg)
+    }
+}
+
+/// Engine-provided server message send surface.
+pub trait ServerMessageSender {
+    fn send_to(
+        &mut self,
+        player_id: u64,
+        msg: ServerOutboundMessage,
+    ) -> Result<(), ServerMessageSendError>;
+}
+
+impl<T> ServerMessageSender for T
+where
+    T: ServerMessageProvider + ?Sized,
+{
+    fn send_to(
+        &mut self,
+        player_id: u64,
+        msg: ServerOutboundMessage,
+    ) -> Result<(), ServerMessageSendError> {
+        ServerMessageProvider::send_to(self, player_id, msg)
+    }
+}
+
 /// Engine-provided player presentation query surface.
 pub trait ClientPlayerProvider {
     fn list_players(&self, out: &mut Vec<ClientPlayerView>);
@@ -872,31 +1123,20 @@ pub trait ClientNameplateProvider {
     fn push_nameplate(&mut self, cmd: ClientNameplateDrawCmd);
 }
 
-/// Common side-independent lifecycle API.
-pub struct CommonApi<'a> {
-    pub services: &'a mut dyn Services,
-}
-
-impl<'a> CommonApi<'a> {
-    #[must_use]
-    pub fn new(services: &'a mut dyn Services) -> Self {
-        Self { services }
-    }
-}
-
 /// Server-side lifecycle API.
 pub struct ServerApi<'a> {
     pub services: &'a mut dyn Services,
-    pub messages: &'a mut dyn ServerMessageProvider,
 }
 
 impl<'a> ServerApi<'a> {
     #[must_use]
-    pub fn new(
-        services: &'a mut dyn Services,
-        messages: &'a mut dyn ServerMessageProvider,
-    ) -> Self {
-        Self { services, messages }
+    pub fn new(services: &'a mut dyn Services) -> Self {
+        Self { services }
+    }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        let _ = &self.services;
+        emit_log(level, message);
     }
 }
 
@@ -906,7 +1146,6 @@ pub struct ClientApi<'a> {
     pub input: &'a mut dyn ClientInputProvider,
     pub camera: &'a mut dyn ClientCameraHitProvider,
     pub interaction: &'a mut dyn ClientInteractionProvider,
-    pub messages: &'a mut dyn ClientMessageProvider,
     pub players: &'a mut dyn ClientPlayerProvider,
     pub nameplates: &'a mut dyn ClientNameplateProvider,
 }
@@ -918,7 +1157,6 @@ impl<'a> ClientApi<'a> {
         input: &'a mut dyn ClientInputProvider,
         camera: &'a mut dyn ClientCameraHitProvider,
         interaction: &'a mut dyn ClientInteractionProvider,
-        messages: &'a mut dyn ClientMessageProvider,
         players: &'a mut dyn ClientPlayerProvider,
         nameplates: &'a mut dyn ClientNameplateProvider,
     ) -> Self {
@@ -927,7 +1165,6 @@ impl<'a> ClientApi<'a> {
             input,
             camera,
             interaction,
-            messages,
             players,
             nameplates,
         }
@@ -940,10 +1177,80 @@ impl<'a> ClientApi<'a> {
             input: self.input,
             camera: self.camera,
             interaction: self.interaction,
-            messages: self.messages,
             players: self.players,
             nameplates: self.nameplates,
         }
+    }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        let _ = &self.services;
+        emit_log(level, message);
+    }
+}
+
+/// Client-side message dispatch context.
+pub struct ClientMessagesApi<'a> {
+    pub tick: u64,
+    pub dt: Duration,
+    pub services: &'a mut dyn Services,
+    pub inbound: &'a [ClientInboundMessage],
+    pub sender: &'a mut dyn ClientMessageSender,
+}
+
+impl<'a> ClientMessagesApi<'a> {
+    #[must_use]
+    pub fn new(
+        tick: u64,
+        dt: Duration,
+        services: &'a mut dyn Services,
+        inbound: &'a [ClientInboundMessage],
+        sender: &'a mut dyn ClientMessageSender,
+    ) -> Self {
+        Self {
+            tick,
+            dt,
+            services,
+            inbound,
+            sender,
+        }
+    }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        let _ = &self.services;
+        emit_log(level, message);
+    }
+}
+
+/// Server-side message dispatch context.
+pub struct ServerMessagesApi<'a> {
+    pub tick: u64,
+    pub dt: Duration,
+    pub services: &'a mut dyn Services,
+    pub inbound: &'a [ServerInboundMessage],
+    pub sender: &'a mut dyn ServerMessageSender,
+}
+
+impl<'a> ServerMessagesApi<'a> {
+    #[must_use]
+    pub fn new(
+        tick: u64,
+        dt: Duration,
+        services: &'a mut dyn Services,
+        inbound: &'a [ServerInboundMessage],
+        sender: &'a mut dyn ServerMessageSender,
+    ) -> Self {
+        Self {
+            tick,
+            dt,
+            services,
+            inbound,
+            sender,
+        }
+    }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        let _ = &self.services;
+        emit_log(level, message);
     }
 }
 
@@ -1005,6 +1312,10 @@ impl<'a> ClientTickApi<'a> {
     pub fn new(tick: u64, dt: Duration, client: ClientApi<'a>) -> Self {
         Self { tick, dt, client }
     }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        self.client.log(level, message);
+    }
 }
 
 /// Server-side lifecycle tick context.
@@ -1019,33 +1330,9 @@ impl<'a> ServerTickApi<'a> {
     pub fn new(tick: u64, dt: Duration, server: ServerApi<'a>) -> Self {
         Self { tick, dt, server }
     }
-}
 
-/// Stable server hook context.
-pub struct ServerHookCtx<'a> {
-    pub tick: u64,
-    pub dt: Duration,
-    pub services: &'a mut dyn Services,
-}
-
-impl<'a> ServerHookCtx<'a> {
-    #[must_use]
-    pub fn new(tick: u64, dt: Duration, services: &'a mut dyn Services) -> Self {
-        Self { tick, dt, services }
-    }
-}
-
-/// Stable client hook context.
-pub struct ClientHookCtx<'a> {
-    pub tick: u64,
-    pub dt: Duration,
-    pub services: &'a mut dyn Services,
-}
-
-impl<'a> ClientHookCtx<'a> {
-    #[must_use]
-    pub fn new(tick: u64, dt: Duration, services: &'a mut dyn Services) -> Self {
-        Self { tick, dt, services }
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        self.server.log(level, message);
     }
 }
 
@@ -1079,7 +1366,7 @@ impl WorldGenInit {
 }
 
 /// Worldgen provider factory. One provider instance can be created per world/session.
-pub type WorldGenFactory = fn(WorldGenInit) -> Box<dyn WorldGenProvider>;
+pub type WorldGenFactory = Arc<dyn Fn(WorldGenInit) -> Box<dyn WorldGenProvider> + Send + Sync>;
 
 /// Minimal worldgen request contract placeholder.
 #[derive(Debug, Default, Clone)]
@@ -1339,11 +1626,12 @@ pub trait CharacterController: Send + Sync {
 pub struct CharacterControllerInit {}
 
 /// Character controller factory.
-pub type CharacterControllerFactory = fn(CharacterControllerInit) -> Box<dyn CharacterController>;
+pub type CharacterControllerFactory =
+    Arc<dyn Fn(CharacterControllerInit) -> Box<dyn CharacterController> + Send + Sync>;
 
 /// Client control provider factory.
 pub type ClientControlProviderFactory =
-    fn(ClientControlProviderInit) -> Box<dyn ClientControlProvider>;
+    Arc<dyn Fn(ClientControlProviderInit) -> Box<dyn ClientControlProvider> + Send + Sync>;
 
 /// Channel reliability policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1384,4 +1672,21 @@ pub struct ChannelConfig {
     pub ordering: ChannelOrdering,
     pub direction: ChannelDirection,
     pub budget: Option<ChannelBudget>,
+}
+
+#[doc(hidden)]
+pub mod __private {
+    use super::{OBSERVABILITY_BRIDGE, ObservabilityBridge};
+
+    pub fn with_observability_bridge<T>(
+        bridge: ObservabilityBridge,
+        call: impl FnOnce() -> T,
+    ) -> T {
+        OBSERVABILITY_BRIDGE.with(|slot| {
+            let previous = slot.replace(bridge);
+            let result = call();
+            slot.replace(previous);
+            result
+        })
+    }
 }
