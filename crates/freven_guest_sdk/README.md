@@ -48,6 +48,19 @@ freven_guest_sdk::wasm_guest!(
 families, callback families, negotiated `GuestDescription`, and emitted Wasm
 export surface all come from that one declaration.
 
+Provider families are authored on that same path through `registration`:
+
+```rust
+registration: {
+    worldgen: "freven.example:flat" => generate_worldgen,
+    character_controller: "freven.example:walker" => {
+        init: init_character_controller,
+        step: step_character_controller,
+    },
+    client_control_provider: "freven.example:controls" => sample_client_control,
+}
+```
+
 `GuestModule` plus `export_wasm_guest!(...)` / `export_native_guest!(...)`
 remain available for lower-level fixtures and ABI-focused tests when you
 intentionally need to wire the raw surface yourself.
@@ -82,9 +95,10 @@ intentionally need to wire the raw surface yourself.
 - Capability declarations are validated honestly by the runtime:
   empty keys fail, and unknown capability keys are rejected against host policy.
 - Provider families use the same canonical declaration model as builtin mods.
-  Wasm, native, and external guests now host `worldgen`,
-  `character_controllers`, and `client_control_providers` through one runtime
-  model; side-specific hosting still follows the canonical runtime side rules.
+  The public `wasm_guest!` / `stateful_wasm_guest!` path now authors and exports
+  `worldgen`, `character_controllers`, and `client_control_providers` without
+  low-level ABI glue; side-specific hosting still follows the canonical runtime
+  side rules.
 - Stateful guest authoring now has an explicit session model through
   `StatefulGuestModule` / `stateful_wasm_guest!`: the SDK owns a per-runtime-session
   state slot, reuses it across callbacks in that session, and rotates it when a

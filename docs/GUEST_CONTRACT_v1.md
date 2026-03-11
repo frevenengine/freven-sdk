@@ -78,6 +78,9 @@ Registration/callback invariants:
 - provider families (`worldgen`, `character_controllers`,
   `client_control_providers`) are part of the canonical public declaration
   model across builtin, Wasm, native, and external guests
+- the recommended public Wasm SDK path (`freven_guest_sdk::wasm_guest!` /
+  `stateful_wasm_guest!`) now authors those provider families directly from the
+  canonical registration surface, rather than through low-level export glue
 - capability keys must be non-empty
 - declared capability keys must exist in the resolved host capability table
 

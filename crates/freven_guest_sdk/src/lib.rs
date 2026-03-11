@@ -2830,6 +2830,7 @@ macro_rules! wasm_guest {
         $crate::wasm_guest!(
             @export
             factory: __freven_guest_sdk_module
+            $(, registration: { $($registration)* })?
             $(, lifecycle: [$($lifecycle),*])?
             $(, client_messages: [$client_messages_handler])?
             $(, server_messages: [$server_messages_handler])?
@@ -2888,92 +2889,589 @@ macro_rules! wasm_guest {
     (@register_lifecycle $module:ident, tick_client, $handler:expr) => { $module.on_tick_client($handler) };
     (@register_lifecycle $module:ident, tick_server, $handler:expr) => { $module.on_tick_server($handler) };
 
-    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?) => {
+    (@export
+        factory: $factory:path
+        , registration: { $($registration:tt)* }
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+    ) => {
+        $crate::wasm_guest!(
+            @scan_registration_for_exports
+            factory: $factory
+            , registration: { $($registration)* }
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: false
+            , character_controller: false
+            , client_control_provider: false
+        );
+    };
+    (@export
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+    ) => {
+        $crate::wasm_guest!(
+            @export_flags
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: false
+            , character_controller: false
+            , client_control_provider: false
+        );
+    };
+
+    (@scan_registration_for_exports
+        factory: $factory:path
+        , registration: {}
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @export_flags
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@scan_registration_for_exports
+        factory: $factory:path
+        , registration: { , $($rest:tt)* }
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @scan_registration_for_exports
+            factory: $factory
+            , registration: { $($rest)* }
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@scan_registration_for_exports
+        factory: $factory:path
+        , registration: { block: $key:expr => $def:expr $(, $($rest:tt)*)? }
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @scan_registration_for_exports
+            factory: $factory
+            , registration: { $($($rest)*)? }
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@scan_registration_for_exports
+        factory: $factory:path
+        , registration: { component: $key:expr => $codec:expr $(, $($rest:tt)*)? }
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @scan_registration_for_exports
+            factory: $factory
+            , registration: { $($($rest)*)? }
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@scan_registration_for_exports
+        factory: $factory:path
+        , registration: { message: $key:expr => $codec:expr $(, $($rest:tt)*)? }
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @scan_registration_for_exports
+            factory: $factory
+            , registration: { $($($rest)*)? }
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@scan_registration_for_exports
+        factory: $factory:path
+        , registration: { worldgen: $key:expr => $handler:expr $(, $($rest:tt)*)? }
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @scan_registration_for_exports
+            factory: $factory
+            , registration: { $($($rest)*)? }
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: true
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@scan_registration_for_exports
+        factory: $factory:path
+        , registration: { worldgen: $key:expr $(, $($rest:tt)*)? }
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @scan_registration_for_exports
+            factory: $factory
+            , registration: { $($($rest)*)? }
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@scan_registration_for_exports
+        factory: $factory:path
+        , registration: { character_controller: $key:expr => { $($handler:tt)* } $(, $($rest:tt)*)? }
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @scan_registration_for_exports
+            factory: $factory
+            , registration: { $($($rest)*)? }
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: $worldgen
+            , character_controller: true
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@scan_registration_for_exports
+        factory: $factory:path
+        , registration: { character_controller: $key:expr $(, $($rest:tt)*)? }
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @scan_registration_for_exports
+            factory: $factory
+            , registration: { $($($rest)*)? }
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@scan_registration_for_exports
+        factory: $factory:path
+        , registration: { client_control_provider: $key:expr => $handler:expr $(, $($rest:tt)*)? }
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @scan_registration_for_exports
+            factory: $factory
+            , registration: { $($($rest)*)? }
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: true
+        );
+    };
+    (@scan_registration_for_exports
+        factory: $factory:path
+        , registration: { client_control_provider: $key:expr $(, $($rest:tt)*)? }
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @scan_registration_for_exports
+            factory: $factory
+            , registration: { $($($rest)*)? }
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@scan_registration_for_exports
+        factory: $factory:path
+        , registration: { channel: $key:expr => $config:expr $(, $($rest:tt)*)? }
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @scan_registration_for_exports
+            factory: $factory
+            , registration: { $($($rest)*)? }
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@scan_registration_for_exports
+        factory: $factory:path
+        , registration: { capability: $key:expr $(, $($rest:tt)*)? }
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        $(, client_messages: [$client_messages:expr])?
+        $(, server_messages: [$server_messages:expr])?
+        $(, actions: [$($action_key:expr),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @scan_registration_for_exports
+            factory: $factory
+            , registration: { $($($rest)*)? }
+            $(, lifecycle: [$($lifecycle),*])?
+            $(, client_messages: [$client_messages])?
+            $(, server_messages: [$server_messages])?
+            $(, actions: [$($action_key),*])?
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+
+    (@export_flags
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
         $crate::export_wasm_guest!(
             factory: $factory
             $(, lifecycle: [$($lifecycle),*])?
+            , actions: false
+            , client_messages: false
+            , server_messages: false
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
         );
     };
-    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, client_messages: [$handler:expr]) => {
-        $crate::export_wasm_guest!(
+    (@export_flags
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        , actions: []
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @export_flags
             factory: $factory
             $(, lifecycle: [$($lifecycle),*])?
-            , client_messages: true
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
         );
     };
-    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, server_messages: [$handler:expr]) => {
-        $crate::export_wasm_guest!(
-            factory: $factory
-            $(, lifecycle: [$($lifecycle),*])?
-            , server_messages: true
-        );
-    };
-    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, client_messages: [$client_handler:expr], server_messages: [$server_handler:expr]) => {
-        $crate::export_wasm_guest!(
-            factory: $factory
-            $(, lifecycle: [$($lifecycle),*])?
-            , client_messages: true
-            , server_messages: true
-        );
-    };
-    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, actions: []) => {
-        $crate::export_wasm_guest!(
-            factory: $factory
-            $(, lifecycle: [$($lifecycle),*])?
-        );
-    };
-    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, actions: [$first:expr $(, $rest:expr)*]) => {
+    (@export_flags
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        , actions: [$first:expr $(, $rest:expr)*]
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
         $crate::export_wasm_guest!(
             factory: $factory
             $(, lifecycle: [$($lifecycle),*])?
             , actions: true
+            , client_messages: false
+            , server_messages: false
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
         );
     };
-    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, client_messages: [$handler:expr], actions: []) => {
+    (@export_flags
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        , client_messages: [$handler:expr]
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
         $crate::export_wasm_guest!(
             factory: $factory
             $(, lifecycle: [$($lifecycle),*])?
+            , actions: false
             , client_messages: true
+            , server_messages: false
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
         );
     };
-    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, client_messages: [$handler:expr], actions: [$first:expr $(, $rest:expr)*]) => {
+    (@export_flags
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        , client_messages: [$handler:expr]
+        , actions: []
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @export_flags
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            , client_messages: [$handler]
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@export_flags
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        , client_messages: [$handler:expr]
+        , actions: [$first:expr $(, $rest:expr)*]
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
         $crate::export_wasm_guest!(
             factory: $factory
             $(, lifecycle: [$($lifecycle),*])?
             , actions: true
             , client_messages: true
+            , server_messages: false
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
         );
     };
-    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, server_messages: [$handler:expr], actions: []) => {
+    (@export_flags
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        , server_messages: [$handler:expr]
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
         $crate::export_wasm_guest!(
             factory: $factory
             $(, lifecycle: [$($lifecycle),*])?
+            , actions: false
+            , client_messages: false
             , server_messages: true
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
         );
     };
-    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, server_messages: [$handler:expr], actions: [$first:expr $(, $rest:expr)*]) => {
+    (@export_flags
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        , server_messages: [$handler:expr]
+        , actions: []
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @export_flags
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            , server_messages: [$handler]
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@export_flags
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        , server_messages: [$handler:expr]
+        , actions: [$first:expr $(, $rest:expr)*]
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
         $crate::export_wasm_guest!(
             factory: $factory
             $(, lifecycle: [$($lifecycle),*])?
             , actions: true
+            , client_messages: false
             , server_messages: true
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
         );
     };
-    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, client_messages: [$client_handler:expr], server_messages: [$server_handler:expr], actions: []) => {
+    (@export_flags
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        , client_messages: [$client_handler:expr]
+        , server_messages: [$server_handler:expr]
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
         $crate::export_wasm_guest!(
             factory: $factory
             $(, lifecycle: [$($lifecycle),*])?
+            , actions: false
             , client_messages: true
             , server_messages: true
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
         );
     };
-    (@export factory: $factory:path $(, lifecycle: [$($lifecycle:ident),*])?, client_messages: [$client_handler:expr], server_messages: [$server_handler:expr], actions: [$first:expr $(, $rest:expr)*]) => {
+    (@export_flags
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        , client_messages: [$client_handler:expr]
+        , server_messages: [$server_handler:expr]
+        , actions: []
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
+        $crate::wasm_guest!(
+            @export_flags
+            factory: $factory
+            $(, lifecycle: [$($lifecycle),*])?
+            , client_messages: [$client_handler]
+            , server_messages: [$server_handler]
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
+        );
+    };
+    (@export_flags
+        factory: $factory:path
+        $(, lifecycle: [$($lifecycle:ident),*])?
+        , client_messages: [$client_handler:expr]
+        , server_messages: [$server_handler:expr]
+        , actions: [$first:expr $(, $rest:expr)*]
+        , worldgen: $worldgen:tt
+        , character_controller: $character_controller:tt
+        , client_control_provider: $client_control_provider:tt
+    ) => {
         $crate::export_wasm_guest!(
             factory: $factory
             $(, lifecycle: [$($lifecycle),*])?
             , actions: true
             , client_messages: true
             , server_messages: true
+            , worldgen: $worldgen
+            , character_controller: $character_controller
+            , client_control_provider: $client_control_provider
         );
     };
 
@@ -2988,14 +3486,32 @@ macro_rules! wasm_guest {
     (@registration $module:expr, message: $key:expr => $codec:expr $(, $($rest:tt)*)?) => {
         $crate::wasm_guest!(@registration $module.register_message($key, $codec) $(, $($rest)*)?)
     };
+    (@registration $module:expr, worldgen: $key:expr => $handler:expr $(, $($rest:tt)*)?) => {
+        $crate::wasm_guest!(@registration $module.register_worldgen_handler($key, $handler) $(, $($rest)*)?)
+    };
     (@registration $module:expr, worldgen: $key:expr $(, $($rest:tt)*)?) => {
-        $crate::wasm_guest!(@registration $module.register_worldgen($key) $(, $($rest)*)?)
+        compile_error!(
+            "wasm_guest! worldgen registrations require a handler: worldgen: \"mod:key\" => handler"
+        )
+    };
+    (@registration $module:expr, character_controller: $key:expr => { init: $init:expr, step: $step:expr $(,)? } $(, $($rest:tt)*)?) => {
+        $crate::wasm_guest!(@registration $module.register_character_controller_handler($key, $init, $step) $(, $($rest)*)?)
+    };
+    (@registration $module:expr, character_controller: $key:expr => { step: $step:expr, init: $init:expr $(,)? } $(, $($rest:tt)*)?) => {
+        $crate::wasm_guest!(@registration $module.register_character_controller_handler($key, $init, $step) $(, $($rest)*)?)
     };
     (@registration $module:expr, character_controller: $key:expr $(, $($rest:tt)*)?) => {
-        $crate::wasm_guest!(@registration $module.register_character_controller($key) $(, $($rest)*)?)
+        compile_error!(
+            "wasm_guest! character_controller registrations require init/step handlers: character_controller: \"mod:key\" => { init: ..., step: ... }"
+        )
+    };
+    (@registration $module:expr, client_control_provider: $key:expr => $handler:expr $(, $($rest:tt)*)?) => {
+        $crate::wasm_guest!(@registration $module.register_client_control_provider_handler($key, $handler) $(, $($rest)*)?)
     };
     (@registration $module:expr, client_control_provider: $key:expr $(, $($rest:tt)*)?) => {
-        $crate::wasm_guest!(@registration $module.register_client_control_provider($key) $(, $($rest)*)?)
+        compile_error!(
+            "wasm_guest! client_control_provider registrations require a handler: client_control_provider: \"mod:key\" => handler"
+        )
     };
     (@registration $module:expr, channel: $key:expr => $config:expr $(, $($rest:tt)*)?) => {
         $crate::wasm_guest!(@registration $module.register_channel($key, $config) $(, $($rest)*)?)
@@ -3003,6 +3519,7 @@ macro_rules! wasm_guest {
     (@registration $module:expr, capability: $key:expr $(, $($rest:tt)*)?) => {
         $crate::wasm_guest!(@registration $module.declare_capability($key) $(, $($rest)*)?)
     };
+
 }
 
 #[macro_export]
@@ -3058,6 +3575,7 @@ macro_rules! stateful_wasm_guest {
         $crate::wasm_guest!(
             @export
             factory: __freven_guest_sdk_stateful_module
+            $(, registration: { $($registration)* })?
             $(, lifecycle: [$($lifecycle),*])?
             $(, client_messages: [$client_messages_handler])?
             $(, server_messages: [$server_messages_handler])?
@@ -3129,14 +3647,32 @@ macro_rules! stateful_wasm_guest {
     (@registration $module:expr, message: $key:expr => $codec:expr $(, $($rest:tt)*)?) => {
         $crate::stateful_wasm_guest!(@registration $module.register_message($key, $codec) $(, $($rest)*)?)
     };
+    (@registration $module:expr, worldgen: $key:expr => $handler:expr $(, $($rest:tt)*)?) => {
+        $crate::stateful_wasm_guest!(@registration $module.register_worldgen_handler($key, $handler) $(, $($rest)*)?)
+    };
     (@registration $module:expr, worldgen: $key:expr $(, $($rest:tt)*)?) => {
-        $crate::stateful_wasm_guest!(@registration $module.register_worldgen($key) $(, $($rest)*)?)
+        compile_error!(
+            "stateful_wasm_guest! worldgen registrations require a handler: worldgen: \"mod:key\" => handler"
+        )
+    };
+    (@registration $module:expr, character_controller: $key:expr => { init: $init:expr, step: $step:expr $(,)? } $(, $($rest:tt)*)?) => {
+        $crate::stateful_wasm_guest!(@registration $module.register_character_controller_handler($key, $init, $step) $(, $($rest)*)?)
+    };
+    (@registration $module:expr, character_controller: $key:expr => { step: $step:expr, init: $init:expr $(,)? } $(, $($rest:tt)*)?) => {
+        $crate::stateful_wasm_guest!(@registration $module.register_character_controller_handler($key, $init, $step) $(, $($rest)*)?)
     };
     (@registration $module:expr, character_controller: $key:expr $(, $($rest:tt)*)?) => {
-        $crate::stateful_wasm_guest!(@registration $module.register_character_controller($key) $(, $($rest)*)?)
+        compile_error!(
+            "stateful_wasm_guest! character_controller registrations require init/step handlers: character_controller: \"mod:key\" => { init: ..., step: ... }"
+        )
+    };
+    (@registration $module:expr, client_control_provider: $key:expr => $handler:expr $(, $($rest:tt)*)?) => {
+        $crate::stateful_wasm_guest!(@registration $module.register_client_control_provider_handler($key, $handler) $(, $($rest)*)?)
     };
     (@registration $module:expr, client_control_provider: $key:expr $(, $($rest:tt)*)?) => {
-        $crate::stateful_wasm_guest!(@registration $module.register_client_control_provider($key) $(, $($rest)*)?)
+        compile_error!(
+            "stateful_wasm_guest! client_control_provider registrations require a handler: client_control_provider: \"mod:key\" => handler"
+        )
     };
     (@registration $module:expr, channel: $key:expr => $config:expr $(, $($rest:tt)*)?) => {
         $crate::stateful_wasm_guest!(@registration $module.register_channel($key, $config) $(, $($rest)*)?)
@@ -3196,6 +3732,55 @@ mod tests {
             .action("freven.test:place_block", 7, |_| {
                 ActionResponse::applied().set_block((1, 2, 3), 9).finish()
             })
+    }
+
+    fn provider_worldgen(_: WorldGenContext<'_>) -> WorldGenCallResult {
+        WorldGenCallResult {
+            output: WorldGenOutput {
+                sections: vec![WorldGenSection {
+                    sy: 0,
+                    blocks: vec![7; 16 * 16 * 16],
+                }],
+            },
+        }
+    }
+
+    fn provider_character_init(
+        _: CharacterControllerInitContext<'_>,
+    ) -> CharacterControllerInitResult {
+        CharacterControllerInitResult {
+            config: CharacterConfig {
+                shape: CharacterShape::Aabb {
+                    half_extents: [0.4, 0.9, 0.4],
+                },
+                max_speed_ground: 5.0,
+                max_speed_air: 3.0,
+                accel_ground: 12.0,
+                accel_air: 4.0,
+                gravity: 9.8,
+                jump_impulse: 5.5,
+                step_height: 0.25,
+                skin_width: 0.001,
+            },
+        }
+    }
+
+    fn provider_character_step(
+        ctx: CharacterControllerStepContext<'_>,
+    ) -> CharacterControllerStepResult {
+        let mut state = ctx.state();
+        state.pos[1] += 1.0;
+        CharacterControllerStepResult { state }
+    }
+
+    fn provider_client_control(_: ClientControlProviderContext<'_>) -> ClientControlSampleResult {
+        ClientControlSampleResult {
+            output: ClientControlOutput {
+                input: vec![1, 2, 3],
+                view_yaw_deg_mdeg: 12_000,
+                view_pitch_deg_mdeg: -3_000,
+            },
+        }
     }
 
     #[test]
@@ -3560,6 +4145,104 @@ mod tests {
         );
         assert!(description.callbacks.action);
         assert!(description.callbacks.messages.server);
+    }
+
+    #[test]
+    fn wasm_guest_macro_supports_provider_family_handlers() {
+        let module = wasm_guest!(
+            @module
+            guest_id: "freven.test.providers"
+            , registration: {
+                worldgen: "freven.test:flat" => provider_worldgen,
+                character_controller: "freven.test:humanoid" => {
+                    init: provider_character_init,
+                    step: provider_character_step,
+                },
+                client_control_provider: "freven.test:controls" => provider_client_control
+            }
+        );
+
+        let description = module.description();
+        assert_eq!(description.registration.worldgen.len(), 1);
+        assert_eq!(description.registration.character_controllers.len(), 1);
+        assert_eq!(description.registration.client_control_providers.len(), 1);
+        assert_eq!(
+            description.callbacks.providers,
+            ProviderHooks {
+                worldgen: true,
+                character_controller: true,
+                client_control_provider: true,
+            }
+        );
+
+        let worldgen = module.handle_worldgen(WorldGenCallInput {
+            key: "freven.test:flat".to_string(),
+            init: WorldGenInit::default(),
+            request: WorldGenRequest::default(),
+        });
+        assert_eq!(worldgen.output.sections.len(), 1);
+        assert_eq!(worldgen.output.sections[0].blocks.len(), 16 * 16 * 16);
+
+        let init = module.handle_character_controller_init(CharacterControllerInitInput {
+            key: "freven.test:humanoid".to_string(),
+        });
+        assert_eq!(init.config.step_height, 0.25);
+
+        let stepped = module.handle_character_controller_step(CharacterControllerStepInput {
+            key: "freven.test:humanoid".to_string(),
+            state: CharacterState {
+                pos: [0.0, 0.0, 0.0],
+                vel: [0.0, 0.0, 0.0],
+                on_ground: true,
+            },
+            input: CharacterControllerInput {
+                input: Vec::new(),
+                view_yaw_deg_mdeg: 0,
+                view_pitch_deg_mdeg: 0,
+                timeline: InputTimeline::default(),
+            },
+            dt_millis: 16,
+        });
+        assert_eq!(stepped.state.pos[1], 1.0);
+
+        let controls = module.handle_client_control_provider(ClientControlSampleInput {
+            key: "freven.test:controls".to_string(),
+        });
+        assert_eq!(controls.output.input, vec![1, 2, 3]);
+        assert_eq!(controls.output.view_yaw_deg_mdeg, 12_000);
+        assert_eq!(controls.output.view_pitch_deg_mdeg, -3_000);
+    }
+
+    #[test]
+    fn stateful_wasm_guest_macro_supports_provider_family_handlers() {
+        std::thread_local! {
+            static STORE: RefCell<StatefulGuestSessionStore<u32>> =
+                const { RefCell::new(StatefulGuestSessionStore::new()) };
+        }
+
+        let module = stateful_wasm_guest!(
+            @module
+            guest_id: "freven.test.stateful.providers",
+            session_factory: |_| 0_u32,
+            session_store: &STORE,
+            registration: {
+                worldgen: "freven.test:flat" => provider_worldgen,
+                character_controller: "freven.test:humanoid" => {
+                    init: provider_character_init,
+                    step: provider_character_step,
+                },
+                client_control_provider: "freven.test:controls" => provider_client_control
+            }
+        );
+
+        assert_eq!(
+            module.description().callbacks.providers,
+            ProviderHooks {
+                worldgen: true,
+                character_controller: true,
+                client_control_provider: true,
+            }
+        );
     }
 
     #[test]
