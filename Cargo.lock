@@ -42,6 +42,7 @@ name = "freven_guest_sdk"
 version = "0.1.0"
 dependencies = [
  "freven_guest",
+ "freven_mod_api",
  "freven_sdk_types",
  "postcard",
  "serde",
@@ -67,11 +68,45 @@ dependencies = [
 ]
 
 [[package]]
-name = "freven_std"
+name = "freven_world_api"
 version = "0.1.0"
 dependencies = [
  "freven_mod_api",
+ "freven_sdk_types",
+ "freven_world_guest",
+ "freven_world_sdk_types",
+ "serde",
  "thiserror",
+ "toml",
+]
+
+[[package]]
+name = "freven_world_guest"
+version = "0.1.0"
+dependencies = [
+ "freven_guest",
+ "freven_sdk_types",
+ "freven_world_sdk_types",
+ "serde",
+]
+
+[[package]]
+name = "freven_world_guest_sdk"
+version = "0.1.0"
+dependencies = [
+ "freven_sdk_types",
+ "freven_world_guest",
+ "freven_world_sdk_types",
+ "postcard",
+ "serde",
+ "toml",
+]
+
+[[package]]
+name = "freven_world_sdk_types"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -192,9 +227,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "1.0.3+spec-1.1.0"
+version = "1.0.6+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7614eaf19ad818347db24addfa201729cf2a9b6fdfd9eb0ab870fcacc606c0c"
+checksum = "399b1124a3c9e16766831c6bba21e50192572cdd98706ea114f9502509686ffc"
 dependencies = [
  "indexmap",
  "serde_core",

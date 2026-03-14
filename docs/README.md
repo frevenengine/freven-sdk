@@ -16,3 +16,5 @@ Read them in this order:
 `freven_mod_api` is the builtin / compile-time facade over the same semantic
 system, including capability declarations through `ModContext::declare_capability`.
 `freven_guest` remains the canonical runtime-loaded guest contract.
+World-shaped declarations and first-party helpers now live under explicit
+`freven_world_*` ownership rather than the neutral SDK roots.
