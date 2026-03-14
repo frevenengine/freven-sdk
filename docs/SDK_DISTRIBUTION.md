@@ -42,7 +42,7 @@ Naming note:
 freven_mod_api = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_mod_api" }
 freven_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_guest_sdk" }
 freven_sdk_types = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_sdk_types" }
-# Explicit world-owned surfaces when you intentionally target the world stack:
+# Explicit world-owned surfaces when you intentionally target the current world stack:
 # freven_world_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_world_guest_sdk" }
 # freven_world_api = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_world_api" }
 ````
@@ -51,6 +51,8 @@ Guidance:
 
 * pin a `tag` (not a floating branch) for reproducible builds
 * use matching tags across Freven crates
+* choose the neutral crates only for platform-shaped declarations; choose the
+  `freven_world_*` crates when authoring gameplay/world-stack behavior
 
 ## Versioning policy
 

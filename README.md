@@ -5,8 +5,8 @@ The engine source is private and is not part of this repository.
 
 ## Public crates
 
-- `freven_guest_sdk`: high-level guest SDK for the recommended public Wasm path
-- `freven_guest`: canonical transport-agnostic guest contract for runtime-loaded mods
+- `freven_guest_sdk`: high-level neutral guest SDK for the public Wasm path
+- `freven_guest`: neutral transport-agnostic guest contract for runtime-loaded mods
 - `freven_mod_api`: builtin / compile-time facade over the same semantic model
 - `freven_sdk_types`: neutral shared SDK types and observability helpers
 - `freven_world_guest_sdk`: explicit world-owned guest authoring surface
@@ -27,16 +27,21 @@ ids now live in `freven-vanilla`, not in the SDK repository.
 
 Start with [docs/WASM_AUTHORING.md](docs/WASM_AUTHORING.md).
 
-- Use `freven_guest_sdk` for normal mod authoring.
+- Use `freven_guest_sdk` for neutral runtime-loaded guests that need only
+  lifecycle, messages, components, channels, capabilities, session identity,
+  and observability.
+- Use `freven_world_guest_sdk` for runtime-loaded gameplay/world-stack mods.
 - Treat Wasm as the polished safe public path.
-- Treat `freven_guest` plus the ABI / IPC docs as low-level reference material
-  for fixtures, runtime work, and transport adapters.
-- Use `freven_mod_api` when you are authoring builtin / compile-time mods or
-  host-side semantic integrations.
-- Use the `freven_world_*` crates only when you are intentionally targeting the
-  current world stack; they are explicit world-owned surfaces, not neutral SDK roots.
-- Treat the `freven_world_*` crates as thin world overlays over the neutral SDK roots,
-  not as replacement top-level SDK monoliths.
+- Treat `freven_guest` plus
+  [docs/NEUTRAL_GUEST_CONTRACT_v1.md](docs/NEUTRAL_GUEST_CONTRACT_v1.md) as
+  low-level neutral reference material for fixtures, runtime work, and
+  contract adapters.
+- Treat `freven_world_guest` plus the ABI / IPC docs as low-level explicit
+  world-stack reference material.
+- Use `freven_mod_api` for builtin / compile-time neutral integrations.
+- Use `freven_world_api` for builtin / compile-time gameplay/world authoring.
+- Treat the `freven_world_*` crates as explicit world-owned overlays over the
+  neutral SDK roots, not as replacement top-level SDK monoliths.
 - Treat native and external execution as secondary trust / execution paths, not
   as equal onboarding stories.
 - Treat builtin mods as the same semantic system through a different execution

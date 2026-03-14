@@ -1,66 +1,41 @@
 # freven_guest_sdk
 
-High-level guest authoring helpers for Freven runtime-loaded mods.
+Neutral guest authoring helpers for Freven runtime-loaded mods.
 
 Use this crate for the normal Wasm authoring path. It sits on top of the
 canonical `freven_guest` contract and hides the transport boilerplate:
 
-- guest alloc/dealloc exports
-- `postcard` encode/decode plumbing
-- Wasm export table wiring
-- native in-process export wiring for low-level fixtures/tests
-- canonical declaration builders for components/messages/channels/capabilities
-- lifecycle/message dispatch lookup
-- export-surface validation against the canonical `GuestDescription`
+- canonical declaration types for components, messages, channels, and
+  capabilities
+- lifecycle and message contract types
+- session identity and observability helpers
+- logging macros routed through the host observability bridge
 
-Most mod authors should depend on `freven_guest_sdk`. Reach for
-`freven_guest` directly only when you are implementing or testing the raw guest
-contract itself.
+This crate is intentionally neutral after the Stage 01 boundary reset.
+World-shaped declarations do not live here.
 
-## Minimal example
+Reach for `freven_guest` directly only when you are implementing or testing the
+raw neutral guest contract itself.
+
+Use `freven_world_guest_sdk` when you need:
+
+- blocks or voxel declarations
+- actions or world edits
+- worldgen
+- character controllers
+- client-control providers
+- world/runtime services
+
+## Minimal usage
 
 ```rust
 freven_guest_sdk::log_info!("hello from a neutral guest");
 ```
 
-`wasm_guest!` is the normal public authoring path: the guest id, registration
-families, callback families, negotiated `GuestDescription`, and emitted Wasm
-export surface all come from that one declaration.
-
-`GuestModule` plus `export_wasm_guest!(...)` / `export_native_guest!(...)`
-remain available for lower-level fixtures and ABI-focused tests when you
-intentionally need to wire the raw surface yourself.
-
-For blocks, actions, worldgen, character controllers, and other world-stack
-authoring surfaces, use `freven_world_guest_sdk`.
-
 ## Current boundaries
 
-- Lifecycle hooks return `LifecycleResult`.
-- Runtime messaging is a dedicated callback family on both sides rather than
-  being stuffed into lifecycle or actions.
-- Runtime-loaded guests use explicit runtime services for reads and side-specific
-  facilities rather than callback-specific hacks.
-- Runtime delivery is contract-checked symmetrically:
-  undeclared inbound channels/message ids fault the guest the same way undeclared outbound use does.
-- Neutral declarations cover components, messages, channels, and capability keys.
-- World-shaped declarations live behind the explicit `freven_world_guest_sdk` layer.
-- Guest start callbacks receive `StartInput { session, experience_id, mod_id, config }`.
-  `StartInputExt::config_typed::<T>()` decodes the canonical per-mod TOML
-  config document for the guest path.
-- `StartInput.session` is the canonical runtime-session identity for that guest
-  instance on one hosted side. Stateful guests should key long-lived state off
-  that session identity instead of ad hoc process statics.
-- Capability declarations are validated honestly by the runtime:
-  empty keys fail, and unknown capability keys are rejected against host policy.
-- Provider families use the same canonical declaration model as builtin mods.
-  The public `wasm_guest!` / `stateful_wasm_guest!` path now authors and exports
-  `worldgen`, `character_controllers`, and `client_control_providers` without
-  low-level ABI glue; side-specific hosting still follows the canonical runtime
-  side rules.
-- Stateful guest authoring now has an explicit session model through
-  `StatefulGuestModule` / `stateful_wasm_guest!`: the SDK owns a per-runtime-session
-  state slot, reuses it across callbacks in that session, and rotates it when a
-  new `StartInput.session` arrives.
-- Wasm is the primary safe path. Native and external transports remain
-  secondary transport integrations with separate operational tradeoffs.
+- neutral declarations cover components, messages, channels, and capability keys
+- lifecycle and message hooks remain transport-agnostic contract truth
+- logging and observability stay available without importing world semantics
+- world-shaped declarations live behind the explicit `freven_world_guest_sdk`
+  layer instead of the neutral SDK root

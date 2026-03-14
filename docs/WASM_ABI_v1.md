@@ -2,13 +2,13 @@
 
 This document defines the Freven WASM mod ABI for WP7A.
 
-The canonical public guest contract is `freven_guest` and is documented in
-`GUEST_CONTRACT_v1.md`. This document covers the Wasm transport mapping for that
-contract.
+The canonical public guest contract for the current world stack is
+`freven_world_guest` and is documented in `GUEST_CONTRACT_v1.md`. This document
+covers the Wasm transport mapping for that contract.
 
-For normal mod authoring, use `freven_guest_sdk` and the guide in
-`WASM_AUTHORING.md`. This document is transport reference material, not the
-recommended getting-started path.
+For normal gameplay/world-stack mod authoring, use `freven_world_guest_sdk` and
+the guide in `WASM_AUTHORING.md`. This document is transport reference
+material, not the recommended getting-started path.
 
 ## Scope
 
@@ -70,11 +70,11 @@ Optional runtime-service import:
   services
 
 The Wasm hostcall is transport plumbing only. Observability/logging semantics
-come from `freven_guest`, not from the Wasm ABI.
+come from `freven_world_guest`, not from the Wasm ABI.
 
 ## Encoding
 
-ABI payloads are `postcard` encoded values from `freven_guest`.
+ABI payloads are `postcard` encoded values from `freven_world_guest`.
 
 ### Negotiation (`freven_guest_negotiate`)
 
