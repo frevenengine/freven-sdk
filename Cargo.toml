@@ -14,7 +14,7 @@ members = [
 [workspace.package]
 edition = "2024"
 version = "0.1.0"
-license = "LicenseRef-FRSL-1.0"
+license = "Apache-2.0"
 repository = "https://github.com/frevenengine/freven-sdk"
 homepage = "https://github.com/frevenengine/freven-sdk"
 documentation = "https://github.com/frevenengine/freven-sdk/tree/main/docs"
