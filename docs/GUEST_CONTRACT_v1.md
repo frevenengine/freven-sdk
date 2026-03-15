@@ -1,13 +1,14 @@
 # Guest Contract v1
 
-`freven_guest` is the canonical public contract for runtime-loaded Freven mods.
+`freven_world_guest` is the canonical public contract for runtime-loaded Freven
+world-stack mods.
 
-Most mod authors should consume this contract through `freven_guest_sdk`.
-Writing directly against `freven_guest` is mainly for low-level transport work,
-fixtures, and runtime validation.
+Most mod authors should consume this contract through
+`freven_world_guest_sdk`. Writing directly against `freven_world_guest` is
+mainly for low-level transport work, fixtures, and runtime validation.
 
-Builtin / compile-time authoring uses `freven_mod_api`, which is a facade over
-the same semantic registration and runtime-output model.
+Builtin / compile-time world authoring uses `freven_world_api`, which is a
+facade over the same semantic registration and runtime-output model.
 
 ## Scope
 
@@ -21,7 +22,7 @@ contract meaning defined here.
 ## Versioning
 
 - Contract version constant: `GUEST_CONTRACT_VERSION_1`
-- Types in `freven_guest` are intentionally unversioned.
+- Types in `freven_world_guest` are intentionally unversioned.
 - Future breaking contract revisions should use a new contract version and, if
   needed, a new module path or crate revision. Do not mix `contract vN` with
   `*V1` type names inside the same contract family.
@@ -78,7 +79,7 @@ Registration/callback invariants:
 - provider families (`worldgen`, `character_controllers`,
   `client_control_providers`) are part of the canonical public declaration
   model across builtin, Wasm, native, and external guests
-- the recommended public Wasm SDK path (`freven_guest_sdk::wasm_guest!` /
+- the recommended public Wasm SDK path (`freven_world_guest_sdk::wasm_guest!` /
   `stateful_wasm_guest!`) now authors those provider families directly from the
   canonical registration surface, rather than through low-level export glue
 - capability keys must be non-empty
@@ -86,7 +87,7 @@ Registration/callback invariants:
 
 Current hosting policy:
 
-- builtin / compile-time authoring through `freven_mod_api` hosts all currently
+- builtin / compile-time authoring through `freven_world_api` hosts all currently
   implemented declaration families
 - Wasm, native, and external guest transports host provider families
   (`worldgen`, `character_controllers`, `client_control_providers`) through the

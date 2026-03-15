@@ -2,8 +2,9 @@
 
 Native guest execution is opt-in and disabled by default.
 
-The canonical public guest contract is `freven_guest`. Native loading remains a
-separate unsafe transport path and is not the primary guest contract surface.
+The canonical public guest contract for the current world stack is
+`freven_world_guest`. Native loading remains a separate unsafe transport path
+and is not the primary guest contract surface.
 
 ## Enable
 
@@ -48,7 +49,8 @@ Absolute paths, root/prefix components, and parent traversal are rejected during
 
 Native mods use the same semantic guest contract as Wasm, but not the same
 memory ABI. Native uses explicit in-process FFI structs, and those structs live
-at the transport boundary rather than in the semantic `freven_guest` crate:
+at the transport boundary rather than in the semantic `freven_world_guest`
+crate:
 
 - `freven_guest_alloc(size: usize) -> *mut u8`
 - `freven_guest_dealloc(buffer: NativeGuestBuffer)`

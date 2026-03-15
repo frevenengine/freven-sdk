@@ -9,11 +9,16 @@ This repository (`frevenengine/freven-sdk`) is public-readable and contains:
 - `freven_guest`
 - `freven_guest_sdk`
 - `freven_sdk_types`
-- `freven_std` (**unstable**; depend only if you accept breakage)
+- `freven_world_api`
+- `freven_world_guest`
+- `freven_world_guest_sdk`
+- `freven_world_sdk_types`
 
 **Engine source is private and is not part of this repository.**
 
 Reference gameplay (vanilla experience) lives in a separate repository (`frevenengine/freven-vanilla`).
+First-party gameplay helpers such as break/place payload codecs and humanoid input
+now ship from `freven-vanilla`, not from this SDK repository.
 
 ## Publishing plan
 
@@ -22,7 +27,8 @@ Now:
 
 Later (planned):
 - publish `freven_mod_api` and `freven_sdk_types` to crates.io.
-- optionally publish `freven_std` after API hardening.
+- evaluate which explicit `freven_world_*` crates should remain public as the
+  world stack hardens.
 
 Naming note:
 - `freven_api` has been retired in favor of `freven_mod_api`.
@@ -36,14 +42,17 @@ Naming note:
 freven_mod_api = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_mod_api" }
 freven_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_guest_sdk" }
 freven_sdk_types = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_sdk_types" }
-# Optional / unstable:
-# freven_std = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_std" }
+# Explicit world-owned surfaces when you intentionally target the current world stack:
+# freven_world_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_world_guest_sdk" }
+# freven_world_api = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_world_api" }
 ````
 
 Guidance:
 
 * pin a `tag` (not a floating branch) for reproducible builds
 * use matching tags across Freven crates
+* choose the neutral crates only for platform-shaped declarations; choose the
+  `freven_world_*` crates when authoring gameplay/world-stack behavior
 
 ## Versioning policy
 

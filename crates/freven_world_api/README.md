@@ -1,15 +1,16 @@
-# freven_mod_api
+# freven_world_api
 
-Stable SDK contracts for Freven builtin and compile-time mod authoring.
+Explicit world-owned contracts for Freven builtin and compile-time world authoring.
 
-`freven_mod_api` defines the engine-agnostic public contracts used by Freven
-experiences, builtin mods, and compile-time registrations. It is the semantic
-facade for the in-process authoring path, not the name of the whole SDK.
+`freven_world_api` carries the current world-stack-facing declaration families
+that were removed from the neutral SDK roots during Stage 01 of the platform
+boundary reset. It is intentionally world-owned, not a neutral platform crate.
 
-For runtime-loaded mods, the canonical public contract lives in `freven_guest`
-and the recommended public authoring path is `freven_guest_sdk` on Wasm.
+For runtime-loaded world mods, the canonical public contract lives in
+`freven_world_guest` and the recommended authoring path is
+`freven_world_guest_sdk` on Wasm.
 
-`freven_mod_api` still participates in the same semantic system:
+`freven_world_api` still participates in the same world semantic system:
 
 - deterministic registration via `ModContext`
 - canonical capability declarations via `ModContext::declare_capability(...)`
@@ -20,15 +21,12 @@ and the recommended public authoring path is `freven_guest_sdk` on Wasm.
   used by runtime-loaded guests
 
 Builtin / compile-time capability declarations use the same
-`CapabilityDeclaration` model as `freven_guest`. When a builtin mod is hosted
+`CapabilityDeclaration` model as `freven_world_guest`. When a builtin mod is hosted
 from a resolved `mod.toml`, declared capability keys are validated against that
 resolved capability table before the runtime records them.
 
-World-shaped compile-time registrations such as `ExperienceSpec`, actions,
-providers, blocks, and worldgen live in `freven_world_api`, not here. Canonical
-boot/load/runtime truth still lives in the engine runtime activation model.
-
-Engine/app/bootstrap wiring does not belong in this crate.
+Neutral boot/load/runtime truth still lives outside this crate. Engine/app/
+bootstrap wiring does not belong here.
 
 ## Stability and semver stance
 
@@ -41,8 +39,10 @@ Engine/app/bootstrap wiring does not belong in this crate.
 ## Minimal usage
 
 ```rust
-use freven_mod_api::{ModSide, Side};
+use freven_world_api::{ActionKindId, ModSide, Side};
 
+let kind = ActionKindId(7);
+assert_eq!(kind.raw(), 7);
 assert!(ModSide::Both.matches(Side::Client));
 ```
 

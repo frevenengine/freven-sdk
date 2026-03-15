@@ -3,15 +3,15 @@
 This document defines the companion-process protocol for mods with
 `execution = "external_guest"`.
 
-The canonical public guest contract is `freven_guest` as documented in
-`GUEST_CONTRACT_v1.md`. External is a secondary execution path that carries the
-same guest negotiation, lifecycle, action, message, provider, and runtime
-service semantics over a JSON envelope.
+The canonical public guest contract for the current world stack is
+`freven_world_guest` as documented in `GUEST_CONTRACT_v1.md`. External is a
+secondary execution path that carries the same guest negotiation, lifecycle,
+action, message, provider, and runtime service semantics over a JSON envelope.
 
 This is a secondary transport integration, not the default authoring story.
-Prefer Wasm with `freven_guest_sdk` unless you specifically need a companion
-process boundary. Builtin mods use the same semantic system through
-`freven_mod_api`, but they do not use this IPC transport.
+Prefer Wasm with `freven_world_guest_sdk` unless you specifically need a
+companion process boundary. Builtin world mods use the same semantic system
+through `freven_world_api`, but they do not use this IPC transport.
 
 ## Transport
 
@@ -94,7 +94,7 @@ per-mod config document (`ModConfigDocument`, currently TOML text).
   `guest_id` that matches the resolved mod id.
 - Negotiated lifecycle declarations may include both client and server hooks.
   The runtime hosts the active side as a subset for the current session.
-- External transport supports the full `freven_guest` callback surface:
+- External transport supports the full `freven_world_guest` callback surface:
   lifecycle, action, message, and provider families all use the same canonical
   declaration model as builtin/Wasm/native guests.
 - Side-specific hosting matches the canonical runtime model:

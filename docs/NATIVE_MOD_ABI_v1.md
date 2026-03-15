@@ -3,16 +3,17 @@
 This document defines the in-process native dynamic-library transport ABI for
 Freven native mods.
 
-The canonical public guest contract is `freven_guest` as documented in
-`GUEST_CONTRACT_v1.md`. Native is a secondary unsafe transport that carries the
-same guest negotiation, declaration, and callback semantics over an in-process native-width ABI.
+The canonical public guest contract for the current world stack is
+`freven_world_guest` as documented in `GUEST_CONTRACT_v1.md`. Native is a
+secondary unsafe transport that carries the same guest negotiation,
+declaration, and callback semantics over an in-process native-width ABI.
 
 The native FFI structs in this document are transport ABI types. They are not
-part of the semantic `freven_guest` contract crate.
+part of the semantic `freven_world_guest` contract crate.
 
 This is not the recommended public authoring path. Prefer Wasm with
-`freven_guest_sdk` unless you are intentionally doing low-level runtime work on
-trusted local code.
+`freven_world_guest_sdk` unless you are intentionally doing low-level runtime
+work on trusted local code.
 
 ## Required exports
 
@@ -82,7 +83,7 @@ struct NativeGuestBuffer {
 
 ## Encoding
 
-Returned bytes are postcard-encoded `freven_guest` contract types:
+Returned bytes are postcard-encoded `freven_world_guest` contract types:
 
 - `freven_guest_negotiate` takes `NegotiationRequest` and returns `NegotiationResponse`
 - `freven_guest_handle_action` takes `ActionInput` and returns `ActionResult`
@@ -135,7 +136,7 @@ Native guests can issue canonical runtime service requests through the installed
   `RuntimeOutput.commands`
 
 The bridge is transport plumbing only. It must not redefine the semantic
-service families documented in `freven_guest`.
+service families documented in `freven_world_guest`.
 
 Observability/logging uses that same canonical service surface:
 
