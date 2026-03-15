@@ -75,3 +75,13 @@ See [docs/SDK_DISTRIBUTION.md](docs/SDK_DISTRIBUTION.md) for release policy.
 - SDK is pre-1.0.
 - Breaking changes will be called out in release notes.
 - Experimental areas are labeled explicitly in docs and code.
+
+## License
+
+This repository is licensed under the Apache License, Version 2.0.
+See `LICENSE` for the full text.
+
+`freven-sdk` contains the public Freven SDK for mod and experience authoring.
+
+Freven engine internals remain private and are not part of this repository.
+Other Freven repositories may use different licenses.
