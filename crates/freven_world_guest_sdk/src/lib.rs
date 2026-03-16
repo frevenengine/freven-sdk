@@ -7,29 +7,32 @@ use core::cell::RefCell;
 use core::ffi::c_void;
 use std::thread::LocalKey;
 
-pub use freven_world_guest::{
-    ActionDeclaration, ActionInput, ActionOutcome, ActionResult, BlockDeclaration,
-    CapabilityDeclaration, ChannelBudget, ChannelConfig, ChannelDeclaration, ChannelDirection,
-    ChannelOrdering, ChannelReliability, CharacterConfig, CharacterControllerDeclaration,
-    CharacterControllerInitInput, CharacterControllerInitResult, CharacterControllerInput,
-    CharacterControllerStepInput, CharacterControllerStepResult, CharacterShape, CharacterState,
-    ClientControlOutput, ClientControlProviderDeclaration, ClientControlSampleInput,
-    ClientControlSampleResult, ClientInboundMessage, ClientKeyCode, ClientMessageInput,
-    ClientMessageResult, ClientMouseButton, ClientNameplateDrawCmd, ClientOutboundMessage,
-    ClientOutboundMessageScope, ClientPlayerView, ComponentCodec, ComponentDeclaration,
-    GUEST_CONTRACT_VERSION_1, GuestCallbacks, GuestDescription, GuestRegistration, InputTimeline,
-    KinematicMoveConfig, KinematicMoveResult, LifecycleHooks, LifecycleResult, LogLevel,
-    LogPayload, MessageCodec, MessageDeclaration, MessageHooks, MessageScope, ModConfigDocument,
-    ModConfigFormat, NegotiationRequest, NegotiationResponse, ProviderHooks,
-    RuntimeCharacterPhysicsRequest, RuntimeClientControlRequest, RuntimeCommandOutput,
-    RuntimeEntityTarget, RuntimeLevelRef, RuntimeMessageOutput, RuntimeObservabilityRequest,
-    RuntimeOutput, RuntimePresentationOutput, RuntimeReadRequest, RuntimeServiceRequest,
-    RuntimeServiceResponse, RuntimeSessionInfo, RuntimeSessionSide, RuntimeSideRequest,
-    ServerInboundMessage, ServerMessageInput, ServerMessageResult, ServerOutboundMessage,
-    StartInput, SweepHit, TickInput, WorldCommand, WorldGenCallInput, WorldGenCallResult,
-    WorldGenDeclaration, WorldGenInit, WorldGenOutput, WorldGenRequest, WorldGenSection,
+use freven_guest::{
+    CapabilityDeclaration, ChannelConfig, ChannelDeclaration, ComponentCodec, ComponentDeclaration,
+    LifecycleHooks, LogLevel, LogPayload, MessageCodec, MessageDeclaration, MessageHooks,
+    NegotiationRequest, RuntimeSessionInfo, RuntimeSessionSide,
 };
-pub use freven_world_sdk_types::blocks::{BlockDef, RenderLayer};
+pub use freven_world_guest::{
+    ActionDeclaration, ActionInput, ActionOutcome, ActionResult, BlockDeclaration, CharacterConfig,
+    CharacterControllerDeclaration, CharacterControllerInitInput, CharacterControllerInitResult,
+    CharacterControllerInput, CharacterControllerStepInput, CharacterControllerStepResult,
+    CharacterShape, CharacterState, ClientControlOutput, ClientControlProviderDeclaration,
+    ClientControlSampleInput, ClientControlSampleResult, ClientInboundMessage, ClientKeyCode,
+    ClientMessageInput, ClientMessageResult, ClientMouseButton, ClientOutboundMessage,
+    ClientOutboundMessageScope, ClientPlayerView, ClientVisibilityRequest,
+    ClientVisibilityResponse, GuestCallbacks, GuestDescription, GuestRegistration, InputTimeline,
+    KinematicMoveConfig, KinematicMoveResult, LifecycleResult, MessageScope, ModConfigDocument,
+    ModConfigFormat, NegotiationResponse, ProviderHooks, RuntimeCharacterPhysicsRequest,
+    RuntimeClientControlRequest, RuntimeEntityTarget, RuntimeLevelRef, RuntimeMessageOutput,
+    RuntimeObservabilityRequest, RuntimeOutput, ServerInboundMessage, ServerMessageInput,
+    ServerMessageResult, ServerOutboundMessage, StartInput, SweepHit, TickInput, WorldGenCallInput,
+    WorldGenCallResult, WorldGenDeclaration, WorldGenInit, WorldGenOutput, WorldGenRequest,
+    WorldMutation, WorldMutationBatch, WorldQueryRequest, WorldQueryResponse, WorldServiceRequest,
+    WorldServiceResponse, WorldSessionRequest, WorldSessionResponse, WorldTerrainWrite,
+};
+pub use freven_world_sdk_types::blocks::{
+    BlockCollision, BlockDescriptor, BlockMaterial, BlockRuntimeId, BlockVisibility, RenderLayer,
+};
 use serde::de::DeserializeOwned;
 
 type StartHandler = fn(StartContext<'_>) -> LifecycleResult;
@@ -170,7 +173,7 @@ impl GuestModule {
     }
 
     #[must_use]
-    pub fn register_block(mut self, key: &'static str, def: BlockDef) -> Self {
+    pub fn register_block(mut self, key: &'static str, def: BlockDescriptor) -> Self {
         assert_unique_key(
             "block",
             key,
@@ -715,7 +718,7 @@ impl<S: 'static> StatefulGuestModule<S> {
     }
 
     #[must_use]
-    pub fn register_block(mut self, key: &'static str, def: BlockDef) -> Self {
+    pub fn register_block(mut self, key: &'static str, def: BlockDescriptor) -> Self {
         self.module = self.module.register_block(key, def);
         self
     }
@@ -1298,12 +1301,18 @@ impl StartInputExt for StartInput {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuntimeQuerySupport<T> {
+    Supported(T),
+    Unsupported,
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct RuntimeServices;
 
 impl RuntimeServices {
     pub fn log(self, level: LogLevel, message: impl Into<String>) {
-        let _ = runtime_service_call(RuntimeServiceRequest::Observability(
+        let _ = runtime_service_call(WorldServiceRequest::Observability(
             RuntimeObservabilityRequest::Log(LogPayload {
                 level,
                 message: message.into(),
@@ -1312,41 +1321,66 @@ impl RuntimeServices {
     }
 
     #[must_use]
-    pub fn block_world(self, pos: (i32, i32, i32)) -> Option<u8> {
-        match runtime_service_call(RuntimeServiceRequest::Read(
-            RuntimeReadRequest::WorldBlock { pos },
+    pub fn authoritative_block(
+        self,
+        pos: (i32, i32, i32),
+    ) -> RuntimeQuerySupport<Option<BlockRuntimeId>> {
+        match runtime_service_call(WorldServiceRequest::Query(
+            WorldQueryRequest::AuthoritativeBlock { pos },
         )) {
-            RuntimeServiceResponse::WorldBlock(value) => value,
+            WorldServiceResponse::Query(WorldQueryResponse::AuthoritativeBlock(value)) => {
+                RuntimeQuerySupport::Supported(value)
+            }
+            WorldServiceResponse::Unsupported => RuntimeQuerySupport::Unsupported,
+            other => {
+                debug_assert!(
+                    false,
+                    "unexpected response for AuthoritativeBlock query: {:?}",
+                    other
+                );
+                RuntimeQuerySupport::Unsupported
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn block_id_by_key(self, key: &str) -> Option<BlockRuntimeId> {
+        match runtime_service_call(WorldServiceRequest::Query(
+            WorldQueryRequest::BlockIdByKey {
+                key: key.to_string(),
+            },
+        )) {
+            WorldServiceResponse::Query(WorldQueryResponse::BlockIdByKey(value)) => value,
             _ => None,
         }
     }
 
     #[must_use]
     pub fn player_position(self, player_id: u64) -> Option<[f32; 3]> {
-        match runtime_service_call(RuntimeServiceRequest::Read(
-            RuntimeReadRequest::PlayerPosition { player_id },
+        match runtime_service_call(WorldServiceRequest::Query(
+            WorldQueryRequest::PlayerPosition { player_id },
         )) {
-            RuntimeServiceResponse::PlayerPosition(value) => value,
+            WorldServiceResponse::Query(WorldQueryResponse::PlayerPosition(value)) => value,
             _ => None,
         }
     }
 
     #[must_use]
     pub fn player_display_name(self, player_id: u64) -> Option<String> {
-        match runtime_service_call(RuntimeServiceRequest::Read(
-            RuntimeReadRequest::PlayerDisplayName { player_id },
+        match runtime_service_call(WorldServiceRequest::Query(
+            WorldQueryRequest::PlayerDisplayName { player_id },
         )) {
-            RuntimeServiceResponse::PlayerDisplayName(value) => value,
+            WorldServiceResponse::Query(WorldQueryResponse::PlayerDisplayName(value)) => value,
             _ => None,
         }
     }
 
     #[must_use]
     pub fn player_entity_id(self, player_id: u64) -> Option<u32> {
-        match runtime_service_call(RuntimeServiceRequest::Read(
-            RuntimeReadRequest::PlayerEntityId { player_id },
+        match runtime_service_call(WorldServiceRequest::Query(
+            WorldQueryRequest::PlayerEntityId { player_id },
         )) {
-            RuntimeServiceResponse::PlayerEntityId(value) => value,
+            WorldServiceResponse::Query(WorldQueryResponse::PlayerEntityId(value)) => value,
             _ => None,
         }
     }
@@ -1357,63 +1391,85 @@ impl RuntimeServices {
         entity: RuntimeEntityTarget,
         component_key: &str,
     ) -> Option<Vec<u8>> {
-        match runtime_service_call(RuntimeServiceRequest::Read(
-            RuntimeReadRequest::EntityComponentBytes {
+        match runtime_service_call(WorldServiceRequest::Query(
+            WorldQueryRequest::EntityComponentBytes {
                 entity,
                 component_key: component_key.to_string(),
             },
         )) {
-            RuntimeServiceResponse::EntityComponentBytes(value) => value,
+            WorldServiceResponse::Query(WorldQueryResponse::EntityComponentBytes(value)) => value,
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn client_visible_block(self, pos: (i32, i32, i32)) -> Option<BlockRuntimeId> {
+        match runtime_service_call(WorldServiceRequest::ClientVisibility(
+            ClientVisibilityRequest::ClientVisibleBlock { pos },
+        )) {
+            WorldServiceResponse::ClientVisibility(
+                ClientVisibilityResponse::ClientVisibleBlock(value),
+            ) => value,
             _ => None,
         }
     }
 
     #[must_use]
     pub fn client_player_views(self) -> Vec<ClientPlayerView> {
-        match runtime_service_call(RuntimeServiceRequest::Read(
-            RuntimeReadRequest::ClientPlayerViews,
+        match runtime_service_call(WorldServiceRequest::ClientVisibility(
+            ClientVisibilityRequest::ClientPlayerViews,
         )) {
-            RuntimeServiceResponse::ClientPlayerViews(value) => value,
+            WorldServiceResponse::ClientVisibility(
+                ClientVisibilityResponse::ClientPlayerViews(value),
+            ) => value,
             _ => Vec::new(),
         }
     }
 
     #[must_use]
     pub fn client_world_to_screen(self, world_pos_m: (f32, f32, f32)) -> Option<(i32, i32)> {
-        match runtime_service_call(RuntimeServiceRequest::Read(
-            RuntimeReadRequest::ClientWorldToScreen { world_pos_m },
+        match runtime_service_call(WorldServiceRequest::ClientVisibility(
+            ClientVisibilityRequest::ClientWorldToScreen { world_pos_m },
         )) {
-            RuntimeServiceResponse::ClientWorldToScreen(value) => value,
+            WorldServiceResponse::ClientVisibility(
+                ClientVisibilityResponse::ClientWorldToScreen(value),
+            ) => value,
             _ => None,
         }
     }
 
     #[must_use]
     pub fn client_active_level(self) -> Option<RuntimeLevelRef> {
-        match runtime_service_call(RuntimeServiceRequest::Side(
-            RuntimeSideRequest::ClientActiveLevel,
+        match runtime_service_call(WorldServiceRequest::ClientVisibility(
+            ClientVisibilityRequest::ClientActiveLevel,
         )) {
-            RuntimeServiceResponse::ClientActiveLevel(value) => value,
+            WorldServiceResponse::ClientVisibility(
+                ClientVisibilityResponse::ClientActiveLevel(value),
+            ) => value,
             _ => None,
         }
     }
 
     #[must_use]
     pub fn client_next_input_seq(self) -> Option<u32> {
-        match runtime_service_call(RuntimeServiceRequest::Side(
-            RuntimeSideRequest::ClientNextInputSeq,
+        match runtime_service_call(WorldServiceRequest::ClientVisibility(
+            ClientVisibilityRequest::ClientNextInputSeq,
         )) {
-            RuntimeServiceResponse::ClientNextInputSeq(value) => value,
+            WorldServiceResponse::ClientVisibility(
+                ClientVisibilityResponse::ClientNextInputSeq(value),
+            ) => value,
             _ => None,
         }
     }
 
     #[must_use]
     pub fn server_player_connected(self, player_id: u64) -> Option<bool> {
-        match runtime_service_call(RuntimeServiceRequest::Side(
-            RuntimeSideRequest::ServerPlayerConnected { player_id },
+        match runtime_service_call(WorldServiceRequest::Session(
+            WorldSessionRequest::ServerPlayerConnected { player_id },
         )) {
-            RuntimeServiceResponse::ServerPlayerConnected(value) => value,
+            WorldServiceResponse::Session(WorldSessionResponse::ServerPlayerConnected(value)) => {
+                value
+            }
             _ => None,
         }
     }
@@ -1421,61 +1477,61 @@ impl RuntimeServices {
     #[must_use]
     pub fn bind_mouse_button(self, button: ClientMouseButton, owner: &str) -> bool {
         matches!(
-            runtime_service_call(RuntimeServiceRequest::ClientControl(
+            runtime_service_call(WorldServiceRequest::ClientControl(
                 RuntimeClientControlRequest::BindMouseButton {
                     button,
                     owner: owner.to_string(),
                 },
             )),
-            RuntimeServiceResponse::ClientControlBool(true)
+            WorldServiceResponse::ClientControlBool(true)
         )
     }
 
     #[must_use]
     pub fn bind_key(self, key: ClientKeyCode, owner: &str) -> bool {
         matches!(
-            runtime_service_call(RuntimeServiceRequest::ClientControl(
+            runtime_service_call(WorldServiceRequest::ClientControl(
                 RuntimeClientControlRequest::BindKey {
                     key,
                     owner: owner.to_string(),
                 },
             )),
-            RuntimeServiceResponse::ClientControlBool(true)
+            WorldServiceResponse::ClientControlBool(true)
         )
     }
 
     #[must_use]
     pub fn mouse_button_down(self, button: ClientMouseButton, owner: &str) -> bool {
         matches!(
-            runtime_service_call(RuntimeServiceRequest::ClientControl(
+            runtime_service_call(WorldServiceRequest::ClientControl(
                 RuntimeClientControlRequest::MouseButtonDown {
                     button,
                     owner: owner.to_string(),
                 },
             )),
-            RuntimeServiceResponse::ClientControlBool(true)
+            WorldServiceResponse::ClientControlBool(true)
         )
     }
 
     #[must_use]
     pub fn key_down(self, key: ClientKeyCode, owner: &str) -> bool {
         matches!(
-            runtime_service_call(RuntimeServiceRequest::ClientControl(
+            runtime_service_call(WorldServiceRequest::ClientControl(
                 RuntimeClientControlRequest::KeyDown {
                     key,
                     owner: owner.to_string(),
                 },
             )),
-            RuntimeServiceResponse::ClientControlBool(true)
+            WorldServiceResponse::ClientControlBool(true)
         )
     }
 
     #[must_use]
     pub fn mouse_delta(self) -> (i32, i32) {
-        match runtime_service_call(RuntimeServiceRequest::ClientControl(
+        match runtime_service_call(WorldServiceRequest::ClientControl(
             RuntimeClientControlRequest::MouseDelta,
         )) {
-            RuntimeServiceResponse::ClientControlMouseDelta(value) => value,
+            WorldServiceResponse::ClientControlMouseDelta(value) => value,
             _ => (0, 0),
         }
     }
@@ -1483,19 +1539,19 @@ impl RuntimeServices {
     #[must_use]
     pub fn cursor_locked(self) -> bool {
         matches!(
-            runtime_service_call(RuntimeServiceRequest::ClientControl(
+            runtime_service_call(WorldServiceRequest::ClientControl(
                 RuntimeClientControlRequest::CursorLocked,
             )),
-            RuntimeServiceResponse::ClientControlBool(true)
+            WorldServiceResponse::ClientControlBool(true)
         )
     }
 
     #[must_use]
     pub fn view_angles_deg_mdeg(self) -> (i32, i32) {
-        match runtime_service_call(RuntimeServiceRequest::ClientControl(
+        match runtime_service_call(WorldServiceRequest::ClientControl(
             RuntimeClientControlRequest::ViewAnglesDegMdeg,
         )) {
-            RuntimeServiceResponse::ClientControlViewAnglesDegMdeg(value) => value,
+            WorldServiceResponse::ClientControlViewAnglesDegMdeg(value) => value,
             _ => (0, 0),
         }
     }
@@ -1503,23 +1559,23 @@ impl RuntimeServices {
     #[must_use]
     pub fn is_solid_world_collision(self, wx: i32, wy: i32, wz: i32) -> bool {
         matches!(
-            runtime_service_call(RuntimeServiceRequest::CharacterPhysics(
+            runtime_service_call(WorldServiceRequest::CharacterPhysics(
                 RuntimeCharacterPhysicsRequest::IsSolidWorldCollision { wx, wy, wz },
             )),
-            RuntimeServiceResponse::CharacterPhysicsIsSolidWorldCollision(true)
+            WorldServiceResponse::CharacterPhysicsIsSolidWorldCollision(true)
         )
     }
 
     #[must_use]
     pub fn sweep_aabb(self, half_extents: [f32; 3], from: [f32; 3], to: [f32; 3]) -> SweepHit {
-        match runtime_service_call(RuntimeServiceRequest::CharacterPhysics(
+        match runtime_service_call(WorldServiceRequest::CharacterPhysics(
             RuntimeCharacterPhysicsRequest::SweepAabb {
                 half_extents,
                 from,
                 to,
             },
         )) {
-            RuntimeServiceResponse::CharacterPhysicsSweepAabb(value) => value,
+            WorldServiceResponse::CharacterPhysicsSweepAabb(value) => value,
             _ => SweepHit {
                 hit: false,
                 toi: 1.0,
@@ -1536,7 +1592,7 @@ impl RuntimeServices {
         motion: [f32; 3],
         cfg: KinematicMoveConfig,
     ) -> KinematicMoveResult {
-        match runtime_service_call(RuntimeServiceRequest::CharacterPhysics(
+        match runtime_service_call(WorldServiceRequest::CharacterPhysics(
             RuntimeCharacterPhysicsRequest::MoveAabbTerrain {
                 half_extents,
                 pos,
@@ -1544,7 +1600,7 @@ impl RuntimeServices {
                 cfg,
             },
         )) {
-            RuntimeServiceResponse::CharacterPhysicsMoveAabbTerrain(value) => value,
+            WorldServiceResponse::CharacterPhysicsMoveAabbTerrain(value) => value,
             _ => KinematicMoveResult {
                 pos,
                 applied_motion: [0.0, 0.0, 0.0],
@@ -1572,7 +1628,7 @@ pub fn __guest_emit_log(level: LogLevel, args: ::core::fmt::Arguments<'_>) {
 #[macro_export]
 macro_rules! log_debug {
     ($($arg:tt)*) => {
-        $crate::__guest_emit_log($crate::LogLevel::Debug, ::core::format_args!($($arg)*));
+        $crate::__guest_emit_log($crate::__private::LogLevel::Debug, ::core::format_args!($($arg)*));
     };
 }
 
@@ -1580,7 +1636,7 @@ macro_rules! log_debug {
 #[macro_export]
 macro_rules! log_info {
     ($($arg:tt)*) => {
-        $crate::__guest_emit_log($crate::LogLevel::Info, ::core::format_args!($($arg)*));
+        $crate::__guest_emit_log($crate::__private::LogLevel::Info, ::core::format_args!($($arg)*));
     };
 }
 
@@ -1588,7 +1644,7 @@ macro_rules! log_info {
 #[macro_export]
 macro_rules! log_warn {
     ($($arg:tt)*) => {
-        $crate::__guest_emit_log($crate::LogLevel::Warn, ::core::format_args!($($arg)*));
+        $crate::__guest_emit_log($crate::__private::LogLevel::Warn, ::core::format_args!($($arg)*));
     };
 }
 
@@ -1596,7 +1652,7 @@ macro_rules! log_warn {
 #[macro_export]
 macro_rules! log_error {
     ($($arg:tt)*) => {
-        $crate::__guest_emit_log($crate::LogLevel::Error, ::core::format_args!($($arg)*));
+        $crate::__guest_emit_log($crate::__private::LogLevel::Error, ::core::format_args!($($arg)*));
     };
 }
 
@@ -1628,14 +1684,14 @@ impl ActionResponse {
 
 impl AppliedActionResponse {
     #[must_use]
-    pub fn push_world_command(mut self, command: WorldCommand) -> Self {
-        self.output.commands.world.push(command);
+    pub fn push_world_mutation(mut self, command: WorldMutation) -> Self {
+        self.output.world.mutations.push(command);
         self
     }
 
     #[must_use]
-    pub fn set_block(self, pos: (i32, i32, i32), block_id: u8) -> Self {
-        self.push_world_command(WorldCommand::SetBlock {
+    pub fn set_block(self, pos: (i32, i32, i32), block_id: BlockRuntimeId) -> Self {
+        self.push_world_mutation(WorldMutation::SetBlock {
             pos,
             block_id,
             expected_old: None,
@@ -1643,8 +1699,13 @@ impl AppliedActionResponse {
     }
 
     #[must_use]
-    pub fn set_block_if(self, pos: (i32, i32, i32), expected_old: u8, block_id: u8) -> Self {
-        self.push_world_command(WorldCommand::SetBlock {
+    pub fn set_block_if(
+        self,
+        pos: (i32, i32, i32),
+        expected_old: BlockRuntimeId,
+        block_id: BlockRuntimeId,
+    ) -> Self {
+        self.push_world_mutation(WorldMutation::SetBlock {
             pos,
             block_id,
             expected_old: Some(expected_old),
@@ -1739,18 +1800,12 @@ impl ClientMessageResponse {
     }
 
     #[must_use]
-    pub fn set_block(mut self, pos: (i32, i32, i32), block_id: u8) -> Self {
-        self.output.commands.world.push(WorldCommand::SetBlock {
+    pub fn set_block(mut self, pos: (i32, i32, i32), block_id: BlockRuntimeId) -> Self {
+        self.output.world.mutations.push(WorldMutation::SetBlock {
             pos,
             block_id,
             expected_old: None,
         });
-        self
-    }
-
-    #[must_use]
-    pub fn push_nameplate(mut self, cmd: ClientNameplateDrawCmd) -> Self {
-        self.output.presentation.nameplates.push(cmd);
         self
     }
 
@@ -1807,18 +1862,12 @@ impl ServerMessageResponse {
     }
 
     #[must_use]
-    pub fn set_block(mut self, pos: (i32, i32, i32), block_id: u8) -> Self {
-        self.output.commands.world.push(WorldCommand::SetBlock {
+    pub fn set_block(mut self, pos: (i32, i32, i32), block_id: BlockRuntimeId) -> Self {
+        self.output.world.mutations.push(WorldMutation::SetBlock {
             pos,
             block_id,
             expected_old: None,
         });
-        self
-    }
-
-    #[must_use]
-    pub fn push_nameplate(mut self, cmd: ClientNameplateDrawCmd) -> Self {
-        self.output.presentation.nameplates.push(cmd);
         self
     }
 
@@ -1849,18 +1898,12 @@ impl LifecycleResponse {
     }
 
     #[must_use]
-    pub fn set_block(mut self, pos: (i32, i32, i32), block_id: u8) -> Self {
-        self.output.commands.world.push(WorldCommand::SetBlock {
+    pub fn set_block(mut self, pos: (i32, i32, i32), block_id: BlockRuntimeId) -> Self {
+        self.output.world.mutations.push(WorldMutation::SetBlock {
             pos,
             block_id,
             expected_old: None,
         });
-        self
-    }
-
-    #[must_use]
-    pub fn push_nameplate(mut self, cmd: ClientNameplateDrawCmd) -> Self {
-        self.output.presentation.nameplates.push(cmd);
         self
     }
 
@@ -1872,7 +1915,53 @@ impl LifecycleResponse {
     }
 }
 
-fn runtime_service_call(request: RuntimeServiceRequest) -> RuntimeServiceResponse {
+#[cfg(test)]
+type TestRuntimeServiceHook = dyn FnMut(WorldServiceRequest) -> WorldServiceResponse;
+
+#[cfg(test)]
+type TestRuntimeServiceHookSlot = RefCell<Option<Box<TestRuntimeServiceHook>>>;
+
+#[cfg(test)]
+thread_local! {
+    static TEST_RUNTIME_SERVICE_HOOK: TestRuntimeServiceHookSlot =
+        RefCell::new(None);
+}
+
+#[cfg(test)]
+struct TestRuntimeServiceHookGuard;
+
+#[cfg(test)]
+impl Drop for TestRuntimeServiceHookGuard {
+    fn drop(&mut self) {
+        TEST_RUNTIME_SERVICE_HOOK.with(|slot| {
+            let _ = slot.replace(None);
+        });
+    }
+}
+
+#[cfg(test)]
+fn install_test_runtime_service_hook(
+    hook: impl FnMut(WorldServiceRequest) -> WorldServiceResponse + 'static,
+) -> TestRuntimeServiceHookGuard {
+    TEST_RUNTIME_SERVICE_HOOK.with(|slot| {
+        let previous = slot.replace(Some(Box::new(hook)));
+        assert!(
+            previous.is_none(),
+            "nested test runtime service hook is not supported"
+        );
+    });
+    TestRuntimeServiceHookGuard
+}
+
+fn runtime_service_call(request: WorldServiceRequest) -> WorldServiceResponse {
+    #[cfg(test)]
+    if let Some(response) = TEST_RUNTIME_SERVICE_HOOK.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        slot.as_mut().map(|hook| hook(request.clone()))
+    }) {
+        return response;
+    }
+
     let request_bytes =
         postcard::to_allocvec(&request).expect("runtime service request encoding must succeed");
     let mut response = vec![0u8; 64 * 1024];
@@ -1884,7 +1973,7 @@ fn runtime_service_call(request: RuntimeServiceRequest) -> RuntimeServiceRespons
     };
 
     let Some(len) = len else {
-        return RuntimeServiceResponse::Unsupported;
+        return WorldServiceResponse::Unsupported;
     };
 
     postcard::from_bytes(&response[..len]).expect("runtime service response decoding must succeed")
@@ -1941,6 +2030,15 @@ fn native_runtime_service_call(request: &[u8], response: &mut [u8]) -> Option<us
 #[doc(hidden)]
 pub mod __private {
     use super::*;
+
+    pub type ChannelConfig = freven_guest::ChannelConfig;
+    pub type ChannelDirection = freven_guest::ChannelDirection;
+    pub type ChannelOrdering = freven_guest::ChannelOrdering;
+    pub type ChannelReliability = freven_guest::ChannelReliability;
+    pub type LifecycleHooks = freven_guest::LifecycleHooks;
+    pub type LogLevel = freven_guest::LogLevel;
+    pub type MessageHooks = freven_guest::MessageHooks;
+    pub const GUEST_CONTRACT_VERSION_1: u32 = freven_guest::GUEST_CONTRACT_VERSION_1;
 
     fn module_negotiate_bytes(module: &impl ExportedGuestModule, input: &[u8]) -> Vec<u8> {
         if !input.is_empty() {
@@ -2395,7 +2493,7 @@ macro_rules! export_wasm_guest {
                 &module,
                 $crate::export_wasm_guest!(@lifecycle_struct $($($lifecycle),*)?),
                 $crate::export_wasm_guest!(@bool $($actions)?),
-                $crate::MessageHooks {
+                $crate::__private::MessageHooks {
                     client: $crate::export_wasm_guest!(@bool $($client_messages)?),
                     server: $crate::export_wasm_guest!(@bool $($server_messages)?),
                 },
@@ -2429,7 +2527,7 @@ macro_rules! export_wasm_guest {
     };
 
     (@lifecycle_struct $($hook:ident),*) => {{
-        let mut hooks = $crate::LifecycleHooks::default();
+        let mut hooks = $crate::__private::LifecycleHooks::default();
         $(hooks.$hook = true;)*
         hooks
     }};
@@ -2600,7 +2698,7 @@ macro_rules! export_native_guest {
                 &module,
                 $crate::export_native_guest!(@lifecycle_struct $($($lifecycle),*)?),
                 $crate::export_native_guest!(@bool $($actions)?),
-                $crate::MessageHooks {
+                $crate::__private::MessageHooks {
                     client: $crate::export_native_guest!(@bool $($client_messages)?),
                     server: $crate::export_native_guest!(@bool $($server_messages)?),
                 },
@@ -2634,7 +2732,7 @@ macro_rules! export_native_guest {
     };
 
     (@lifecycle_struct $($hook:ident),*) => {{
-        let mut hooks = $crate::LifecycleHooks::default();
+        let mut hooks = $crate::__private::LifecycleHooks::default();
         $(hooks.$hook = true;)*
         hooks
     }};
@@ -3685,6 +3783,7 @@ macro_rules! stateful_wasm_guest {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use freven_guest::{ChannelConfig, ChannelDirection, ChannelOrdering, ChannelReliability};
 
     fn message_channel() -> ChannelConfig {
         ChannelConfig {
@@ -3699,13 +3798,7 @@ mod tests {
         GuestModule::new("freven.test.guest")
             .register_block(
                 "freven.test:stone",
-                BlockDef {
-                    is_solid: true,
-                    is_opaque: true,
-                    render_layer: RenderLayer::Opaque,
-                    debug_tint_rgba: 0,
-                    material_id: 7,
-                },
+                BlockDescriptor::new(true, true, RenderLayer::Opaque, 0, 7),
             )
             .register_component("freven.test:name", ComponentCodec::RawBytes)
             .register_message("freven.test:echo", MessageCodec::RawBytes)
@@ -3730,16 +3823,18 @@ mod tests {
                 })
             })
             .action("freven.test:place_block", 7, |_| {
-                ActionResponse::applied().set_block((1, 2, 3), 9).finish()
+                ActionResponse::applied()
+                    .set_block((1, 2, 3), BlockRuntimeId(9))
+                    .finish()
             })
     }
 
     fn provider_worldgen(_: WorldGenContext<'_>) -> WorldGenCallResult {
         WorldGenCallResult {
             output: WorldGenOutput {
-                sections: vec![WorldGenSection {
+                writes: vec![WorldTerrainWrite::FillSection {
                     sy: 0,
-                    blocks: vec![7; 16 * 16 * 16],
+                    block_id: BlockRuntimeId(7),
                 }],
             },
         }
@@ -4180,8 +4275,14 @@ mod tests {
             init: WorldGenInit::default(),
             request: WorldGenRequest::default(),
         });
-        assert_eq!(worldgen.output.sections.len(), 1);
-        assert_eq!(worldgen.output.sections[0].blocks.len(), 16 * 16 * 16);
+        assert_eq!(worldgen.output.writes.len(), 1);
+        match &worldgen.output.writes[0] {
+            WorldTerrainWrite::FillSection { sy, block_id } => {
+                assert_eq!(*sy, 0);
+                assert_eq!(*block_id, BlockRuntimeId(7));
+            }
+            write => panic!("unexpected worldgen write: {write:?}"),
+        }
 
         let init = module.handle_character_controller_init(CharacterControllerInitInput {
             key: "freven.test:humanoid".to_string(),
@@ -4256,5 +4357,61 @@ mod tests {
 
         __private::native_guest_dealloc(NativeGuestBuffer { ptr, len: 4 });
         __private::native_guest_dealloc(NativeGuestBuffer::empty());
+    }
+
+    #[test]
+    fn authoritative_block_preserves_unsupported() {
+        let _guard = install_test_runtime_service_hook(|request| {
+            assert_eq!(
+                request,
+                WorldServiceRequest::Query(WorldQueryRequest::AuthoritativeBlock {
+                    pos: (1, 2, 3)
+                })
+            );
+            WorldServiceResponse::Unsupported
+        });
+
+        assert_eq!(
+            RuntimeServices.authoritative_block((1, 2, 3)),
+            RuntimeQuerySupport::Unsupported
+        );
+    }
+
+    #[test]
+    fn authoritative_block_returns_supported_some() {
+        let _guard = install_test_runtime_service_hook(|request| {
+            assert_eq!(
+                request,
+                WorldServiceRequest::Query(WorldQueryRequest::AuthoritativeBlock {
+                    pos: (4, 5, 6)
+                })
+            );
+            WorldServiceResponse::Query(WorldQueryResponse::AuthoritativeBlock(Some(
+                BlockRuntimeId(7),
+            )))
+        });
+
+        assert_eq!(
+            RuntimeServices.authoritative_block((4, 5, 6)),
+            RuntimeQuerySupport::Supported(Some(BlockRuntimeId(7)))
+        );
+    }
+
+    #[test]
+    fn authoritative_block_returns_supported_none() {
+        let _guard = install_test_runtime_service_hook(|request| {
+            assert_eq!(
+                request,
+                WorldServiceRequest::Query(WorldQueryRequest::AuthoritativeBlock {
+                    pos: (8, 9, 10)
+                })
+            );
+            WorldServiceResponse::Query(WorldQueryResponse::AuthoritativeBlock(None))
+        });
+
+        assert_eq!(
+            RuntimeServices.authoritative_block((8, 9, 10)),
+            RuntimeQuerySupport::Supported(None)
+        );
     }
 }

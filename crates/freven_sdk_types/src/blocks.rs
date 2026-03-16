@@ -4,10 +4,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockRuntimeId(pub u32);
 
-impl BlockRuntimeId {
-    pub const AIR: Self = Self(0);
-}
-
 impl From<u8> for BlockRuntimeId {
     #[inline]
     fn from(v: u8) -> Self {

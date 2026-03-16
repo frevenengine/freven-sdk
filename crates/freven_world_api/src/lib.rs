@@ -11,29 +11,29 @@
 //! - keep hook/context types engine-agnostic
 //! - avoid leaking runtime/transport implementation details
 
-use std::{sync::Arc, time::Duration};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
-use serde::de::DeserializeOwned;
-
-pub use freven_mod_api::{
-    CapabilityDeclaration, ChannelBudget, ChannelConfig, ChannelDirection, ChannelOrdering,
-    ChannelReliability, ComponentCodec, HostExecutionKind, LogLevel, LogPayload, MessageCodec,
-    ModSide, ObservabilityBridge, RuntimeSessionInfo, RuntimeSessionSide, Side, emit_log,
+use freven_mod_api::{
+    CapabilityDeclaration, ChannelConfig, ChannelOrdering, ChannelReliability, ComponentCodec,
+    HostExecutionKind, LogLevel, LogPayload, MessageCodec, ModSide, RuntimeSessionSide, Side,
+    emit_log,
 };
 pub use freven_world_guest::{
     CharacterControllerDeclaration, ClientControlProviderDeclaration,
-    ClientNameplateDrawCmd as GuestClientNameplateDrawCmd,
-    ClientPlayerView as GuestClientPlayerView, GuestCallbacks as ModCallbackModel,
-    GuestRegistration as ModDeclarationModel, LifecycleHooks as LifecycleCallbackModel,
-    MessageHooks as MessageCallbackModel, ModConfigDocument as GuestModConfigDocument,
-    ModConfigFormat as GuestModConfigFormat, ProviderHooks as ProviderCallbackModel,
-    RuntimeCharacterPhysicsRequest, RuntimeClientControlRequest, RuntimeCommandOutput,
-    RuntimeEntityTarget, RuntimeLevelRef, RuntimeObservabilityRequest, RuntimeOutput,
-    RuntimePresentationOutput, RuntimeReadRequest, RuntimeServiceRequest, RuntimeServiceResponse,
-    RuntimeSideRequest, WorldCommand, WorldGenDeclaration,
+    ClientPlayerView as GuestClientPlayerView, ClientVisibilityRequest, ClientVisibilityResponse,
+    GuestCallbacks as ModCallbackModel, GuestRegistration as ModDeclarationModel,
+    ModConfigDocument as GuestModConfigDocument, ModConfigFormat as GuestModConfigFormat,
+    ProviderHooks as ProviderCallbackModel, RuntimeCharacterPhysicsRequest,
+    RuntimeClientControlRequest, RuntimeEntityTarget, RuntimeLevelRef, RuntimeObservabilityRequest,
+    RuntimeOutput, WorldGenDeclaration, WorldMutation, WorldMutationBatch, WorldQueryRequest,
+    WorldQueryResponse, WorldServiceRequest, WorldServiceResponse, WorldSessionRequest,
+    WorldSessionResponse,
 };
-pub use freven_world_sdk_types::blocks::{BlockDef, BlockRuntimeId, RenderLayer};
+pub use freven_world_sdk_types::blocks::{
+    BlockCollision, BlockDescriptor, BlockMaterial, BlockRuntimeId, BlockVisibility, RenderLayer,
+};
 pub use freven_world_sdk_types::{blocks, voxel};
+use serde::de::DeserializeOwned;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LogCallbackFamily {
@@ -93,31 +93,33 @@ pub struct ActionCmdView<'a> {
     pub payload: &'a [u8],
 }
 
-/// Server world-read service exposed to action handlers.
-pub trait ActionWorldRead {}
-
-/// Deterministic result of a compare-and-set world edit requested by an action handler.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum ActionWorldEditResult {
-    Applied { old: u8, new: u8 },
-    NotLoaded,
-    OutOfBounds,
-    Mismatch { current: u8 },
+/// Read-only world state visible to authoritative action handlers.
+pub trait WorldView {
+    fn block(&self, wx: i32, wy: i32, wz: i32) -> Option<BlockRuntimeId>;
+    fn is_solid(&self, block_id: BlockRuntimeId) -> bool;
 }
 
-/// Server-authoritative world-edit service exposed to action handlers.
-pub trait ActionWorldEdit {
-    fn block_world(&self, wx: i32, wy: i32, wz: i32) -> u8;
-    fn is_solid_block_id(&self, block_id: u8) -> bool;
-    fn try_set_block_world_if(
-        &mut self,
-        wx: i32,
-        wy: i32,
-        wz: i32,
-        expected_old: u8,
-        new_id: u8,
-    ) -> ActionWorldEditResult;
+/// Deterministic result of an authoritative world mutation requested by an action handler.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum WorldMutationResult {
+    Applied {
+        old: BlockRuntimeId,
+        new: BlockRuntimeId,
+    },
+    NotLoaded,
+    OutOfBounds,
+    Mismatch {
+        current: BlockRuntimeId,
+    },
+    Rejected {
+        message: String,
+    },
+}
+
+/// Server-authoritative world mutation service exposed to action handlers.
+pub trait WorldAuthority: WorldView {
+    fn try_apply(&mut self, mutation: &WorldMutation) -> WorldMutationResult;
 }
 
 /// Character-physics query service exposed to action handlers.
@@ -127,8 +129,8 @@ pub trait CharacterPhysicsQuery {
 
 /// Stable action-dispatch context provided by runtime/server integration.
 pub struct ActionContext<'a> {
-    pub world_read: Option<&'a dyn ActionWorldRead>,
-    pub world_edit: Option<&'a mut dyn ActionWorldEdit>,
+    pub world: Option<&'a dyn WorldView>,
+    pub authority: Option<&'a mut dyn WorldAuthority>,
     pub character_physics: Option<&'a dyn CharacterPhysicsQuery>,
     pub services: Option<&'a mut dyn Services>,
     pub player_id: u64,
@@ -138,16 +140,16 @@ pub struct ActionContext<'a> {
 impl<'a> ActionContext<'a> {
     #[must_use]
     pub fn new(
-        world_read: Option<&'a dyn ActionWorldRead>,
-        world_edit: Option<&'a mut dyn ActionWorldEdit>,
+        world: Option<&'a dyn WorldView>,
+        authority: Option<&'a mut dyn WorldAuthority>,
         character_physics: Option<&'a dyn CharacterPhysicsQuery>,
         services: Option<&'a mut dyn Services>,
         player_id: u64,
         at_input_seq: u32,
     ) -> Self {
         Self {
-            world_read,
-            world_edit,
+            world,
+            authority,
             character_physics,
             services,
             player_id,
@@ -158,6 +160,19 @@ impl<'a> ActionContext<'a> {
     pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
         let _ = &self.services;
         emit_log(level, message);
+    }
+
+    #[must_use]
+    pub fn block_id_by_key(&mut self, key: &str) -> Option<BlockRuntimeId> {
+        let services = self.services.as_deref_mut()?;
+        match services.world_service(&WorldServiceRequest::Query(
+            WorldQueryRequest::BlockIdByKey {
+                key: key.to_string(),
+            },
+        )) {
+            WorldServiceResponse::Query(WorldQueryResponse::BlockIdByKey(value)) => value,
+            _ => None,
+        }
     }
 }
 
@@ -173,26 +188,6 @@ pub enum ActionOutcome {
     Rejected,
 }
 
-/// Compile-time convenience experience specification.
-///
-/// `config` is a top-level table keyed by mod id. Each mod receives its own value.
-#[derive(Clone)]
-pub struct ExperienceSpec {
-    pub id: String,
-    pub mods: Vec<ModDescriptor>,
-    pub default_worldgen: Option<String>,
-    pub default_character_controller: Option<String>,
-    pub default_client_control_provider: Option<String>,
-    pub config: toml::Table,
-}
-
-impl ExperienceSpec {
-    #[must_use]
-    pub fn mod_config(&self, mod_id: &str) -> Option<&toml::Value> {
-        self.config.get(mod_id)
-    }
-}
-
 /// Mod registration entrypoint type.
 pub type ModRegisterFn = for<'a> fn(&'a mut ModContext<'a>);
 
@@ -205,10 +200,30 @@ pub struct ModDescriptor {
     pub register: ModRegisterFn,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RegisteredBlock {
+    key: String,
+}
+
+impl RegisteredBlock {
+    #[must_use]
+    pub fn new(key: impl Into<String>) -> Self {
+        Self { key: key.into() }
+    }
+
+    #[must_use]
+    pub fn key(&self) -> &str {
+        &self.key
+    }
+}
+
 /// Backend implemented by runtime for registration operations.
 pub trait ModContextBackend {
-    fn register_block(&mut self, key: &str, def: BlockDef)
-    -> Result<BlockId, ModRegistrationError>;
+    fn register_block(
+        &mut self,
+        key: &str,
+        def: BlockDescriptor,
+    ) -> Result<RegisteredBlock, ModRegistrationError>;
     fn register_component(
         &mut self,
         key: &str,
@@ -317,8 +332,8 @@ impl<'a> ModContext<'a> {
     pub fn register_block(
         &mut self,
         key: &str,
-        def: BlockDef,
-    ) -> Result<BlockId, ModRegistrationError> {
+        def: BlockDescriptor,
+    ) -> Result<RegisteredBlock, ModRegistrationError> {
         self.backend.register_block(key, def)
     }
 
@@ -441,10 +456,6 @@ impl<'a> ModContext<'a> {
 
 /// Numeric id for registered component keys.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BlockId(pub u8);
-
-/// Numeric id for registered component keys.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ComponentId(pub u32);
 
 /// Numeric id for registered message keys.
@@ -496,11 +507,13 @@ pub enum ModRegistrationError {
         mod_id: String,
         registry: &'static str,
     },
-    #[error("too many blocks registered by mod '{mod_id}' for key '{key}': limit is {limit}")]
-    TooManyBlocks {
+    #[error(
+        "runtime registry '{registry}' is exhausted while registering key '{key}' for mod '{mod_id}'"
+    )]
+    RegistryExhausted {
         mod_id: String,
+        registry: &'static str,
         key: String,
-        limit: u32,
     },
     #[error(
         "unsupported channel QoS for mod '{mod_id}' key '{key}': reliability={reliability:?}, ordering={ordering:?}; v1 supports only (Reliable, Ordered) and (Unreliable, Unordered)"
@@ -577,33 +590,19 @@ pub type ServerMessagesHook = for<'a> fn(&mut ServerMessagesApi<'a>);
 
 /// Runtime-provided services exposed to SDK hooks.
 pub trait Services {
-    fn guest_runtime_service(
-        &mut self,
-        _request: &RuntimeServiceRequest,
-    ) -> RuntimeServiceResponse {
-        RuntimeServiceResponse::Unsupported
+    fn world_service(&mut self, _request: &WorldServiceRequest) -> WorldServiceResponse {
+        WorldServiceResponse::Unsupported
     }
 
-    fn apply_guest_runtime_commands(
+    fn apply_world_mutations(
         &mut self,
-        commands: &RuntimeCommandOutput,
+        mutations: &WorldMutationBatch,
     ) -> Result<(), RuntimeOutputApplyError> {
-        if commands.is_empty() {
-            Ok(())
-        } else {
-            Err(RuntimeOutputApplyError::UnsupportedFamily { family: "commands" })
-        }
-    }
-
-    fn apply_guest_runtime_presentation(
-        &mut self,
-        presentation: &RuntimePresentationOutput,
-    ) -> Result<(), RuntimeOutputApplyError> {
-        if presentation.is_empty() {
+        if mutations.is_empty() {
             Ok(())
         } else {
             Err(RuntimeOutputApplyError::UnsupportedFamily {
-                family: "presentation",
+                family: "world_mutations",
             })
         }
     }
@@ -714,7 +713,17 @@ pub struct ClientActionRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ClientPredictedEdit {
     pub pos: (i32, i32, i32),
-    pub predicted_block_id: u8,
+    pub predicted_block_id: BlockRuntimeId,
+}
+
+impl ClientPredictedEdit {
+    #[must_use]
+    pub const fn clear_block(pos: (i32, i32, i32)) -> Self {
+        Self {
+            pos,
+            predicted_block_id: BlockRuntimeId(0),
+        }
+    }
 }
 
 /// Local/engine-side rejection for `submit_action`.
@@ -743,7 +752,7 @@ pub enum ClientActionSubmitError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ClientActionEdit {
     pub pos: (i32, i32, i32),
-    pub block_id: u8,
+    pub block_id: BlockRuntimeId,
 }
 
 /// Action result reject reason.
@@ -793,14 +802,6 @@ pub struct ClientPlayerView {
     pub player_id: u64,
     pub world_pos_m: (f32, f32, f32),
     pub is_local: bool,
-}
-
-/// Nameplate draw command (screen-space).
-#[derive(Debug, Clone, PartialEq)]
-pub struct ClientNameplateDrawCmd {
-    pub text: String,
-    pub screen_pos_px: (f32, f32),
-    pub rgba: (u8, u8, u8, u8),
 }
 
 /// Engine-provided client input surface.
@@ -871,13 +872,13 @@ pub trait ClientCameraHitProvider {
     /// Prediction-aware block query against the client-visible world.
     ///
     /// Use this for local preview/UI decisions, not as an authoritative submit gate.
-    fn predicted_block_id_at(&self, pos: (i32, i32, i32)) -> Option<u8>;
+    fn predicted_block_id_at(&self, pos: (i32, i32, i32)) -> Option<BlockRuntimeId>;
 
     /// Last authoritative streamed block state, excluding pending local predicted edits.
     ///
     /// This is still client-side knowledge and may be absent for unloaded terrain, but it is the
     /// correct query when gameplay needs the replicated base world rather than preview state.
-    fn authoritative_block_id_at(&self, pos: (i32, i32, i32)) -> Option<u8>;
+    fn authoritative_block_id_at(&self, pos: (i32, i32, i32)) -> Option<BlockRuntimeId>;
 }
 
 /// Engine-provided interaction request/result surface.
@@ -1029,12 +1030,6 @@ pub trait ClientPlayerProvider {
     fn world_to_screen(&self, world_pos_m: (f32, f32, f32)) -> Option<(f32, f32)>;
 }
 
-/// Engine-owned queue for nameplate draw commands.
-pub trait ClientNameplateProvider {
-    fn clear_nameplates(&mut self);
-    fn push_nameplate(&mut self, cmd: ClientNameplateDrawCmd);
-}
-
 /// Server-side lifecycle API.
 pub struct ServerApi<'a> {
     pub services: &'a mut dyn Services,
@@ -1059,7 +1054,6 @@ pub struct ClientApi<'a> {
     pub camera: &'a mut dyn ClientCameraHitProvider,
     pub interaction: &'a mut dyn ClientInteractionProvider,
     pub players: &'a mut dyn ClientPlayerProvider,
-    pub nameplates: &'a mut dyn ClientNameplateProvider,
 }
 
 impl<'a> ClientApi<'a> {
@@ -1070,7 +1064,6 @@ impl<'a> ClientApi<'a> {
         camera: &'a mut dyn ClientCameraHitProvider,
         interaction: &'a mut dyn ClientInteractionProvider,
         players: &'a mut dyn ClientPlayerProvider,
-        nameplates: &'a mut dyn ClientNameplateProvider,
     ) -> Self {
         Self {
             services,
@@ -1078,7 +1071,6 @@ impl<'a> ClientApi<'a> {
             camera,
             interaction,
             players,
-            nameplates,
         }
     }
 
@@ -1090,7 +1082,6 @@ impl<'a> ClientApi<'a> {
             camera: self.camera,
             interaction: self.interaction,
             players: self.players,
-            nameplates: self.nameplates,
         }
     }
 
@@ -1265,6 +1256,7 @@ pub trait WorldGenProvider: Send + Sync {
 pub struct WorldGenInit {
     pub seed: u64,
     pub world_id: Option<String>,
+    pub block_ids: BTreeMap<String, BlockRuntimeId>,
 }
 
 impl WorldGenInit {
@@ -1273,7 +1265,13 @@ impl WorldGenInit {
         Self {
             seed,
             world_id: None,
+            block_ids: BTreeMap::new(),
         }
+    }
+
+    #[must_use]
+    pub fn block_id_by_key(&self, key: &str) -> Option<BlockRuntimeId> {
+        self.block_ids.get(key).copied()
     }
 }
 
@@ -1288,17 +1286,28 @@ pub struct WorldGenRequest {
     pub cz: i32,
 }
 
-/// Generated section payload for one vertical section in a column.
-#[derive(Debug, Clone)]
-pub struct WorldGenSection {
-    pub sy: i8,
-    pub blocks: Vec<u8>,
+/// World-owned terrain writes emitted by a worldgen provider.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WorldTerrainWrite {
+    FillSection {
+        sy: i8,
+        block_id: BlockRuntimeId,
+    },
+    FillBox {
+        min: (i32, i32, i32),
+        max: (i32, i32, i32),
+        block_id: BlockRuntimeId,
+    },
+    SetBlock {
+        pos: (i32, i32, i32),
+        block_id: BlockRuntimeId,
+    },
 }
 
-/// Minimal worldgen output contract.
-#[derive(Debug, Default, Clone)]
+/// World-owned terrain generation output for one requested column.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct WorldGenOutput {
-    pub sections: Vec<WorldGenSection>,
+    pub writes: Vec<WorldTerrainWrite>,
 }
 
 /// Worldgen contract error placeholder.
@@ -1544,8 +1553,3 @@ pub type CharacterControllerFactory =
 /// Client control provider factory.
 pub type ClientControlProviderFactory =
     Arc<dyn Fn(ClientControlProviderInit) -> Box<dyn ClientControlProvider> + Send + Sync>;
-
-#[doc(hidden)]
-pub mod __private {
-    pub use freven_mod_api::__private::with_observability_bridge;
-}

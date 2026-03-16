@@ -71,6 +71,7 @@ dependencies = [
 name = "freven_world_api"
 version = "0.1.0"
 dependencies = [
+ "freven_guest",
  "freven_mod_api",
  "freven_sdk_types",
  "freven_world_guest",
@@ -94,6 +95,7 @@ dependencies = [
 name = "freven_world_guest_sdk"
 version = "0.1.0"
 dependencies = [
+ "freven_guest",
  "freven_sdk_types",
  "freven_world_guest",
  "freven_world_sdk_types",

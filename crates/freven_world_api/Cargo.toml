@@ -11,6 +11,7 @@ readme = "README.md"
 publish = false
 
 [dependencies]
+freven_guest.workspace = true
 freven_mod_api.workspace = true
 freven_sdk_types.workspace = true
 freven_world_guest.workspace = true

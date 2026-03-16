@@ -4,17 +4,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockRuntimeId(pub u32);
 
-impl BlockRuntimeId {
-    pub const AIR: Self = Self(0);
-}
-
-impl From<u8> for BlockRuntimeId {
-    #[inline]
-    fn from(v: u8) -> Self {
-        Self(v as u32)
-    }
-}
-
 /// Rendering layer classification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -24,12 +13,83 @@ pub enum RenderLayer {
     Transparent,
 }
 
-/// Minimal block definition needed by meshing and rendering.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockDef {
+/// Collision-facing block semantics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockCollision {
     pub is_solid: bool,
+}
+
+/// Visibility-facing block semantics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockVisibility {
     pub is_opaque: bool,
     pub render_layer: RenderLayer,
+}
+
+/// Client presentation metadata for a registered block.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockMaterial {
     pub debug_tint_rgba: u32,
     pub material_id: u32,
+}
+
+/// Canonical world-owned block registration descriptor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockDescriptor {
+    pub collision: BlockCollision,
+    pub visibility: BlockVisibility,
+    pub material: BlockMaterial,
+}
+
+impl BlockDescriptor {
+    #[must_use]
+    pub const fn new(
+        is_solid: bool,
+        is_opaque: bool,
+        render_layer: RenderLayer,
+        debug_tint_rgba: u32,
+        material_id: u32,
+    ) -> Self {
+        Self {
+            collision: BlockCollision { is_solid },
+            visibility: BlockVisibility {
+                is_opaque,
+                render_layer,
+            },
+            material: BlockMaterial {
+                debug_tint_rgba,
+                material_id,
+            },
+        }
+    }
+
+    #[must_use]
+    pub const fn air() -> Self {
+        Self::new(false, false, RenderLayer::Opaque, 0, 0)
+    }
+
+    #[must_use]
+    pub const fn is_solid(self) -> bool {
+        self.collision.is_solid
+    }
+
+    #[must_use]
+    pub const fn is_opaque(self) -> bool {
+        self.visibility.is_opaque
+    }
+
+    #[must_use]
+    pub const fn render_layer(self) -> RenderLayer {
+        self.visibility.render_layer
+    }
+
+    #[must_use]
+    pub const fn debug_tint_rgba(self) -> u32 {
+        self.material.debug_tint_rgba
+    }
+
+    #[must_use]
+    pub const fn material_id(self) -> u32 {
+        self.material.material_id
+    }
 }
