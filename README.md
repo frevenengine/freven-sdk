@@ -64,7 +64,7 @@ These cover the current world/game-stack-shaped public surfaces.
 - `freven_world_guest_sdk` — explicit world-owned guest authoring surface
 - `freven_world_guest` — explicit world-owned runtime-loaded world contract
 - `freven_world_api` — explicit world-owned builtin / compile-time facade
-- `freven_world_sdk_types` — explicit world-owned block/voxel shared types
+- `freven_world_sdk_types` — explicit world-owned block/voxel/save shared types
 
 `freven_api` has been retired. The public crate name is now `freven_mod_api`
 so the builtin / compile-time surface is not mistaken for the whole SDK.

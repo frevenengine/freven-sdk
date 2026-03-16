@@ -24,8 +24,9 @@ Builtin / compile-time capability declarations use the same
 from a resolved `mod.toml`, declared capability keys are validated against that
 resolved capability table before the runtime records them.
 
-World-shaped compile-time registrations such as `ExperienceSpec`, actions,
-providers, blocks, and worldgen live in `freven_world_api`, not here. Canonical
+World-shaped builtin registrations such as blocks, provider declarations,
+action handlers, world queries/mutations, and world save/bootstrap metadata
+live in `freven_world_api` plus `freven_world_sdk_types`, not here. Canonical
 boot/load/runtime truth still lives in the engine runtime activation model.
 
 Engine/app/bootstrap wiring does not belong in this crate.

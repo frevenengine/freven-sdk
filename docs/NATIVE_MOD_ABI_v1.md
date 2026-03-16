@@ -122,25 +122,25 @@ Runtime validates and enforces:
 On decode/validation/contract errors, attach fails.
 On lifecycle, action-call, or message contract faults, runtime disables that
 guest mod for the current runtime session and later lifecycle/action calls
-reject. That includes host-side failure to apply guest-declared runtime
-commands after a valid `ActionResult` returns.
+reject. That includes host-side failure to apply guest-declared world
+mutations after a valid `ActionResult` returns.
 
 ## Runtime services
 
 Native guests can issue canonical runtime service requests through the installed
 `NativeRuntimeBridge`.
 
-- requests use `RuntimeServiceRequest`
-- responses use `RuntimeServiceResponse`
+- requests use `WorldServiceRequest`
+- responses use `WorldServiceResponse`
 - runtime output still flows separately through `RuntimeOutput.messages` and
-  `RuntimeOutput.commands`
+  `RuntimeOutput.world`
 
 The bridge is transport plumbing only. It must not redefine the semantic
 service families documented in `freven_world_guest`.
 
 Observability/logging uses that same canonical service surface:
 
-- request: `RuntimeServiceRequest::Observability(RuntimeObservabilityRequest::Log(LogPayload))`
+- request: `WorldServiceRequest::Observability(RuntimeObservabilityRequest::Log(LogPayload))`
 - payload: `LogPayload { level, message }`
 - levels: `debug`, `info`, `warn`, `error`
 

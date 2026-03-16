@@ -9,13 +9,15 @@ canonical `freven_world_guest` contract and hides the transport boilerplate:
 - `postcard` encode/decode plumbing
 - Wasm export table wiring
 - native in-process export wiring for low-level fixtures/tests
-- canonical declaration builders for blocks/components/messages/worldgen/character-controllers/client-control-providers/channels/actions/capabilities
+- canonical declaration builders for blocks/components/messages/worldgen/
+  character-controllers/client-control-providers/channels/actions/capabilities
 - lifecycle/action/message dispatch lookup
 - export-surface validation against the canonical `GuestDescription`
+- helpers for world queries, world mutations, and terrain-write worldgen
 
-This crate is intentionally world-owned. Neutral guest authoring now stops at
+This crate is intentionally world-owned. Neutral guest authoring stops at
 generic lifecycle/messages/components/channels/capabilities/observability; the
-world-specific declaration families live here instead.
+world-specific declaration families and helpers live here instead.
 
 ## Minimal example
 
@@ -70,22 +72,28 @@ intentionally need to wire the raw surface yourself.
 - Lifecycle hooks return `LifecycleResult`.
 - `registration.actions` and `callbacks.action` stay coupled:
   actions imply the callback family, and the callback family is not valid without declared actions.
-- Rejected actions are command-free by API shape in the SDK:
+- Rejected actions are mutation-free by API shape in the SDK:
   `ActionResponse::rejected()` can be finished, but it does not expose
-  authoritative-command builder methods.
+  authoritative-mutation builder methods.
 - Action callbacks require a real decoded `ActionInput`:
   empty or malformed action payload bytes are not silently synthesized by the
   SDK. On the runtime path, that becomes a contract / transport / host-delivery
   fault for the guest call rather than a fabricated placeholder input.
 - Runtime messaging is a dedicated callback family on both sides rather than
   being stuffed into lifecycle or actions.
-- Runtime-loaded guests use explicit runtime services for reads and side-specific
-  facilities rather than callback-specific hacks.
+- Runtime-loaded guests use explicit world runtime services for queries,
+  client visibility, world session state, client control, character physics,
+  and observability rather than callback-specific hacks.
 - Runtime delivery is contract-checked symmetrically:
   undeclared inbound channels/message ids fault the guest the same way undeclared outbound use does.
 - Declarations now cover blocks, components, messages, worldgen,
   character-controllers, client-control-providers, channels, actions, and
   capability keys in one transport-neutral registration model.
+- Worldgen output uses the same canonical terrain-write model as builtin
+  worldgen: `WorldGenOutput.writes` plus
+  `WorldTerrainWrite::{FillSection, FillBox, SetBlock}`.
+- Block/content registration stays on `BlockDescriptor` and `BlockRuntimeId`;
+  raw section encodings are not the authoring contract.
 - Guest start callbacks receive `StartInput { session, experience_id, mod_id, config }`.
   `StartInputExt::config_typed::<T>()` decodes the canonical per-mod TOML
   config document for the guest path.

@@ -30,7 +30,7 @@ through `freven_world_api`, but they do not use this IPC transport.
 - `negotiate`
   - payload: `request: NegotiationRequest`
 - `service_response`
-  - payload: `response: RuntimeServiceResponse`
+  - payload: `response: WorldServiceResponse`
 - `start_client`
   - payload: `input: StartInput`
 - `start_server`
@@ -63,7 +63,7 @@ through `freven_world_api`, but they do not use this IPC transport.
 - `negotiate`
   - payload: `response: NegotiationResponse`
 - `service_request`
-  - payload: `request: RuntimeServiceRequest`
+  - payload: `request: WorldServiceRequest`
 - `lifecycle`
   - payload: `result: LifecycleResult`
 - `handle_action`
@@ -125,7 +125,7 @@ per-mod config document (`ModConfigDocument`, currently TOML text).
   - later provider callbacks fault/reject through the disabled session
   - action calls for that mod return `ActionOutcome::Rejected`
   - host kills/waits child if still alive
-- If a valid `ActionResult` cannot be completed because host-side runtime-command
+- If a valid `ActionResult` cannot be completed because host-side world-mutation
   application fails, that still counts as a guest session fault:
   - the mod is disabled for the current runtime session
   - follow-up lifecycle/action calls are rejected
@@ -137,7 +137,7 @@ per-mod config document (`ModConfigDocument`, currently TOML text).
 External guests emit logs through the canonical service channel:
 
 - response envelope: `service_request`
-- request payload: `RuntimeServiceRequest::Observability(RuntimeObservabilityRequest::Log(LogPayload))`
+- request payload: `WorldServiceRequest::Observability(RuntimeObservabilityRequest::Log(LogPayload))`
 - canonical payload: `LogPayload { level, message }`
 - levels: `debug`, `info`, `warn`, `error`
 
