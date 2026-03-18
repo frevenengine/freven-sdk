@@ -3,30 +3,33 @@
 Explicit world-owned contracts for Freven builtin and compile-time world authoring.
 
 `freven_world_api` carries the current world-stack-facing declaration families
-that were removed from the neutral SDK roots during Stage 01 of the platform
-boundary reset. It is intentionally world-owned, not a neutral platform crate.
+that live above the neutral SDK roots. It is intentionally world-owned, not a
+neutral platform crate.
 
 For runtime-loaded world mods, the canonical public contract lives in
 `freven_world_guest` and the recommended authoring path is
 `freven_world_guest_sdk` on Wasm.
 
-`freven_world_api` still participates in the same world semantic system:
+`freven_world_api` participates in the same world semantic system:
 
 - deterministic registration via `ModContext`
 - canonical capability declarations via `ModContext::declare_capability(...)`
 - activation hooks via `on_start_client` / `on_start_server`
 - runtime hooks via `on_tick_client` / `on_tick_server`
 - dedicated client/server message phases
-- the same declaration families, runtime output model, and observability model
-  used by runtime-loaded guests
+- block/content registration via `BlockDescriptor` + `BlockRuntimeId`
+- action handlers over `ActionContext`, `WorldView`, and `WorldAuthority`
+- world runtime services and world mutation output families shared with
+  runtime-loaded guests
 
 Builtin / compile-time capability declarations use the same
 `CapabilityDeclaration` model as `freven_world_guest`. When a builtin mod is hosted
 from a resolved `mod.toml`, declared capability keys are validated against that
 resolved capability table before the runtime records them.
 
-Neutral boot/load/runtime truth still lives outside this crate. Engine/app/
-bootstrap wiring does not belong here.
+Neutral boot/load/runtime truth still lives outside this crate. World
+save/bootstrap metadata lives in `freven_world_sdk_types::save`, while
+engine/app/bootstrap wiring does not belong here.
 
 ## Stability and semver stance
 
@@ -39,10 +42,15 @@ bootstrap wiring does not belong here.
 ## Minimal usage
 
 ```rust
-use freven_world_api::{ActionKindId, ModSide, Side};
+use freven_mod_api::{ModSide, Side};
+use freven_world_api::{BlockRuntimeId, WorldMutation};
 
-let kind = ActionKindId(7);
-assert_eq!(kind.raw(), 7);
+let mutation = WorldMutation::SetBlock {
+    pos: (4, 80, 4),
+    block_id: BlockRuntimeId(7),
+    expected_old: None,
+};
+assert!(matches!(mutation, WorldMutation::SetBlock { .. }));
 assert!(ModSide::Both.matches(Side::Client));
 ```
 

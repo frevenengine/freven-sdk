@@ -2,13 +2,14 @@
 
 This is the recommended public path for Freven runtime-loaded Wasm mods.
 
-Stage 01 split authoring into two explicit layers:
+Current authoring is split into two explicit layers:
 
 - `freven_guest_sdk`: neutral guest authoring for lifecycle, messages,
   components, channels, capabilities, session identity, and observability
-- `freven_world_guest_sdk`: explicit world-owned authoring for blocks, actions,
-  worldgen, character controllers, client-control providers, runtime world
-  services, and other world-stack declarations
+- `freven_world_guest_sdk`: explicit world-stack authoring for block/content
+  registration, action handlers, world queries and mutations, terrain-write
+  worldgen, character controllers, client-control providers, and world runtime
+  services
 
 Most gameplay mods and current Vanilla-style authoring should use
 `freven_world_guest_sdk`.
@@ -42,13 +43,14 @@ declarations:
 Use `freven_world_guest_sdk` when your guest needs current world-stack
 semantics:
 
-- blocks / voxel declarations
-- actions and world edits
-- worldgen
+- block / voxel content registration
+- action handlers that read/query world state and emit world mutations
+- worldgen that returns `WorldGenOutput.writes` terrain writes
 - character controllers
 - client-control providers
-- world/runtime read services
-- nameplates, player views, and other world-facing presentation hooks
+- world runtime services:
+  `WorldServiceRequest::{Query, ClientVisibility, Session, ClientControl, CharacterPhysics, Observability}`
+- player/world view queries and other world-facing runtime hooks
 
 ## Minimal neutral example
 
@@ -108,7 +110,7 @@ the canonical `GuestDescription` and to emit the Wasm export surface.
 
 ## World authoring details
 
-`freven_world_guest_sdk` exposes the current world-owned registration families
+`freven_world_guest_sdk` exposes the current world-stack registration families
 directly in `registration`:
 
 ```rust
@@ -128,6 +130,8 @@ It also owns the current world runtime helpers:
 - `ActionResponse`
 - `StartInputExt`
 - `RuntimeServices`
+- `WorldGenOutput`
+- `WorldTerrainWrite`
 - `ClientMessageResponse`
 - `ServerMessageResponse`
 

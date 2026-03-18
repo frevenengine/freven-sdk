@@ -20,6 +20,7 @@ Read them in this order:
 `freven_mod_api` is the builtin / compile-time facade over the same semantic
 system, including capability declarations through `ModContext::declare_capability`.
 `freven_guest` remains the canonical neutral runtime-loaded guest contract.
-World-shaped declarations and first-party helpers now live under explicit
-`freven_world_*` ownership rather than the neutral SDK roots, and the ABI / IPC
-transport references in this folder describe that world-owned contract path.
+World-shaped declarations now live under explicit `freven_world_*` ownership
+rather than the neutral SDK roots. In that world stack, content registration,
+world queries/mutations, terrain-write worldgen, and world runtime services
+share one contract across builtin, Wasm, native, and external execution.

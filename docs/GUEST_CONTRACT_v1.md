@@ -151,25 +151,34 @@ There is intentionally no separate lifecycle-only side channel.
 
 Guest/runtime-loaded mods now use explicit runtime service families:
 
-- `RuntimeServiceRequest::Read(...)`
-- `RuntimeServiceRequest::Side(...)`
-- `RuntimeServiceRequest::Observability(...)`
+- `WorldServiceRequest::Query(...)`
+- `WorldServiceRequest::ClientVisibility(...)`
+- `WorldServiceRequest::Session(...)`
+- `WorldServiceRequest::ClientControl(...)`
+- `WorldServiceRequest::CharacterPhysics(...)`
+- `WorldServiceRequest::Observability(...)`
 - `RuntimeOutput.messages`
-- `RuntimeOutput.commands`
+- `RuntimeOutput.world`
 
-Current read requests include:
+Current query/session/visibility requests include:
 
 - world/block reads
 - player position reads
 - player display-name reads
 - player-to-entity resolution
 - entity component-byte reads
-
-Current side-specific requests include:
-
+- client player visibility reads
 - client active level
 - client next input sequence
 - server player-connected checks
+
+Current client-control/character-physics requests include:
+
+- key and mouse-button ownership/bind queries
+- key and mouse-button pressed-state queries
+- mouse-delta and view-angle reads
+- solid-world collision checks
+- AABB sweeps and terrain movement resolution
 
 Observability is a canonical semantic family owned by the host/runtime.
 In contract v1, observability currently contains only logging:
@@ -202,10 +211,18 @@ Guests do not define custom categories, arbitrary key/value fields, trace/span
 ids, or sink selection in this phase. The host/runtime owns attribution,
 formatting, routing, filtering, truncation, and final presentation.
 
-Current command families include:
+Current world-mutation family includes:
 
-- `RuntimeCommandOutput.world`
-- `WorldCommand::SetBlock { pos, block_id, expected_old }`
+- `RuntimeOutput.world`
+- `WorldMutationBatch.mutations`
+- `WorldMutation::SetBlock { pos, block_id, expected_old }`
+
+Current worldgen output family uses:
+
+- `WorldGenOutput.writes`
+- `WorldTerrainWrite::FillSection { sy, block_id }`
+- `WorldTerrainWrite::FillBox { min, max, block_id }`
+- `WorldTerrainWrite::SetBlock { pos, block_id }`
 
 Transport adapters must carry these semantic families unchanged. They must not
 invent transport-specific truth about reads, messages, or command application.
@@ -263,7 +280,7 @@ If a guest violates the contract or faults during a runtime session:
   guest for that session, even if the wrapper object itself still exists locally
 
 For action callbacks, "faults" include host-side failure to apply the guest's
-declared runtime commands after the `ActionResult` is decoded and validated.
+declared world mutations after the `ActionResult` is decoded and validated.
 
 For message callbacks, faults include invalid inbound scope mapping and
 outbound sends that violate the negotiated channel/message contract.

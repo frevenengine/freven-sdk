@@ -11,7 +11,7 @@ canonical `freven_guest` contract and hides the transport boilerplate:
 - session identity and observability helpers
 - logging macros routed through the host observability bridge
 
-This crate is intentionally neutral after the Stage 01 boundary reset.
+This crate is intentionally neutral after the platform/world boundary reset.
 World-shaped declarations do not live here.
 
 Reach for `freven_guest` directly only when you are implementing or testing the
@@ -19,12 +19,12 @@ raw neutral guest contract itself.
 
 Use `freven_world_guest_sdk` when you need:
 
-- blocks or voxel declarations
-- actions or world edits
+- blocks or voxel content registration
+- action handlers that issue world mutations
 - worldgen
 - character controllers
 - client-control providers
-- world/runtime services
+- world/runtime services and world queries
 
 ## Minimal usage
 

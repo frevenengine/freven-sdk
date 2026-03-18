@@ -64,8 +64,8 @@ The host copies returned bytes from guest memory and then calls
 Optional runtime-service import:
 
 - `env::freven_guest_host_service_call(req_ptr, req_len, resp_ptr, resp_cap) -> u32`
-- request/response payloads are postcard-encoded `RuntimeServiceRequest` /
-  `RuntimeServiceResponse`
+- request/response payloads are postcard-encoded `WorldServiceRequest` /
+  `WorldServiceResponse`
 - host returns `u32::MAX` when the current host context does not expose runtime
   services
 
@@ -144,17 +144,23 @@ ABI rule: enum variant order is ABI-significant.
 - Do NOT rename variants expecting any effect on binary encoding.
 - Only append new variants at the end.
 
-Current command family:
+Current world-mutation family:
 
-- `RuntimeCommandOutput.world`
-- `WorldCommand::SetBlock { pos, block_id, expected_old }`
+- `RuntimeOutput.world`
+- `WorldMutationBatch.mutations`
+- `WorldMutation::SetBlock { pos, block_id, expected_old }`
+
+Current worldgen output family:
+
+- `WorldGenOutput.writes`
+- `WorldTerrainWrite::{FillSection, FillBox, SetBlock}`
 
 Current message families:
 
 - `RuntimeMessageOutput.client`
 - `RuntimeMessageOutput.server`
 
-Host applies runtime commands through authoritative host services. Any
+Host applies world mutations through authoritative host services. Any
 decode/trap/validation/apply failure disables that guest for the runtime
 session.
 
@@ -163,7 +169,7 @@ session.
 Wasm guests emit logs through the same canonical runtime-service family used by
 other guest transports:
 
-- request: `RuntimeServiceRequest::Observability(RuntimeObservabilityRequest::Log(LogPayload))`
+- request: `WorldServiceRequest::Observability(RuntimeObservabilityRequest::Log(LogPayload))`
 - payload: `LogPayload { level, message }`
 - levels: `debug`, `info`, `warn`, `error`
 
@@ -212,7 +218,7 @@ Current host policy maxima/defaults:
 - `max_negotiation_bytes`: `64 KiB`
 - `max_result_bytes`: `256 KiB`
 - `max_input_payload_bytes`: `64 KiB`
-- `max_world_commands` per guest callback result: `128`
+- `max_world_commands`: `128` entries, applied to `RuntimeOutput.world.mutations`
 
 Capabilities may tighten selected limits (`max_call_millis`, `max_linear_memory_bytes`) but cannot raise limits above policy maxima.
 

@@ -6,14 +6,13 @@
 
 extern crate alloc;
 
+use alloc::collections::BTreeMap;
 use alloc::{string::String, vec::Vec};
-pub use freven_guest::{
-    CapabilityDeclaration, ChannelBudget, ChannelConfig, ChannelDeclaration, ChannelDirection,
-    ChannelOrdering, ChannelReliability, ComponentCodec, ComponentDeclaration,
-    GUEST_CONTRACT_VERSION_1, LifecycleHooks, LogLevel, LogPayload, MessageCodec,
-    MessageDeclaration, MessageHooks, NegotiationRequest, RuntimeSessionInfo, RuntimeSessionSide,
+use freven_guest::{
+    CapabilityDeclaration, ChannelDeclaration, ComponentDeclaration, LifecycleHooks, LogPayload,
+    MessageDeclaration, MessageHooks, RuntimeSessionInfo,
 };
-use freven_world_sdk_types::blocks::BlockDef;
+use freven_world_sdk_types::blocks::{BlockDescriptor, BlockRuntimeId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,7 +60,7 @@ pub struct ProviderHooks {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockDeclaration {
     pub key: String,
-    pub def: BlockDef,
+    pub def: BlockDescriptor,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -103,6 +102,14 @@ pub struct WorldGenCallResult {
 pub struct WorldGenInit {
     pub seed: u64,
     pub world_id: Option<String>,
+    pub block_ids: BTreeMap<String, BlockRuntimeId>,
+}
+
+impl WorldGenInit {
+    #[must_use]
+    pub fn block_id_by_key(&self, key: &str) -> Option<BlockRuntimeId> {
+        self.block_ids.get(key).copied()
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -116,13 +123,24 @@ pub struct WorldGenRequest {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct WorldGenOutput {
-    pub sections: Vec<WorldGenSection>,
+    pub writes: Vec<WorldTerrainWrite>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorldGenSection {
-    pub sy: i8,
-    pub blocks: Vec<u8>,
+pub enum WorldTerrainWrite {
+    FillSection {
+        sy: i8,
+        block_id: BlockRuntimeId,
+    },
+    FillBox {
+        min: (i32, i32, i32),
+        max: (i32, i32, i32),
+        block_id: BlockRuntimeId,
+    },
+    SetBlock {
+        pos: (i32, i32, i32),
+        block_id: BlockRuntimeId,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -296,14 +314,13 @@ pub enum ActionOutcome {
 #[serde(default)]
 pub struct RuntimeOutput {
     pub messages: RuntimeMessageOutput,
-    pub commands: RuntimeCommandOutput,
-    pub presentation: RuntimePresentationOutput,
+    pub world: WorldMutationBatch,
 }
 
 impl RuntimeOutput {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.messages.is_empty() && self.commands.is_empty() && self.presentation.is_empty()
+        self.messages.is_empty() && self.world.is_empty()
     }
 }
 
@@ -323,37 +340,35 @@ impl RuntimeMessageOutput {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
-pub struct RuntimeCommandOutput {
-    pub world: Vec<WorldCommand>,
+pub struct WorldMutationBatch {
+    pub mutations: Vec<WorldMutation>,
 }
 
-impl RuntimeCommandOutput {
+impl WorldMutationBatch {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.world.is_empty()
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(default)]
-pub struct RuntimePresentationOutput {
-    pub nameplates: Vec<ClientNameplateDrawCmd>,
-}
-
-impl RuntimePresentationOutput {
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.nameplates.is_empty()
+        self.mutations.is_empty()
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum WorldCommand {
+pub enum WorldMutation {
     SetBlock {
         pos: (i32, i32, i32),
-        block_id: u8,
-        expected_old: Option<u8>,
+        block_id: BlockRuntimeId,
+        expected_old: Option<BlockRuntimeId>,
     },
+}
+
+impl WorldMutation {
+    #[must_use]
+    pub const fn clear_block(pos: (i32, i32, i32), expected_old: Option<BlockRuntimeId>) -> Self {
+        Self::SetBlock {
+            pos,
+            block_id: BlockRuntimeId(0),
+            expected_old,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -421,13 +436,6 @@ pub struct ClientPlayerView {
     pub is_local: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ClientNameplateDrawCmd {
-    pub text: String,
-    pub screen_pos_px: (i32, i32),
-    pub rgba: (u8, u8, u8, u8),
-}
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ClientMouseButton {
@@ -485,9 +493,12 @@ pub enum RuntimeEntityTarget {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum RuntimeReadRequest {
-    WorldBlock {
+pub enum WorldQueryRequest {
+    AuthoritativeBlock {
         pos: (i32, i32, i32),
+    },
+    BlockIdByKey {
+        key: String,
     },
     PlayerPosition {
         player_id: u64,
@@ -502,17 +513,44 @@ pub enum RuntimeReadRequest {
         entity: RuntimeEntityTarget,
         component_key: String,
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum WorldQueryResponse {
+    AuthoritativeBlock(Option<BlockRuntimeId>),
+    BlockIdByKey(Option<BlockRuntimeId>),
+    PlayerPosition(Option<[f32; 3]>),
+    PlayerDisplayName(Option<String>),
+    PlayerEntityId(Option<u32>),
+    EntityComponentBytes(Option<Vec<u8>>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ClientVisibilityRequest {
+    ClientVisibleBlock { pos: (i32, i32, i32) },
     ClientPlayerViews,
-    ClientWorldToScreen {
-        world_pos_m: (f32, f32, f32),
-    },
+    ClientWorldToScreen { world_pos_m: (f32, f32, f32) },
+    ClientActiveLevel,
+    ClientNextInputSeq,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ClientVisibilityResponse {
+    ClientVisibleBlock(Option<BlockRuntimeId>),
+    ClientPlayerViews(Vec<ClientPlayerView>),
+    ClientWorldToScreen(Option<(i32, i32)>),
+    ClientActiveLevel(Option<RuntimeLevelRef>),
+    ClientNextInputSeq(Option<u32>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum RuntimeSideRequest {
-    ClientActiveLevel,
-    ClientNextInputSeq,
+pub enum WorldSessionRequest {
     ServerPlayerConnected { player_id: u64 },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum WorldSessionResponse {
+    ServerPlayerConnected(Option<bool>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -564,26 +602,20 @@ pub enum RuntimeObservabilityRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum RuntimeServiceRequest {
-    Read(RuntimeReadRequest),
-    Side(RuntimeSideRequest),
+pub enum WorldServiceRequest {
+    Query(WorldQueryRequest),
+    ClientVisibility(ClientVisibilityRequest),
+    Session(WorldSessionRequest),
     ClientControl(RuntimeClientControlRequest),
     CharacterPhysics(RuntimeCharacterPhysicsRequest),
     Observability(RuntimeObservabilityRequest),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum RuntimeServiceResponse {
-    WorldBlock(Option<u8>),
-    PlayerPosition(Option<[f32; 3]>),
-    PlayerDisplayName(Option<String>),
-    PlayerEntityId(Option<u32>),
-    EntityComponentBytes(Option<Vec<u8>>),
-    ClientPlayerViews(Vec<ClientPlayerView>),
-    ClientWorldToScreen(Option<(i32, i32)>),
-    ClientActiveLevel(Option<RuntimeLevelRef>),
-    ClientNextInputSeq(Option<u32>),
-    ServerPlayerConnected(Option<bool>),
+pub enum WorldServiceResponse {
+    Query(WorldQueryResponse),
+    ClientVisibility(ClientVisibilityResponse),
+    Session(WorldSessionResponse),
     ClientControlBool(bool),
     ClientControlMouseDelta((i32, i32)),
     ClientControlViewAnglesDegMdeg((i32, i32)),

@@ -1,7 +1,7 @@
 //! Stable voxel-space contract shared by SDK consumers.
 //!
-//! This module defines section dimensions and canonical RawU8 section layout.
-//! These constants and helpers are protocol/layout-significant contracts.
+//! This module defines canonical world section topology and coordinate helpers.
+//! Raw storage encoding remains an engine-internal implementation detail.
 
 /// Chunk section edge length in blocks.
 ///
@@ -10,9 +10,6 @@ pub const CHUNK_SECTION_DIM: usize = 32;
 
 /// Total voxels in a section.
 pub const CHUNK_SECTION_VOLUME: usize = CHUNK_SECTION_DIM * CHUNK_SECTION_DIM * CHUNK_SECTION_DIM;
-
-/// RawU8 encoding uses exactly one byte per voxel.
-pub const RAW_U8_SECTION_BYTES: usize = CHUNK_SECTION_VOLUME;
 
 /// Canonical linearization order for a 32x32x32 section.
 ///
