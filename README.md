@@ -115,16 +115,16 @@ Use tagged git dependencies until crates.io publishing begins:
 
 ```toml
 [dependencies]
-freven_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.2-rc3", package = "freven_guest_sdk" }
-freven_mod_api   = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.2-rc3", package = "freven_mod_api" }
-freven_sdk_types = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.2-rc3", package = "freven_sdk_types" }
+freven_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk.git", tag = "v0.1.2-rc3", package = "freven_guest_sdk" }
+freven_mod_api   = { git = "https://github.com/frevenengine/freven-sdk.git", tag = "v0.1.2-rc3", package = "freven_mod_api" }
+freven_sdk_types = { git = "https://github.com/frevenengine/freven-sdk.git", tag = "v0.1.2-rc3", package = "freven_sdk_types" }
 
 # Low-level guest contract work only:
-# freven_guest = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.2-rc3", package = "freven_guest" }
+# freven_guest = { git = "https://github.com/frevenengine/freven-sdk.git", tag = "v0.1.2-rc3", package = "freven_guest" }
 
 # Current world-stack integrations only:
-# freven_world_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.2-rc3", package = "freven_world_guest_sdk" }
-# freven_world_api       = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.2-rc3", package = "freven_world_api" }
+# freven_world_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk.git", tag = "v0.1.2-rc3", package = "freven_world_guest_sdk" }
+# freven_world_api       = { git = "https://github.com/frevenengine/freven-sdk.git", tag = "v0.1.2-rc3", package = "freven_world_api" }
 ````
 
 See [docs/SDK_DISTRIBUTION.md](docs/SDK_DISTRIBUTION.md) for release policy.

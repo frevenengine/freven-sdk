@@ -39,12 +39,12 @@ Naming note:
 
 ```toml
 [dependencies]
-freven_mod_api = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_mod_api" }
-freven_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_guest_sdk" }
-freven_sdk_types = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_sdk_types" }
+freven_mod_api = { git = "https://github.com/frevenengine/freven-sdk.git", tag = "v0.1.0", package = "freven_mod_api" }
+freven_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk.git", tag = "v0.1.0", package = "freven_guest_sdk" }
+freven_sdk_types = { git = "https://github.com/frevenengine/freven-sdk.git", tag = "v0.1.0", package = "freven_sdk_types" }
 # Explicit world-owned surfaces when you intentionally target the current world stack:
-# freven_world_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_world_guest_sdk" }
-# freven_world_api = { git = "https://github.com/frevenengine/freven-sdk", tag = "v0.1.0", package = "freven_world_api" }
+# freven_world_guest_sdk = { git = "https://github.com/frevenengine/freven-sdk.git", tag = "v0.1.0", package = "freven_world_guest_sdk" }
+# freven_world_api = { git = "https://github.com/frevenengine/freven-sdk.git", tag = "v0.1.0", package = "freven_world_api" }
 ````
 
 Guidance:
