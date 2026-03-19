@@ -77,6 +77,9 @@ dependencies = [
 [[package]]
 name = "freven_volumetric_sdk_types"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "freven_world_api"
@@ -101,6 +104,7 @@ dependencies = [
  "freven_block_sdk_types",
  "freven_guest",
  "freven_sdk_types",
+ "freven_volumetric_sdk_types",
  "freven_world_sdk_types",
  "serde",
 ]
@@ -362,9 +366,9 @@ name = "freven_wasm_host"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "freven_world_core"
+name = "freven_world_runtime"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "freven_world_runtime"
+name = "freven_vanilla_essentials"
 version = "0.1.0"

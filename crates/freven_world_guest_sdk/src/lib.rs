@@ -3833,7 +3833,7 @@ mod tests {
         WorldGenCallResult {
             output: WorldGenOutput {
                 writes: vec![WorldTerrainWrite::FillSection {
-                    sy: 0,
+                    sy: 0.into(),
                     block_id: BlockRuntimeId(7),
                 }],
             },
@@ -4278,7 +4278,7 @@ mod tests {
         assert_eq!(worldgen.output.writes.len(), 1);
         match &worldgen.output.writes[0] {
             WorldTerrainWrite::FillSection { sy, block_id } => {
-                assert_eq!(*sy, 0);
+                assert_eq!(*sy, 0.into());
                 assert_eq!(*block_id, BlockRuntimeId(7));
             }
             write => panic!("unexpected worldgen write: {write:?}"),
