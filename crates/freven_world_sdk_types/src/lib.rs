@@ -1,5 +1,3 @@
-//! Shared pure SDK data contracts.
+//! Stable generic world-space SDK data contracts.
 
-pub mod blocks;
 pub mod save;
-pub mod voxel;

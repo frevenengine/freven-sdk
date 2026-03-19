@@ -30,7 +30,7 @@ pub use freven_world_guest::{
     WorldMutation, WorldMutationBatch, WorldQueryRequest, WorldQueryResponse, WorldServiceRequest,
     WorldServiceResponse, WorldSessionRequest, WorldSessionResponse, WorldTerrainWrite,
 };
-pub use freven_world_sdk_types::blocks::{
+pub use freven_block_sdk_types::{
     BlockCollision, BlockDescriptor, BlockMaterial, BlockRuntimeId, BlockVisibility, RenderLayer,
 };
 use serde::de::DeserializeOwned;

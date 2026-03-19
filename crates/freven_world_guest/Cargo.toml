@@ -9,4 +9,5 @@ publish.workspace = true
 freven_guest.workspace = true
 freven_sdk_types.workspace = true
 freven_world_sdk_types.workspace = true
+freven_block_sdk_types.workspace = true
 serde.workspace = true
