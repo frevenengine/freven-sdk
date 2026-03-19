@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-/// Global runtime id for a block type/state.
+/// Stable runtime id for a standard block/profile entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockRuntimeId(pub u32);
 
-/// Rendering layer classification.
+/// Rendering layer classification for standard block/profile presentation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RenderLayer {
@@ -13,27 +13,30 @@ pub enum RenderLayer {
     Transparent,
 }
 
-/// Collision-facing block semantics.
+/// Collision-facing standard block/profile semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockCollision {
     pub is_solid: bool,
 }
 
-/// Visibility-facing block semantics.
+/// Visibility-facing standard block/profile semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockVisibility {
     pub is_opaque: bool,
     pub render_layer: RenderLayer,
 }
 
-/// Client presentation metadata for a registered block.
+/// Client presentation metadata for a standard block/profile entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockMaterial {
     pub debug_tint_rgba: u32,
     pub material_id: u32,
 }
 
-/// Canonical world-owned block registration descriptor.
+/// Canonical standard block/profile descriptor.
+///
+/// This is not generic world truth and not neutral volumetric truth.
+/// It belongs to the standard block/profile layer above volumetric foundations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockDescriptor {
     pub collision: BlockCollision,

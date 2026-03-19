@@ -7,6 +7,9 @@ use core::cell::RefCell;
 use core::ffi::c_void;
 use std::thread::LocalKey;
 
+pub use freven_block_sdk_types::{
+    BlockCollision, BlockDescriptor, BlockMaterial, BlockRuntimeId, BlockVisibility, RenderLayer,
+};
 use freven_guest::{
     CapabilityDeclaration, ChannelConfig, ChannelDeclaration, ComponentCodec, ComponentDeclaration,
     LifecycleHooks, LogLevel, LogPayload, MessageCodec, MessageDeclaration, MessageHooks,
@@ -29,9 +32,6 @@ pub use freven_world_guest::{
     WorldGenCallResult, WorldGenDeclaration, WorldGenInit, WorldGenOutput, WorldGenRequest,
     WorldMutation, WorldMutationBatch, WorldQueryRequest, WorldQueryResponse, WorldServiceRequest,
     WorldServiceResponse, WorldSessionRequest, WorldSessionResponse, WorldTerrainWrite,
-};
-pub use freven_world_sdk_types::blocks::{
-    BlockCollision, BlockDescriptor, BlockMaterial, BlockRuntimeId, BlockVisibility, RenderLayer,
 };
 use serde::de::DeserializeOwned;
 
