@@ -2,9 +2,7 @@ use std::sync::Arc;
 
 use freven_block_sdk_types::BlockRuntimeId;
 
-use crate::{
-    action::ActionKindId,
-};
+use crate::action::ActionKindId;
 
 pub use freven_world_guest::ClientPlayerView as GuestClientPlayerView;
 

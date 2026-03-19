@@ -11,15 +11,15 @@
 //! - keep hook/context types engine-agnostic
 //! - avoid leaking runtime/transport implementation details
 
-pub mod observability;
 pub mod action;
+pub mod character;
+pub mod client;
+pub mod lifecycle;
+pub mod messages;
+pub mod observability;
 pub mod registration;
 pub mod services;
-pub mod client;
-pub mod messages;
-pub mod lifecycle;
 pub mod worldgen;
-pub mod character;
 
 pub use action::*;
 pub use character::*;

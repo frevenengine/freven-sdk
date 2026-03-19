@@ -8,11 +8,11 @@ extern crate alloc;
 
 use alloc::collections::BTreeMap;
 use alloc::{string::String, vec::Vec};
+use freven_block_sdk_types::{BlockDescriptor, BlockRuntimeId};
 use freven_guest::{
     CapabilityDeclaration, ChannelDeclaration, ComponentDeclaration, LifecycleHooks, LogPayload,
     MessageDeclaration, MessageHooks, RuntimeSessionInfo,
 };
-use freven_block_sdk_types::{BlockDescriptor, BlockRuntimeId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

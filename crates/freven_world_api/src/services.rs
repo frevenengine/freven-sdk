@@ -2,10 +2,9 @@ use crate::observability::HostLogRecord;
 
 pub use freven_world_guest::{
     ClientVisibilityRequest, ClientVisibilityResponse, RuntimeCharacterPhysicsRequest,
-    RuntimeClientControlRequest, RuntimeEntityTarget, RuntimeLevelRef,
-    RuntimeObservabilityRequest, RuntimeOutput, WorldMutation, WorldMutationBatch,
-    WorldQueryRequest, WorldQueryResponse, WorldServiceRequest, WorldServiceResponse,
-    WorldSessionRequest, WorldSessionResponse,
+    RuntimeClientControlRequest, RuntimeEntityTarget, RuntimeLevelRef, RuntimeObservabilityRequest,
+    RuntimeOutput, WorldMutation, WorldMutationBatch, WorldQueryRequest, WorldQueryResponse,
+    WorldServiceRequest, WorldServiceResponse, WorldSessionRequest, WorldSessionResponse,
 };
 
 /// Runtime-provided services exposed to SDK hooks.
