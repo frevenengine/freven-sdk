@@ -13,6 +13,7 @@ use freven_guest::{
     CapabilityDeclaration, ChannelDeclaration, ComponentDeclaration, LifecycleHooks, LogPayload,
     MessageDeclaration, MessageHooks, RuntimeSessionInfo,
 };
+use freven_volumetric_sdk_types::{ColumnCoord, SectionY, WorldCellPos};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,8 +117,24 @@ impl WorldGenInit {
 #[serde(default)]
 pub struct WorldGenRequest {
     pub seed: u64,
-    pub cx: i32,
-    pub cz: i32,
+    pub column: ColumnCoord,
+}
+
+impl WorldGenRequest {
+    #[must_use]
+    pub const fn new(seed: u64, column: ColumnCoord) -> Self {
+        Self { seed, column }
+    }
+
+    #[must_use]
+    pub const fn cx(&self) -> i32 {
+        self.column.cx
+    }
+
+    #[must_use]
+    pub const fn cz(&self) -> i32 {
+        self.column.cz
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -129,16 +146,16 @@ pub struct WorldGenOutput {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum WorldTerrainWrite {
     FillSection {
-        sy: i8,
+        sy: SectionY,
         block_id: BlockRuntimeId,
     },
     FillBox {
-        min: (i32, i32, i32),
-        max: (i32, i32, i32),
+        min: WorldCellPos,
+        max: WorldCellPos,
         block_id: BlockRuntimeId,
     },
     SetBlock {
-        pos: (i32, i32, i32),
+        pos: WorldCellPos,
         block_id: BlockRuntimeId,
     },
 }

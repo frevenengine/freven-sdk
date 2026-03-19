@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use freven_block_sdk_types::BlockRuntimeId;
+use freven_volumetric_sdk_types::{ColumnCoord, SectionY, WorldCellPos};
 
 /// Contract for worldgen providers registered through SDK.
 pub trait WorldGenProvider: Send + Sync {
@@ -14,6 +15,9 @@ pub trait WorldGenProvider: Send + Sync {
 }
 
 /// Worldgen provider factory init parameters.
+///
+/// `block_ids` remains block-gameplay truth for now; volumetric topology and addressing
+/// come from `freven_volumetric_sdk_types`.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct WorldGenInit {
@@ -41,28 +45,47 @@ impl WorldGenInit {
 /// Worldgen provider factory. One provider instance can be created per world/session.
 pub type WorldGenFactory = Arc<dyn Fn(WorldGenInit) -> Box<dyn WorldGenProvider> + Send + Sync>;
 
-/// Minimal worldgen request contract placeholder.
-#[derive(Debug, Default, Clone)]
+/// Minimal worldgen request contract for one requested column.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct WorldGenRequest {
     pub seed: u64,
-    pub cx: i32,
-    pub cz: i32,
+    pub column: ColumnCoord,
+}
+
+impl WorldGenRequest {
+    #[must_use]
+    pub const fn new(seed: u64, column: ColumnCoord) -> Self {
+        Self { seed, column }
+    }
+
+    #[must_use]
+    pub const fn cx(&self) -> i32 {
+        self.column.cx
+    }
+
+    #[must_use]
+    pub const fn cz(&self) -> i32 {
+        self.column.cz
+    }
 }
 
 /// World-owned terrain writes emitted by a worldgen provider.
+///
+/// Volumetric addressing is owned by `freven_volumetric_sdk_types`.
+/// Block ids remain block gameplay truth for now.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WorldTerrainWrite {
     FillSection {
-        sy: i8,
+        sy: SectionY,
         block_id: BlockRuntimeId,
     },
     FillBox {
-        min: (i32, i32, i32),
-        max: (i32, i32, i32),
+        min: WorldCellPos,
+        max: WorldCellPos,
         block_id: BlockRuntimeId,
     },
     SetBlock {
-        pos: (i32, i32, i32),
+        pos: WorldCellPos,
         block_id: BlockRuntimeId,
     },
 }

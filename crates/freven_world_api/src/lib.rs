@@ -5,6 +5,7 @@
 //! - expose deterministic registration surfaces (components/messages/worldgen/modnet/capabilities)
 //! - define stable hook contexts and registration errors
 //! - act as the builtin / compile-time facade over the canonical declaration model exposed by `freven_guest`
+//! - import volumetric topology/addressing truth from `freven_volumetric_sdk_types` instead of owning it here
 //!
 //! Extension guidance:
 //! - add new registries behind stable string keys

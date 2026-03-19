@@ -77,6 +77,9 @@ dependencies = [
 [[package]]
 name = "freven_volumetric_sdk_types"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "freven_world_api"
@@ -101,6 +104,7 @@ dependencies = [
  "freven_block_sdk_types",
  "freven_guest",
  "freven_sdk_types",
+ "freven_volumetric_sdk_types",
  "freven_world_sdk_types",
  "serde",
 ]
@@ -294,6 +298,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a5364e9d77fcdeeaa6062ced926ee3381faa2ee02d3eb83a5c27a8825540829"
 
 [[patch.unused]]
+name = "freven_vanilla_essentials"
+version = "0.1.0"
+
+[[patch.unused]]
 name = "freven_client_engine"
 version = "0.1.0"
 
@@ -359,10 +367,6 @@ version = "0.1.0"
 
 [[patch.unused]]
 name = "freven_wasm_host"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "freven_world_core"
 version = "0.1.0"
 
 [[patch.unused]]

@@ -10,3 +10,4 @@ description = "Stable volumetric foundation SDK data contracts for Freven."
 publish = false
 
 [dependencies]
+serde.workspace = true
