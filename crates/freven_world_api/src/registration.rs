@@ -32,6 +32,11 @@ pub struct ModDescriptor {
     pub register: ModRegisterFn,
 }
 
+/// Registration handle for a standard block/profile declaration.
+///
+/// The block/profile vocabulary itself is owned by `freven_block_sdk_types`.
+/// This crate only exposes the builtin / compile-time registration surface
+/// that consumes that vocabulary.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegisteredBlock {
     key: String,
@@ -89,6 +94,10 @@ impl Default for MessageConfig {
 
 /// Backend implemented by runtime for registration operations.
 pub trait ModContextBackend {
+    /// Register a reusable standard block/profile declaration.
+    ///
+    /// `BlockDescriptor` is imported from `freven_block_sdk_types`;
+    /// `freven_world_api` does not own that type surface.
     fn register_block(
         &mut self,
         key: &str,
@@ -199,6 +208,10 @@ impl<'a> ModContext<'a> {
             })
     }
 
+    /// Register a reusable standard block/profile declaration.
+    ///
+    /// This world-facing SDK surface consumes block/profile vocabulary from
+    /// `freven_block_sdk_types` instead of owning it locally.
     pub fn register_block(
         &mut self,
         key: &str,

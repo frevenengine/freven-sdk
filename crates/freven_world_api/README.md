@@ -1,14 +1,31 @@
 # freven_world_api
 
-Explicit world-owned contracts for Freven builtin and compile-time world authoring.
+Stable world-stack-facing contracts for Freven builtin and compile-time world authoring.
 
-`freven_world_api` carries the current world-stack-facing declaration families
-that live above the neutral SDK roots. It is intentionally world-owned, not a
+`freven_world_api` carries the current world-facing declaration families that
+live above the neutral SDK roots. It is intentionally world-owned, not a
 neutral platform crate.
 
 For runtime-loaded world mods, the canonical public contract lives in
 `freven_world_guest` and the recommended authoring path is
 `freven_world_guest_sdk` on Wasm.
+
+Ownership boundaries:
+
+- generic guest/runtime semantic roots live outside this crate
+- volumetric topology/addressing truth lives in `freven_volumetric_sdk_types`
+- standard block/profile vocabulary lives in `freven_block_sdk_types`
+- `freven_world_api` consumes those lower-layer vocabularies for builtin /
+  compile-time world authoring; it does not own them
+
+Current state note:
+
+- this crate still contains some world-stack consumer contracts that reference
+  block-facing types
+- that does not make `freven_world_api` the owner of `BlockRuntimeId`,
+  `BlockDescriptor`, or `RenderLayer`
+- dedicated block gameplay contract extraction can happen later without moving
+  block/profile vocabulary out of `freven_block_sdk_types`
 
 `freven_world_api` participates in the same world semantic system:
 
@@ -17,15 +34,16 @@ For runtime-loaded world mods, the canonical public contract lives in
 - activation hooks via `on_start_client` / `on_start_server`
 - runtime hooks via `on_tick_client` / `on_tick_server`
 - dedicated client/server message phases
-- block/content registration via `BlockDescriptor` + `BlockRuntimeId`
+- world-facing registration and service surfaces that consume
+  `BlockDescriptor` / `BlockRuntimeId` from `freven_block_sdk_types`
 - action handlers over `ActionContext`, `WorldView`, and `WorldAuthority`
 - world runtime services and world mutation output families shared with
   runtime-loaded guests
 
 Builtin / compile-time capability declarations use the same
-`CapabilityDeclaration` model as `freven_world_guest`. When a builtin mod is hosted
-from a resolved `mod.toml`, declared capability keys are validated against that
-resolved capability table before the runtime records them.
+`CapabilityDeclaration` model as `freven_world_guest`. When a builtin mod is
+hosted from a resolved `mod.toml`, declared capability keys are validated
+against that resolved capability table before the runtime records them.
 
 Neutral boot/load/runtime truth still lives outside this crate. World
 save/bootstrap metadata lives in `freven_world_sdk_types::save`, while
@@ -42,8 +60,9 @@ engine/app/bootstrap wiring does not belong here.
 ## Minimal usage
 
 ```rust
+use freven_block_sdk_types::BlockRuntimeId;
 use freven_mod_api::{ModSide, Side};
-use freven_world_api::{BlockRuntimeId, WorldMutation};
+use freven_world_api::WorldMutation;
 
 let mutation = WorldMutation::SetBlock {
     pos: (4, 80, 4),
@@ -52,11 +71,11 @@ let mutation = WorldMutation::SetBlock {
 };
 assert!(matches!(mutation, WorldMutation::SetBlock { .. }));
 assert!(ModSide::Both.matches(Side::Client));
-```
+````
 
 ## Documentation
 
-- Repository docs: <https://github.com/frevenengine/freven-sdk/tree/main/docs>
-- Distribution / release policy: `docs/SDK_DISTRIBUTION.md`
-- ABI docs: `docs/WASM_ABI_v1.md`, `docs/NATIVE_MOD_ABI_v1.md`, `docs/EXTERNAL_MOD_IPC_v1.md`
-- Safety note: `docs/UNSAFE_NATIVE_MODS.md`
+* Repository docs: [https://github.com/frevenengine/freven-sdk/tree/main/docs](https://github.com/frevenengine/freven-sdk/tree/main/docs)
+* Distribution / release policy: `docs/SDK_DISTRIBUTION.md`
+* ABI docs: `docs/WASM_ABI_v1.md`, `docs/NATIVE_MOD_ABI_v1.md`, `docs/EXTERNAL_MOD_IPC_v1.md`
+* Safety note: `docs/UNSAFE_NATIVE_MODS.md`

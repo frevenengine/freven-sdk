@@ -31,6 +31,9 @@ pub struct ActionCmdView<'a> {
 }
 
 /// Read-only world state visible to authoritative action handlers.
+///
+/// This trait consumes standard block/profile vocabulary from
+/// `freven_block_sdk_types`; it does not own that vocabulary.
 pub trait WorldView {
     fn block(&self, wx: i32, wy: i32, wz: i32) -> Option<BlockRuntimeId>;
     fn is_solid(&self, block_id: BlockRuntimeId) -> bool;
@@ -55,6 +58,9 @@ pub enum WorldMutationResult {
 }
 
 /// Server-authoritative world mutation service exposed to action handlers.
+///
+/// `WorldMutation` may currently reference block-facing shapes here, but
+/// block/profile type ownership remains in `freven_block_sdk_types`.
 pub trait WorldAuthority: WorldView {
     fn try_apply(&mut self, mutation: &WorldMutation) -> WorldMutationResult;
 }
@@ -99,6 +105,11 @@ impl<'a> ActionContext<'a> {
         emit_log(level, message);
     }
 
+    /// Resolve a registered standard block/profile id by stable string key.
+    ///
+    /// The returned id is block-layer vocabulary imported from
+    /// `freven_block_sdk_types`; `freven_world_api` only exposes a
+    /// world-facing consumer/service surface for it.
     #[must_use]
     pub fn block_id_by_key(&mut self, key: &str) -> Option<BlockRuntimeId> {
         let services = self.services.as_deref_mut()?;

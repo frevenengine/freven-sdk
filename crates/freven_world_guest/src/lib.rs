@@ -3,6 +3,20 @@
 //! The crate is transport-agnostic by design. Wasm ptr/len exports, native
 //! process envelopes, and other backend-specific details live in transport
 //! crates and docs, not in the semantic contract.
+//!
+//! Ownership boundaries:
+//! - generic guest/runtime transport semantics live in `freven_guest`
+//! - volumetric topology/addressing live in `freven_volumetric_sdk_types`
+//! - standard block/profile vocabulary lives in `freven_block_sdk_types`
+//! - this crate defines the canonical runtime-loaded world guest contract that
+//!   consumes those lower-layer vocabularies
+//!
+//! Current state note:
+//! - some block gameplay consumer contracts still live here
+//! - that does not make this crate the owner of `BlockRuntimeId` or
+//!   `BlockDescriptor`
+//! - a later block-API split may move those consumer contracts without moving
+//!   the block/profile vocabulary itself
 
 extern crate alloc;
 
@@ -58,6 +72,10 @@ pub struct ProviderHooks {
     pub client_control_provider: bool,
 }
 
+/// Runtime-loaded declaration of a reusable standard block/profile entry.
+///
+/// `BlockDescriptor` is imported from `freven_block_sdk_types`, which owns the
+/// public standard block/profile vocabulary.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockDeclaration {
     pub key: String,
@@ -98,11 +116,16 @@ pub struct WorldGenCallResult {
     pub output: WorldGenOutput,
 }
 
+/// Worldgen init payload for a runtime-loaded guest.
+///
+/// Volumetric topology/addressing live in `freven_volumetric_sdk_types`.
+/// Standard block/profile ids are imported from `freven_block_sdk_types`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct WorldGenInit {
     pub seed: u64,
     pub world_id: Option<String>,
+    /// Stable string-key -> standard block/profile runtime id mapping.
     pub block_ids: BTreeMap<String, BlockRuntimeId>,
 }
 
@@ -143,6 +166,10 @@ pub struct WorldGenOutput {
     pub writes: Vec<WorldTerrainWrite>,
 }
 
+/// Terrain writes emitted by a runtime-loaded worldgen provider.
+///
+/// Volumetric addressing is owned by `freven_volumetric_sdk_types`.
+/// Standard block/profile ids are imported from `freven_block_sdk_types`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum WorldTerrainWrite {
     FillSection {
@@ -368,6 +395,10 @@ impl WorldMutationBatch {
     }
 }
 
+/// Runtime output world mutations.
+///
+/// These shapes currently live in the canonical guest world contract, but the
+/// referenced block/profile ids are still owned by `freven_block_sdk_types`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum WorldMutation {
     SetBlock {
