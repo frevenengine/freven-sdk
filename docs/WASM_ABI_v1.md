@@ -147,8 +147,8 @@ ABI rule: enum variant order is ABI-significant.
 Current world-mutation family:
 
 - `RuntimeOutput.world`
-- `WorldMutationBatch.mutations`
-- `WorldMutation::SetBlock { pos, block_id, expected_old }`
+- `BlockMutationBatch.mutations`
+- `BlockMutation::SetBlock { pos, block_id, expected_old }`
 
 Current worldgen output family:
 

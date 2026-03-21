@@ -30,6 +30,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
+name = "freven_block_api"
+version = "0.1.0"
+dependencies = [
+ "freven_block_guest",
+ "freven_block_sdk_types",
+]
+
+[[package]]
+name = "freven_block_guest"
+version = "0.1.0"
+dependencies = [
+ "freven_block_sdk_types",
+ "serde",
+]
+
+[[package]]
 name = "freven_block_sdk_types"
 version = "0.1.0"
 dependencies = [
@@ -85,6 +101,8 @@ dependencies = [
 name = "freven_world_api"
 version = "0.1.0"
 dependencies = [
+ "freven_block_api",
+ "freven_block_guest",
  "freven_block_sdk_types",
  "freven_guest",
  "freven_mod_api",
@@ -101,6 +119,7 @@ dependencies = [
 name = "freven_world_guest"
 version = "0.1.0"
 dependencies = [
+ "freven_block_guest",
  "freven_block_sdk_types",
  "freven_guest",
  "freven_sdk_types",
@@ -113,6 +132,7 @@ dependencies = [
 name = "freven_world_guest_sdk"
 version = "0.1.0"
 dependencies = [
+ "freven_block_guest",
  "freven_block_sdk_types",
  "freven_guest",
  "freven_sdk_types",
@@ -298,6 +318,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a5364e9d77fcdeeaa6062ced926ee3381faa2ee02d3eb83a5c27a8825540829"
 
 [[patch.unused]]
+name = "freven_vanilla_essentials"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "freven_block_runtime"
+version = "0.1.0"
+
+[[patch.unused]]
 name = "freven_client_engine"
 version = "0.1.0"
 
@@ -367,8 +395,4 @@ version = "0.1.0"
 
 [[patch.unused]]
 name = "freven_world_runtime"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "freven_vanilla_essentials"
 version = "0.1.0"

@@ -36,7 +36,7 @@ Current state note:
 - dedicated client/server message phases
 - world-facing registration and service surfaces that consume
   `BlockDescriptor` / `BlockRuntimeId` from `freven_block_sdk_types`
-- action handlers over `ActionContext`, `WorldView`, and `WorldAuthority`
+- action handlers over `ActionContext`, `BlockWorldView`, and `BlockAuthority`
 - world runtime services and world mutation output families shared with
   runtime-loaded guests
 
@@ -64,12 +64,12 @@ use freven_block_sdk_types::BlockRuntimeId;
 use freven_mod_api::{ModSide, Side};
 use freven_world_api::WorldMutation;
 
-let mutation = WorldMutation::SetBlock {
+let mutation = BlockMutation::SetBlock {
     pos: (4, 80, 4),
     block_id: BlockRuntimeId(7),
     expected_old: None,
 };
-assert!(matches!(mutation, WorldMutation::SetBlock { .. }));
+assert!(matches!(mutation, BlockMutation::SetBlock { .. }));
 assert!(ModSide::Both.matches(Side::Client));
 ````
 

@@ -22,6 +22,7 @@ extern crate alloc;
 
 use alloc::collections::BTreeMap;
 use alloc::{string::String, vec::Vec};
+use freven_block_guest::{BlockMutationBatch, BlockServiceRequest, BlockServiceResponse};
 use freven_block_sdk_types::{BlockDescriptor, BlockRuntimeId};
 use freven_guest::{
     CapabilityDeclaration, ChannelDeclaration, ComponentDeclaration, LifecycleHooks, LogPayload,
@@ -358,13 +359,13 @@ pub enum ActionOutcome {
 #[serde(default)]
 pub struct RuntimeOutput {
     pub messages: RuntimeMessageOutput,
-    pub world: WorldMutationBatch,
+    pub blocks: BlockMutationBatch,
 }
 
 impl RuntimeOutput {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.messages.is_empty() && self.world.is_empty()
+        self.messages.is_empty() && self.blocks.is_empty()
     }
 }
 
@@ -379,43 +380,6 @@ impl RuntimeMessageOutput {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.client.is_empty() && self.server.is_empty()
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(default)]
-pub struct WorldMutationBatch {
-    pub mutations: Vec<WorldMutation>,
-}
-
-impl WorldMutationBatch {
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.mutations.is_empty()
-    }
-}
-
-/// Runtime output world mutations.
-///
-/// These shapes currently live in the canonical guest world contract, but the
-/// referenced block/profile ids are still owned by `freven_block_sdk_types`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum WorldMutation {
-    SetBlock {
-        pos: (i32, i32, i32),
-        block_id: BlockRuntimeId,
-        expected_old: Option<BlockRuntimeId>,
-    },
-}
-
-impl WorldMutation {
-    #[must_use]
-    pub const fn clear_block(pos: (i32, i32, i32), expected_old: Option<BlockRuntimeId>) -> Self {
-        Self::SetBlock {
-            pos,
-            block_id: BlockRuntimeId(0),
-            expected_old,
-        }
     }
 }
 
@@ -542,12 +506,6 @@ pub enum RuntimeEntityTarget {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldQueryRequest {
-    AuthoritativeBlock {
-        pos: (i32, i32, i32),
-    },
-    BlockIdByKey {
-        key: String,
-    },
     PlayerPosition {
         player_id: u64,
     },
@@ -565,8 +523,6 @@ pub enum WorldQueryRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldQueryResponse {
-    AuthoritativeBlock(Option<BlockRuntimeId>),
-    BlockIdByKey(Option<BlockRuntimeId>),
     PlayerPosition(Option<[f32; 3]>),
     PlayerDisplayName(Option<String>),
     PlayerEntityId(Option<u32>),
@@ -575,7 +531,6 @@ pub enum WorldQueryResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ClientVisibilityRequest {
-    ClientVisibleBlock { pos: (i32, i32, i32) },
     ClientPlayerViews,
     ClientWorldToScreen { world_pos_m: (f32, f32, f32) },
     ClientActiveLevel,
@@ -584,7 +539,6 @@ pub enum ClientVisibilityRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ClientVisibilityResponse {
-    ClientVisibleBlock(Option<BlockRuntimeId>),
     ClientPlayerViews(Vec<ClientPlayerView>),
     ClientWorldToScreen(Option<(i32, i32)>),
     ClientActiveLevel(Option<RuntimeLevelRef>),
@@ -651,6 +605,7 @@ pub enum RuntimeObservabilityRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldServiceRequest {
+    Block(BlockServiceRequest),
     Query(WorldQueryRequest),
     ClientVisibility(ClientVisibilityRequest),
     Session(WorldSessionRequest),
@@ -661,6 +616,7 @@ pub enum WorldServiceRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldServiceResponse {
+    Block(BlockServiceResponse),
     Query(WorldQueryResponse),
     ClientVisibility(ClientVisibilityResponse),
     Session(WorldSessionResponse),
@@ -670,6 +626,5 @@ pub enum WorldServiceResponse {
     CharacterPhysicsIsSolidWorldCollision(bool),
     CharacterPhysicsSweepAabb(SweepHit),
     CharacterPhysicsMoveAabbTerrain(KinematicMoveResult),
-    Acknowledged,
     Unsupported,
 }

@@ -214,8 +214,8 @@ formatting, routing, filtering, truncation, and final presentation.
 Current world-mutation family includes:
 
 - `RuntimeOutput.world`
-- `WorldMutationBatch.mutations`
-- `WorldMutation::SetBlock { pos, block_id, expected_old }`
+- `BlockMutationBatch.mutations`
+- `BlockMutation::SetBlock { pos, block_id, expected_old }`
 
 Current worldgen output family uses:
 
