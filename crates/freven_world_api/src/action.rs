@@ -3,7 +3,7 @@ use freven_block_guest::{
     BlockQueryRequest, BlockQueryResponse, BlockServiceRequest, BlockServiceResponse,
 };
 use freven_block_sdk_types::BlockRuntimeId;
-use freven_mod_api::{emit_log, LogLevel};
+use freven_mod_api::{LogLevel, emit_log};
 
 use crate::services::{Services, WorldServiceRequest, WorldServiceResponse};
 
@@ -74,11 +74,11 @@ impl<'a> ActionContext<'a> {
     #[must_use]
     pub fn block_id_by_key(&mut self, key: &str) -> Option<BlockRuntimeId> {
         let services = self.services.as_deref_mut()?;
-        match services.world_service(&WorldServiceRequest::Block(
-            BlockServiceRequest::Query(BlockQueryRequest::BlockIdByKey {
+        match services.world_service(&WorldServiceRequest::Block(BlockServiceRequest::Query(
+            BlockQueryRequest::BlockIdByKey {
                 key: key.to_string(),
-            }),
-        )) {
+            },
+        ))) {
             WorldServiceResponse::Block(BlockServiceResponse::Query(
                 BlockQueryResponse::BlockIdByKey(value),
             )) => value,
