@@ -145,11 +145,18 @@ ABI rule: enum variant order is ABI-significant.
 - Do NOT rename variants expecting any effect on binary encoding.
 - Only append new variants at the end.
 
-Current world-mutation family:
+Current block-mutation family carried by `RuntimeOutput`:
 
 - `RuntimeOutput.blocks`
 - `BlockMutationBatch.mutations`
 - `BlockMutation::SetBlock { pos, block_id, expected_old }`
+
+Ownership note:
+
+- `RuntimeOutput` is part of the generic `freven_world_guest` contract
+- the payload shape carried in `RuntimeOutput.blocks` is owned by
+  `freven_block_guest`
+- this transport mapping must preserve that ownership split rather than blur it
 
 Current worldgen output family:
 

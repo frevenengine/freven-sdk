@@ -10,6 +10,16 @@ mainly for low-level transport work, fixtures, and runtime validation.
 Builtin / compile-time world authoring uses `freven_world_api`, which is a
 facade over the same semantic registration and runtime-output model.
 
+Ownership note:
+
+- `freven_world_guest` owns the generic runtime-loaded world contract and its
+  runtime-service / runtime-output envelopes
+- `freven_block_guest` owns runtime-loaded block mutation/query/service payload
+  shapes
+- block-owned families may be carried inside `freven_world_guest` envelopes,
+  but that carrier role does not transfer block ownership to
+  `freven_world_guest`
+
 ## Scope
 
 - Semantic contract only.
@@ -149,7 +159,8 @@ There is intentionally no separate lifecycle-only side channel.
 
 ## Runtime services
 
-Guest/runtime-loaded mods now use explicit runtime service families:
+Guest/runtime-loaded mods use explicit runtime service families through the
+generic world runtime-service envelope:
 
 - `WorldServiceRequest::Block(...)`
 - `WorldServiceRequest::Query(...)`
@@ -161,12 +172,16 @@ Guest/runtime-loaded mods now use explicit runtime service families:
 - `RuntimeOutput.messages`
 - `RuntimeOutput.blocks`
 
-Block query/service payload shapes are owned by `freven_block_guest`. The
-generic `freven_world_guest` contract still carries those block-owned families
-inside the runtime service envelope through
-`WorldServiceRequest::Block(...)` / `WorldServiceResponse::Block(...)`. That
-carrier role does not make `freven_world_guest` the owner of block gameplay
-semantics.
+Ownership inside that model is explicit:
+
+- `freven_world_guest` owns the generic runtime-service and runtime-output
+  envelopes
+- `freven_block_guest` owns block mutation/query/service payload shapes
+- `WorldServiceRequest::Block(...)` / `WorldServiceResponse::Block(...)` and
+  `RuntimeOutput.blocks` are carrier/composition points for those block-owned
+  families
+- that carrier role does not make `freven_world_guest` the owner of block
+  gameplay semantics
 
 Current query/session/visibility requests include:
 
@@ -219,7 +234,7 @@ Guests do not define custom categories, arbitrary key/value fields, trace/span
 ids, or sink selection in this phase. The host/runtime owns attribution,
 formatting, routing, filtering, truncation, and final presentation.
 
-Current world-mutation family includes:
+Current block-mutation family carried by runtime output includes:
 
 - `RuntimeOutput.blocks`
 - `BlockMutationBatch.mutations`
@@ -288,7 +303,8 @@ If a guest violates the contract or faults during a runtime session:
   guest for that session, even if the wrapper object itself still exists locally
 
 For action callbacks, "faults" include host-side failure to apply the guest's
-declared world mutations after the `ActionResult` is decoded and validated.
+declared block mutation batch after the `ActionResult` is decoded and
+validated.
 
 For message callbacks, faults include invalid inbound scope mapping and
 outbound sends that violate the negotiated channel/message contract.
