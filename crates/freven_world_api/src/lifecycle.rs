@@ -2,8 +2,10 @@ use std::time::Duration;
 
 use freven_mod_api::{LogLevel, emit_log};
 
+use freven_block_api::ClientCameraHitProvider;
+
 use crate::{
-    client::{ClientCameraHitProvider, ClientInputProvider, ClientInteractionProvider},
+    client::{ClientInputProvider, ClientInteractionProvider},
     messages::{
         ClientInboundMessage, ClientMessageSender, ClientPlayerProvider, ServerInboundMessage,
         ServerMessageSender,

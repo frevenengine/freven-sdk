@@ -1,10 +1,11 @@
+use freven_block_api::{BlockAuthority, BlockWorldView};
+use freven_block_guest::{
+    BlockQueryRequest, BlockQueryResponse, BlockServiceRequest, BlockServiceResponse,
+};
 use freven_block_sdk_types::BlockRuntimeId;
 use freven_mod_api::{LogLevel, emit_log};
 
-use crate::services::{
-    Services, WorldMutation, WorldQueryRequest, WorldQueryResponse, WorldServiceRequest,
-    WorldServiceResponse,
-};
+use crate::services::{Services, WorldServiceRequest, WorldServiceResponse};
 
 /// Stable id for a logical player action kind.
 ///
@@ -30,35 +31,6 @@ pub struct ActionCmdView<'a> {
     pub payload: &'a [u8],
 }
 
-/// Read-only world state visible to authoritative action handlers.
-pub trait WorldView {
-    fn block(&self, wx: i32, wy: i32, wz: i32) -> Option<BlockRuntimeId>;
-    fn is_solid(&self, block_id: BlockRuntimeId) -> bool;
-}
-
-/// Deterministic result of an authoritative world mutation requested by an action handler.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum WorldMutationResult {
-    Applied {
-        old: BlockRuntimeId,
-        new: BlockRuntimeId,
-    },
-    NotLoaded,
-    OutOfBounds,
-    Mismatch {
-        current: BlockRuntimeId,
-    },
-    Rejected {
-        message: String,
-    },
-}
-
-/// Server-authoritative world mutation service exposed to action handlers.
-pub trait WorldAuthority: WorldView {
-    fn try_apply(&mut self, mutation: &WorldMutation) -> WorldMutationResult;
-}
-
 /// Character-physics query service exposed to action handlers.
 pub trait CharacterPhysicsQuery {
     fn player_position(&self, player_id: u64) -> Option<[f32; 3]>;
@@ -66,8 +38,8 @@ pub trait CharacterPhysicsQuery {
 
 /// Stable action-dispatch context provided by runtime/server integration.
 pub struct ActionContext<'a> {
-    pub world: Option<&'a dyn WorldView>,
-    pub authority: Option<&'a mut dyn WorldAuthority>,
+    pub block_world: Option<&'a dyn BlockWorldView>,
+    pub block_authority: Option<&'a mut dyn BlockAuthority>,
     pub character_physics: Option<&'a dyn CharacterPhysicsQuery>,
     pub services: Option<&'a mut dyn Services>,
     pub player_id: u64,
@@ -77,16 +49,16 @@ pub struct ActionContext<'a> {
 impl<'a> ActionContext<'a> {
     #[must_use]
     pub fn new(
-        world: Option<&'a dyn WorldView>,
-        authority: Option<&'a mut dyn WorldAuthority>,
+        block_world: Option<&'a dyn BlockWorldView>,
+        block_authority: Option<&'a mut dyn BlockAuthority>,
         character_physics: Option<&'a dyn CharacterPhysicsQuery>,
         services: Option<&'a mut dyn Services>,
         player_id: u64,
         at_input_seq: u32,
     ) -> Self {
         Self {
-            world,
-            authority,
+            block_world,
+            block_authority,
             character_physics,
             services,
             player_id,
@@ -94,22 +66,29 @@ impl<'a> ActionContext<'a> {
         }
     }
 
-    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
-        let _ = &self.services;
-        emit_log(level, message);
-    }
-
+    /// Resolve a registered standard block/profile id by stable string key.
+    ///
+    /// The block query contract itself is owned by `freven_block_guest`.
+    /// `ActionContext` only composes over that block-owned query family through
+    /// the generic world runtime-service envelope.
     #[must_use]
     pub fn block_id_by_key(&mut self, key: &str) -> Option<BlockRuntimeId> {
         let services = self.services.as_deref_mut()?;
-        match services.world_service(&WorldServiceRequest::Query(
-            WorldQueryRequest::BlockIdByKey {
+        match services.world_service(&WorldServiceRequest::Block(BlockServiceRequest::Query(
+            BlockQueryRequest::BlockIdByKey {
                 key: key.to_string(),
             },
-        )) {
-            WorldServiceResponse::Query(WorldQueryResponse::BlockIdByKey(value)) => value,
+        ))) {
+            WorldServiceResponse::Block(BlockServiceResponse::Query(
+                BlockQueryResponse::BlockIdByKey(value),
+            )) => value,
             _ => None,
         }
+    }
+
+    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
+        let _ = &self.services;
+        emit_log(level, message);
     }
 }
 

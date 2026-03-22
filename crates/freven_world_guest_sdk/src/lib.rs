@@ -7,6 +7,10 @@ use core::cell::RefCell;
 use core::ffi::c_void;
 use std::thread::LocalKey;
 
+pub use freven_block_guest::{
+    BlockClientQueryRequest, BlockClientQueryResponse, BlockMutation, BlockMutationBatch,
+    BlockQueryRequest, BlockQueryResponse, BlockServiceRequest, BlockServiceResponse,
+};
 pub use freven_block_sdk_types::{
     BlockCollision, BlockDescriptor, BlockMaterial, BlockRuntimeId, BlockVisibility, RenderLayer,
 };
@@ -30,8 +34,8 @@ pub use freven_world_guest::{
     RuntimeObservabilityRequest, RuntimeOutput, ServerInboundMessage, ServerMessageInput,
     ServerMessageResult, ServerOutboundMessage, StartInput, SweepHit, TickInput, WorldGenCallInput,
     WorldGenCallResult, WorldGenDeclaration, WorldGenInit, WorldGenOutput, WorldGenRequest,
-    WorldMutation, WorldMutationBatch, WorldQueryRequest, WorldQueryResponse, WorldServiceRequest,
-    WorldServiceResponse, WorldSessionRequest, WorldSessionResponse, WorldTerrainWrite,
+    WorldQueryRequest, WorldQueryResponse, WorldServiceRequest, WorldServiceResponse,
+    WorldSessionRequest, WorldSessionResponse, WorldTerrainWrite,
 };
 use serde::de::DeserializeOwned;
 
@@ -1325,12 +1329,12 @@ impl RuntimeServices {
         self,
         pos: (i32, i32, i32),
     ) -> RuntimeQuerySupport<Option<BlockRuntimeId>> {
-        match runtime_service_call(WorldServiceRequest::Query(
-            WorldQueryRequest::AuthoritativeBlock { pos },
-        )) {
-            WorldServiceResponse::Query(WorldQueryResponse::AuthoritativeBlock(value)) => {
-                RuntimeQuerySupport::Supported(value)
-            }
+        match runtime_service_call(WorldServiceRequest::Block(BlockServiceRequest::Query(
+            BlockQueryRequest::AuthoritativeBlock { pos },
+        ))) {
+            WorldServiceResponse::Block(BlockServiceResponse::Query(
+                BlockQueryResponse::AuthoritativeBlock(value),
+            )) => RuntimeQuerySupport::Supported(value),
             WorldServiceResponse::Unsupported => RuntimeQuerySupport::Unsupported,
             other => {
                 debug_assert!(
@@ -1345,12 +1349,14 @@ impl RuntimeServices {
 
     #[must_use]
     pub fn block_id_by_key(self, key: &str) -> Option<BlockRuntimeId> {
-        match runtime_service_call(WorldServiceRequest::Query(
-            WorldQueryRequest::BlockIdByKey {
+        match runtime_service_call(WorldServiceRequest::Block(BlockServiceRequest::Query(
+            BlockQueryRequest::BlockIdByKey {
                 key: key.to_string(),
             },
-        )) {
-            WorldServiceResponse::Query(WorldQueryResponse::BlockIdByKey(value)) => value,
+        ))) {
+            WorldServiceResponse::Block(BlockServiceResponse::Query(
+                BlockQueryResponse::BlockIdByKey(value),
+            )) => value,
             _ => None,
         }
     }
@@ -1404,12 +1410,12 @@ impl RuntimeServices {
 
     #[must_use]
     pub fn client_visible_block(self, pos: (i32, i32, i32)) -> Option<BlockRuntimeId> {
-        match runtime_service_call(WorldServiceRequest::ClientVisibility(
-            ClientVisibilityRequest::ClientVisibleBlock { pos },
+        match runtime_service_call(WorldServiceRequest::Block(
+            BlockServiceRequest::ClientQuery(BlockClientQueryRequest::ClientVisibleBlock { pos }),
         )) {
-            WorldServiceResponse::ClientVisibility(
-                ClientVisibilityResponse::ClientVisibleBlock(value),
-            ) => value,
+            WorldServiceResponse::Block(BlockServiceResponse::ClientQuery(
+                BlockClientQueryResponse::ClientVisibleBlock(value),
+            )) => value,
             _ => None,
         }
     }
@@ -1684,14 +1690,14 @@ impl ActionResponse {
 
 impl AppliedActionResponse {
     #[must_use]
-    pub fn push_world_mutation(mut self, command: WorldMutation) -> Self {
-        self.output.world.mutations.push(command);
+    pub fn push_block_mutation(mut self, command: BlockMutation) -> Self {
+        self.output.blocks.mutations.push(command);
         self
     }
 
     #[must_use]
     pub fn set_block(self, pos: (i32, i32, i32), block_id: BlockRuntimeId) -> Self {
-        self.push_world_mutation(WorldMutation::SetBlock {
+        self.push_block_mutation(BlockMutation::SetBlock {
             pos,
             block_id,
             expected_old: None,
@@ -1705,7 +1711,7 @@ impl AppliedActionResponse {
         expected_old: BlockRuntimeId,
         block_id: BlockRuntimeId,
     ) -> Self {
-        self.push_world_mutation(WorldMutation::SetBlock {
+        self.push_block_mutation(BlockMutation::SetBlock {
             pos,
             block_id,
             expected_old: Some(expected_old),
@@ -1801,7 +1807,7 @@ impl ClientMessageResponse {
 
     #[must_use]
     pub fn set_block(mut self, pos: (i32, i32, i32), block_id: BlockRuntimeId) -> Self {
-        self.output.world.mutations.push(WorldMutation::SetBlock {
+        self.output.blocks.mutations.push(BlockMutation::SetBlock {
             pos,
             block_id,
             expected_old: None,
@@ -1863,7 +1869,7 @@ impl ServerMessageResponse {
 
     #[must_use]
     pub fn set_block(mut self, pos: (i32, i32, i32), block_id: BlockRuntimeId) -> Self {
-        self.output.world.mutations.push(WorldMutation::SetBlock {
+        self.output.blocks.mutations.push(BlockMutation::SetBlock {
             pos,
             block_id,
             expected_old: None,
@@ -1899,7 +1905,7 @@ impl LifecycleResponse {
 
     #[must_use]
     pub fn set_block(mut self, pos: (i32, i32, i32), block_id: BlockRuntimeId) -> Self {
-        self.output.world.mutations.push(WorldMutation::SetBlock {
+        self.output.blocks.mutations.push(BlockMutation::SetBlock {
             pos,
             block_id,
             expected_old: None,
@@ -4364,9 +4370,9 @@ mod tests {
         let _guard = install_test_runtime_service_hook(|request| {
             assert_eq!(
                 request,
-                WorldServiceRequest::Query(WorldQueryRequest::AuthoritativeBlock {
-                    pos: (1, 2, 3)
-                })
+                WorldServiceRequest::Block(BlockServiceRequest::Query(
+                    BlockQueryRequest::AuthoritativeBlock { pos: (1, 2, 3) }
+                ))
             );
             WorldServiceResponse::Unsupported
         });
@@ -4382,13 +4388,13 @@ mod tests {
         let _guard = install_test_runtime_service_hook(|request| {
             assert_eq!(
                 request,
-                WorldServiceRequest::Query(WorldQueryRequest::AuthoritativeBlock {
-                    pos: (4, 5, 6)
-                })
+                WorldServiceRequest::Block(BlockServiceRequest::Query(
+                    BlockQueryRequest::AuthoritativeBlock { pos: (4, 5, 6) }
+                ))
             );
-            WorldServiceResponse::Query(WorldQueryResponse::AuthoritativeBlock(Some(
-                BlockRuntimeId(7),
-            )))
+            WorldServiceResponse::Block(BlockServiceResponse::Query(
+                BlockQueryResponse::AuthoritativeBlock(Some(BlockRuntimeId(7))),
+            ))
         });
 
         assert_eq!(
@@ -4402,11 +4408,13 @@ mod tests {
         let _guard = install_test_runtime_service_hook(|request| {
             assert_eq!(
                 request,
-                WorldServiceRequest::Query(WorldQueryRequest::AuthoritativeBlock {
-                    pos: (8, 9, 10)
-                })
+                WorldServiceRequest::Block(BlockServiceRequest::Query(
+                    BlockQueryRequest::AuthoritativeBlock { pos: (8, 9, 10) }
+                ))
             );
-            WorldServiceResponse::Query(WorldQueryResponse::AuthoritativeBlock(None))
+            WorldServiceResponse::Block(BlockServiceResponse::Query(
+                BlockQueryResponse::AuthoritativeBlock(None),
+            ))
         });
 
         assert_eq!(

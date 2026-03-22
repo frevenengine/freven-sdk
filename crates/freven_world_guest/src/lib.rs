@@ -3,11 +3,28 @@
 //! The crate is transport-agnostic by design. Wasm ptr/len exports, native
 //! process envelopes, and other backend-specific details live in transport
 //! crates and docs, not in the semantic contract.
+//!
+//! Ownership boundaries:
+//! - generic guest/runtime transport semantics live in `freven_guest`
+//! - volumetric topology/addressing live in `freven_volumetric_sdk_types`
+//! - standard block/profile vocabulary lives in `freven_block_sdk_types`
+//! - this crate defines the canonical runtime-loaded world guest contract that
+//!   consumes those lower-layer vocabularies
+//!
+//! Composition note:
+//! - block/profile vocabulary is owned by `freven_block_sdk_types`
+//! - runtime-loaded block mutation/query/service contracts are owned by
+//!   `freven_block_guest`
+//! - this crate may still carry block-owned families inside the generic
+//!   world guest/runtime envelope
+//! - that carrier role does not make `freven_world_guest` the owner of
+//!   block gameplay semantics
 
 extern crate alloc;
 
 use alloc::collections::BTreeMap;
 use alloc::{string::String, vec::Vec};
+use freven_block_guest::{BlockMutationBatch, BlockServiceRequest, BlockServiceResponse};
 use freven_block_sdk_types::{BlockDescriptor, BlockRuntimeId};
 use freven_guest::{
     CapabilityDeclaration, ChannelDeclaration, ComponentDeclaration, LifecycleHooks, LogPayload,
@@ -58,6 +75,10 @@ pub struct ProviderHooks {
     pub client_control_provider: bool,
 }
 
+/// Runtime-loaded declaration of a reusable standard block/profile entry.
+///
+/// `BlockDescriptor` is imported from `freven_block_sdk_types`, which owns the
+/// public standard block/profile vocabulary.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockDeclaration {
     pub key: String,
@@ -98,11 +119,16 @@ pub struct WorldGenCallResult {
     pub output: WorldGenOutput,
 }
 
+/// Worldgen init payload for a runtime-loaded guest.
+///
+/// Volumetric topology/addressing live in `freven_volumetric_sdk_types`.
+/// Standard block/profile ids are imported from `freven_block_sdk_types`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct WorldGenInit {
     pub seed: u64,
     pub world_id: Option<String>,
+    /// Stable string-key -> standard block/profile runtime id mapping.
     pub block_ids: BTreeMap<String, BlockRuntimeId>,
 }
 
@@ -143,6 +169,10 @@ pub struct WorldGenOutput {
     pub writes: Vec<WorldTerrainWrite>,
 }
 
+/// Terrain writes emitted by a runtime-loaded worldgen provider.
+///
+/// Volumetric addressing is owned by `freven_volumetric_sdk_types`.
+/// Standard block/profile ids are imported from `freven_block_sdk_types`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum WorldTerrainWrite {
     FillSection {
@@ -331,13 +361,13 @@ pub enum ActionOutcome {
 #[serde(default)]
 pub struct RuntimeOutput {
     pub messages: RuntimeMessageOutput,
-    pub world: WorldMutationBatch,
+    pub blocks: BlockMutationBatch,
 }
 
 impl RuntimeOutput {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.messages.is_empty() && self.world.is_empty()
+        self.messages.is_empty() && self.blocks.is_empty()
     }
 }
 
@@ -352,39 +382,6 @@ impl RuntimeMessageOutput {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.client.is_empty() && self.server.is_empty()
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(default)]
-pub struct WorldMutationBatch {
-    pub mutations: Vec<WorldMutation>,
-}
-
-impl WorldMutationBatch {
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.mutations.is_empty()
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum WorldMutation {
-    SetBlock {
-        pos: (i32, i32, i32),
-        block_id: BlockRuntimeId,
-        expected_old: Option<BlockRuntimeId>,
-    },
-}
-
-impl WorldMutation {
-    #[must_use]
-    pub const fn clear_block(pos: (i32, i32, i32), expected_old: Option<BlockRuntimeId>) -> Self {
-        Self::SetBlock {
-            pos,
-            block_id: BlockRuntimeId(0),
-            expected_old,
-        }
     }
 }
 
@@ -511,12 +508,6 @@ pub enum RuntimeEntityTarget {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldQueryRequest {
-    AuthoritativeBlock {
-        pos: (i32, i32, i32),
-    },
-    BlockIdByKey {
-        key: String,
-    },
     PlayerPosition {
         player_id: u64,
     },
@@ -534,8 +525,6 @@ pub enum WorldQueryRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldQueryResponse {
-    AuthoritativeBlock(Option<BlockRuntimeId>),
-    BlockIdByKey(Option<BlockRuntimeId>),
     PlayerPosition(Option<[f32; 3]>),
     PlayerDisplayName(Option<String>),
     PlayerEntityId(Option<u32>),
@@ -544,7 +533,6 @@ pub enum WorldQueryResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ClientVisibilityRequest {
-    ClientVisibleBlock { pos: (i32, i32, i32) },
     ClientPlayerViews,
     ClientWorldToScreen { world_pos_m: (f32, f32, f32) },
     ClientActiveLevel,
@@ -553,7 +541,6 @@ pub enum ClientVisibilityRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ClientVisibilityResponse {
-    ClientVisibleBlock(Option<BlockRuntimeId>),
     ClientPlayerViews(Vec<ClientPlayerView>),
     ClientWorldToScreen(Option<(i32, i32)>),
     ClientActiveLevel(Option<RuntimeLevelRef>),
@@ -620,6 +607,7 @@ pub enum RuntimeObservabilityRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldServiceRequest {
+    Block(BlockServiceRequest),
     Query(WorldQueryRequest),
     ClientVisibility(ClientVisibilityRequest),
     Session(WorldSessionRequest),
@@ -630,6 +618,7 @@ pub enum WorldServiceRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldServiceResponse {
+    Block(BlockServiceResponse),
     Query(WorldQueryResponse),
     ClientVisibility(ClientVisibilityResponse),
     Session(WorldSessionResponse),
@@ -639,6 +628,5 @@ pub enum WorldServiceResponse {
     CharacterPhysicsIsSolidWorldCollision(bool),
     CharacterPhysicsSweepAabb(SweepHit),
     CharacterPhysicsMoveAabbTerrain(KinematicMoveResult),
-    Acknowledged,
     Unsupported,
 }

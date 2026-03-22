@@ -1,10 +1,12 @@
+use freven_block_guest::BlockMutationBatch;
+
 use crate::observability::HostLogRecord;
 
 pub use freven_world_guest::{
     ClientVisibilityRequest, ClientVisibilityResponse, RuntimeCharacterPhysicsRequest,
     RuntimeClientControlRequest, RuntimeEntityTarget, RuntimeLevelRef, RuntimeObservabilityRequest,
-    RuntimeOutput, WorldMutation, WorldMutationBatch, WorldQueryRequest, WorldQueryResponse,
-    WorldServiceRequest, WorldServiceResponse, WorldSessionRequest, WorldSessionResponse,
+    RuntimeOutput, WorldQueryRequest, WorldQueryResponse, WorldServiceRequest,
+    WorldServiceResponse, WorldSessionRequest, WorldSessionResponse,
 };
 
 /// Runtime-provided services exposed to SDK hooks.
@@ -13,15 +15,15 @@ pub trait Services {
         WorldServiceResponse::Unsupported
     }
 
-    fn apply_world_mutations(
+    fn apply_block_mutations(
         &mut self,
-        mutations: &WorldMutationBatch,
+        mutations: &BlockMutationBatch,
     ) -> Result<(), RuntimeOutputApplyError> {
         if mutations.is_empty() {
             Ok(())
         } else {
             Err(RuntimeOutputApplyError::UnsupportedFamily {
-                family: "world_mutations",
+                family: "block_mutations",
             })
         }
     }

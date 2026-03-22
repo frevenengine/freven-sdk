@@ -16,13 +16,21 @@ pub trait WorldGenProvider: Send + Sync {
 
 /// Worldgen provider factory init parameters.
 ///
-/// `block_ids` remains block-gameplay truth for now; volumetric topology and addressing
-/// come from `freven_volumetric_sdk_types`.
+/// Volumetric topology and addressing come from
+/// `freven_volumetric_sdk_types`.
+///
+/// Standard block/profile ids are imported from
+/// `freven_block_sdk_types`. This crate consumes that vocabulary for
+/// worldgen convenience, but does not own it.
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct WorldGenInit {
     pub seed: u64,
     pub world_id: Option<String>,
+    /// Stable string-key -> standard block/profile runtime id mapping.
+    ///
+    /// The ids are block-layer vocabulary imported from
+    /// `freven_block_sdk_types`.
     pub block_ids: BTreeMap<String, BlockRuntimeId>,
 }
 
@@ -69,10 +77,11 @@ impl WorldGenRequest {
     }
 }
 
-/// World-owned terrain writes emitted by a worldgen provider.
+/// Terrain writes emitted by a worldgen provider.
 ///
 /// Volumetric addressing is owned by `freven_volumetric_sdk_types`.
-/// Block ids remain block gameplay truth for now.
+/// Standard block/profile ids are imported from `freven_block_sdk_types`.
+/// `freven_world_api` does not own either lower-layer vocabulary.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WorldTerrainWrite {
     FillSection {

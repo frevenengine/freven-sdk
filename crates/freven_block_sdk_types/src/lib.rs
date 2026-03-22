@@ -1,3 +1,20 @@
+//! Public standard block/profile vocabulary for Freven.
+//!
+//! Ownership:
+//! - stable runtime ids for standard block/profile entries
+//! - reusable collision / visibility / material descriptor vocabulary
+//! - render-layer classification for standard block/profile presentation
+//!
+//! Non-responsibilities:
+//! - volumetric topology, addressing, storage, or extraction
+//! - generic world bootstrap / save / session truth
+//! - registry / lookup ownership
+//! - authority / prediction / manifest pipeline ownership
+//! - vanilla-specific defaults, balance, or content policy
+//!
+//! This crate is the public owner of reusable standard block gameplay-facing
+//! type surfaces that are not vanilla-specific.
+
 use serde::{Deserialize, Serialize};
 
 /// Stable runtime id for a standard block/profile entry.
@@ -13,13 +30,13 @@ pub enum RenderLayer {
     Transparent,
 }
 
-/// Collision-facing standard block/profile semantics.
+/// Collision-facing reusable standard block/profile semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockCollision {
     pub is_solid: bool,
 }
 
-/// Visibility-facing standard block/profile semantics.
+/// Visibility-facing reusable standard block/profile semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockVisibility {
     pub is_opaque: bool,
@@ -33,7 +50,7 @@ pub struct BlockMaterial {
     pub material_id: u32,
 }
 
-/// Canonical standard block/profile descriptor.
+/// Canonical reusable standard block/profile descriptor.
 ///
 /// This is not generic world truth and not neutral volumetric truth.
 /// It belongs to the standard block/profile layer above volumetric foundations.

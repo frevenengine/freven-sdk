@@ -6,11 +6,18 @@
 //! - define stable hook contexts and registration errors
 //! - act as the builtin / compile-time facade over the canonical declaration model exposed by `freven_guest`
 //! - import volumetric topology/addressing truth from `freven_volumetric_sdk_types` instead of owning it here
+//! - import standard block/profile vocabulary from `freven_block_sdk_types` instead of owning it here
+//!
+//! Current state note:
+//! - some world-stack consumer contracts in this crate still reference block/profile vocabulary
+//! - that does not make `freven_world_api` the owner of `BlockRuntimeId`, `BlockDescriptor`, or `RenderLayer`
+//! - dedicated block gameplay contract extraction can happen later without moving block/profile vocabulary out of `freven_block_sdk_types`
 //!
 //! Extension guidance:
 //! - add new registries behind stable string keys
 //! - keep hook/context types engine-agnostic
 //! - avoid leaking runtime/transport implementation details
+//! - do not redefine or re-export standard block/profile vocabulary from this crate
 
 pub mod action;
 pub mod character;

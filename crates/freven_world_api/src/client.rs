@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use freven_block_sdk_types::BlockRuntimeId;
+use freven_block_api::{ClientActionEdit, ClientPredictedEdit};
 
 use crate::action::ActionKindId;
 
@@ -38,36 +38,6 @@ pub enum ClientKeyCode {
     Escape,
 }
 
-/// Block face used by camera/hit and interaction APIs.
-///
-/// This is convenience metadata for block-aligned interactions.
-/// Action payload semantics are still owned by mod-defined opaque bytes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum ClientBlockFace {
-    PosX,
-    NegX,
-    PosY,
-    NegY,
-    PosZ,
-    NegZ,
-}
-
-/// Camera ray in world space.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ClientCameraRay {
-    pub origin: [f32; 3],
-    pub direction: [f32; 3],
-}
-
-/// Camera cursor hit against a block.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ClientCursorHit {
-    pub block_pos: (i32, i32, i32),
-    pub face: ClientBlockFace,
-    pub distance_m: f32,
-}
-
 /// Client-side action request submitted by gameplay/mods.
 ///
 /// Giant-grade contract:
@@ -90,23 +60,6 @@ pub struct ClientActionRequest {
     pub predicted: Vec<ClientPredictedEdit>,
 }
 
-/// One predicted world edit hint (visual-only, not authoritative).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ClientPredictedEdit {
-    pub pos: (i32, i32, i32),
-    pub predicted_block_id: BlockRuntimeId,
-}
-
-impl ClientPredictedEdit {
-    #[must_use]
-    pub const fn clear_block(pos: (i32, i32, i32)) -> Self {
-        Self {
-            pos,
-            predicted_block_id: BlockRuntimeId(0),
-        }
-    }
-}
-
 /// Local/engine-side rejection for `submit_action`.
 ///
 /// This is NOT a server `ClientActionRejectReason`.
@@ -127,13 +80,6 @@ pub enum ClientActionSubmitError {
 
     #[error("cannot submit action: {message}")]
     Other { message: String },
-}
-
-/// Authoritative block state correction for an action result.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ClientActionEdit {
-    pub pos: (i32, i32, i32),
-    pub block_id: BlockRuntimeId,
 }
 
 /// Action result reject reason.
@@ -231,35 +177,6 @@ pub trait ClientControlDeviceState {
     fn mouse_delta(&self) -> (f32, f32);
     fn cursor_locked(&self) -> bool;
     fn view_angles_deg(&self) -> (f32, f32);
-}
-
-/// Engine-provided camera and block-hit query surface.
-pub trait ClientCameraHitProvider {
-    fn camera_ray(&self) -> Option<ClientCameraRay>;
-
-    /// Authoritative hit query against the last streamed base world state.
-    ///
-    /// Use this when gameplay needs to encode or validate a world target that must agree with
-    /// server-side authoritative block state. This intentionally ignores pending local predicted
-    /// edits so local overlay previews cannot retarget gameplay actions.
-    fn authoritative_cursor_hit(&self, max_distance_m: f32) -> Option<ClientCursorHit>;
-
-    /// Prediction-aware hit query against the client-visible world.
-    ///
-    /// This includes pending local predicted edits when they affect the current ray. Use it for
-    /// previews, client-only UX, or debug tooling that intentionally wants overlay-aware picks.
-    fn predicted_cursor_hit(&self, max_distance_m: f32) -> Option<ClientCursorHit>;
-
-    /// Prediction-aware block query against the client-visible world.
-    ///
-    /// Use this for local preview/UI decisions, not as an authoritative submit gate.
-    fn predicted_block_id_at(&self, pos: (i32, i32, i32)) -> Option<BlockRuntimeId>;
-
-    /// Last authoritative streamed block state, excluding pending local predicted edits.
-    ///
-    /// This is still client-side knowledge and may be absent for unloaded terrain, but it is the
-    /// correct query when gameplay needs the replicated base world rather than preview state.
-    fn authoritative_block_id_at(&self, pos: (i32, i32, i32)) -> Option<BlockRuntimeId>;
 }
 
 /// Engine-provided interaction request/result surface.

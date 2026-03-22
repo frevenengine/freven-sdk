@@ -64,8 +64,9 @@ The host copies returned bytes from guest memory and then calls
 Optional runtime-service import:
 
 - `env::freven_guest_host_service_call(req_ptr, req_len, resp_ptr, resp_cap) -> u32`
-- request/response payloads are postcard-encoded `WorldServiceRequest` /
-  `WorldServiceResponse`
+- block query/service payload shapes are owned by `freven_block_guest` and are
+  carried through the generic runtime-service envelope via
+  `WorldServiceRequest::Block(...)` / `WorldServiceResponse::Block(...)`
 - host returns `u32::MAX` when the current host context does not expose runtime
   services
 
@@ -144,11 +145,18 @@ ABI rule: enum variant order is ABI-significant.
 - Do NOT rename variants expecting any effect on binary encoding.
 - Only append new variants at the end.
 
-Current world-mutation family:
+Current block-mutation family carried by `RuntimeOutput`:
 
-- `RuntimeOutput.world`
-- `WorldMutationBatch.mutations`
-- `WorldMutation::SetBlock { pos, block_id, expected_old }`
+- `RuntimeOutput.blocks`
+- `BlockMutationBatch.mutations`
+- `BlockMutation::SetBlock { pos, block_id, expected_old }`
+
+Ownership note:
+
+- `RuntimeOutput` is part of the generic `freven_world_guest` contract
+- the payload shape carried in `RuntimeOutput.blocks` is owned by
+  `freven_block_guest`
+- this transport mapping must preserve that ownership split rather than blur it
 
 Current worldgen output family:
 
@@ -218,7 +226,7 @@ Current host policy maxima/defaults:
 - `max_negotiation_bytes`: `64 KiB`
 - `max_result_bytes`: `256 KiB`
 - `max_input_payload_bytes`: `64 KiB`
-- `max_world_commands`: `128` entries, applied to `RuntimeOutput.world.mutations`
+- `max_block_mutations`: `128` entries, applied to `RuntimeOutput.blocks.mutations`
 
 Capabilities may tighten selected limits (`max_call_millis`, `max_linear_memory_bytes`) but cannot raise limits above policy maxima.
 
