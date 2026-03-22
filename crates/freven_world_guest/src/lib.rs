@@ -11,12 +11,14 @@
 //! - this crate defines the canonical runtime-loaded world guest contract that
 //!   consumes those lower-layer vocabularies
 //!
-//! Current state note:
-//! - some block gameplay consumer contracts still live here
-//! - that does not make this crate the owner of `BlockRuntimeId` or
-//!   `BlockDescriptor`
-//! - a later block-API split may move those consumer contracts without moving
-//!   the block/profile vocabulary itself
+//! Composition note:
+//! - block/profile vocabulary is owned by `freven_block_sdk_types`
+//! - runtime-loaded block mutation/query/service contracts are owned by
+//!   `freven_block_guest`
+//! - this crate may still carry block-owned families inside the generic
+//!   world guest/runtime envelope
+//! - that carrier role does not make `freven_world_guest` the owner of
+//!   block gameplay semantics
 
 extern crate alloc;
 

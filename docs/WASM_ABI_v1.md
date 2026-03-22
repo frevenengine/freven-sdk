@@ -64,8 +64,9 @@ The host copies returned bytes from guest memory and then calls
 Optional runtime-service import:
 
 - `env::freven_guest_host_service_call(req_ptr, req_len, resp_ptr, resp_cap) -> u32`
-- request/response payloads are postcard-encoded `WorldServiceRequest` /
-  `WorldServiceResponse`
+- block query/service payload shapes are owned by `freven_block_guest` and are
+  carried through the generic runtime-service envelope via
+  `WorldServiceRequest::Block(...)` / `WorldServiceResponse::Block(...)`
 - host returns `u32::MAX` when the current host context does not expose runtime
   services
 
@@ -146,7 +147,7 @@ ABI rule: enum variant order is ABI-significant.
 
 Current world-mutation family:
 
-- `RuntimeOutput.world`
+- `RuntimeOutput.blocks`
 - `BlockMutationBatch.mutations`
 - `BlockMutation::SetBlock { pos, block_id, expected_old }`
 
@@ -218,7 +219,7 @@ Current host policy maxima/defaults:
 - `max_negotiation_bytes`: `64 KiB`
 - `max_result_bytes`: `256 KiB`
 - `max_input_payload_bytes`: `64 KiB`
-- `max_world_commands`: `128` entries, applied to `RuntimeOutput.world.mutations`
+- `max_block_mutations`: `128` entries, applied to `RuntimeOutput.blocks.mutations`
 
 Capabilities may tighten selected limits (`max_call_millis`, `max_linear_memory_bytes`) but cannot raise limits above policy maxima.
 

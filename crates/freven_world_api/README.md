@@ -20,12 +20,13 @@ Ownership boundaries:
 
 Current state note:
 
-- this crate still contains some world-stack consumer contracts that reference
-  block-facing types
-- that does not make `freven_world_api` the owner of `BlockRuntimeId`,
-  `BlockDescriptor`, or `RenderLayer`
-- dedicated block gameplay contract extraction can happen later without moving
-  block/profile vocabulary out of `freven_block_sdk_types`
+- public standard block/profile vocabulary is owned by `freven_block_sdk_types`
+- runtime-loaded block mutation/query/service contracts are owned by
+  `freven_block_guest`
+- builtin / compile-time block-facing traits and client interaction surfaces
+  live in `freven_block_api`
+- `freven_world_api` may still compose world-facing flows that reference those
+  block-owned contracts, but it does not own block gameplay semantics
 
 `freven_world_api` participates in the same world semantic system:
 
@@ -37,8 +38,8 @@ Current state note:
 - world-facing registration and service surfaces that consume
   `BlockDescriptor` / `BlockRuntimeId` from `freven_block_sdk_types`
 - action handlers over `ActionContext`, `BlockWorldView`, and `BlockAuthority`
-- world runtime services and world mutation output families shared with
-  runtime-loaded guests
+- generic world runtime services plus world-facing composition over
+  block-owned runtime service and mutation families used by runtime-loaded guests
 
 Builtin / compile-time capability declarations use the same
 `CapabilityDeclaration` model as `freven_world_guest`. When a builtin mod is
@@ -60,9 +61,9 @@ engine/app/bootstrap wiring does not belong here.
 ## Minimal usage
 
 ```rust
+use freven_block_guest::BlockMutation;
 use freven_block_sdk_types::BlockRuntimeId;
 use freven_mod_api::{ModSide, Side};
-use freven_world_api::WorldMutation;
 
 let mutation = BlockMutation::SetBlock {
     pos: (4, 80, 4),
@@ -71,7 +72,7 @@ let mutation = BlockMutation::SetBlock {
 };
 assert!(matches!(mutation, BlockMutation::SetBlock { .. }));
 assert!(ModSide::Both.matches(Side::Client));
-````
+```
 
 ## Documentation
 

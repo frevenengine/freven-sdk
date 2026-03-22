@@ -151,6 +151,7 @@ There is intentionally no separate lifecycle-only side channel.
 
 Guest/runtime-loaded mods now use explicit runtime service families:
 
+- `WorldServiceRequest::Block(...)`
 - `WorldServiceRequest::Query(...)`
 - `WorldServiceRequest::ClientVisibility(...)`
 - `WorldServiceRequest::Session(...)`
@@ -158,7 +159,14 @@ Guest/runtime-loaded mods now use explicit runtime service families:
 - `WorldServiceRequest::CharacterPhysics(...)`
 - `WorldServiceRequest::Observability(...)`
 - `RuntimeOutput.messages`
-- `RuntimeOutput.world`
+- `RuntimeOutput.blocks`
+
+Block query/service payload shapes are owned by `freven_block_guest`. The
+generic `freven_world_guest` contract still carries those block-owned families
+inside the runtime service envelope through
+`WorldServiceRequest::Block(...)` / `WorldServiceResponse::Block(...)`. That
+carrier role does not make `freven_world_guest` the owner of block gameplay
+semantics.
 
 Current query/session/visibility requests include:
 
@@ -213,7 +221,7 @@ formatting, routing, filtering, truncation, and final presentation.
 
 Current world-mutation family includes:
 
-- `RuntimeOutput.world`
+- `RuntimeOutput.blocks`
 - `BlockMutationBatch.mutations`
 - `BlockMutation::SetBlock { pos, block_id, expected_old }`
 
