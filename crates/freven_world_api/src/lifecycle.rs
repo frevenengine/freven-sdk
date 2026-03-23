@@ -1,26 +1,15 @@
 use std::time::Duration;
 
-use freven_mod_api::{LogLevel, emit_log};
-
-use freven_block_api::ClientCameraHitProvider;
-
 use crate::{
-    client::{ClientInputProvider, ClientInteractionProvider},
     messages::{
-        ClientInboundMessage, ClientMessageSender, ClientPlayerProvider, ServerInboundMessage,
-        ServerMessageSender,
+        ClientInboundMessage, ClientMessageSender, ServerInboundMessage, ServerMessageSender,
     },
     services::Services,
 };
-
-/// Lifecycle callback executed once when the client side starts.
-pub type StartClientHook = for<'a> fn(&mut ClientApi<'a>);
+use freven_mod_api::{LogLevel, emit_log};
 
 /// Lifecycle callback executed once when the server side starts.
 pub type StartServerHook = for<'a> fn(&mut ServerApi<'a>);
-
-/// Lifecycle callback executed on each client tick.
-pub type TickClientHook = for<'a> fn(&mut ClientTickApi<'a>);
 
 /// Lifecycle callback executed on each server tick.
 pub type TickServerHook = for<'a> fn(&mut ServerTickApi<'a>);
@@ -40,50 +29,6 @@ impl<'a> ServerApi<'a> {
     #[must_use]
     pub fn new(services: &'a mut dyn Services) -> Self {
         Self { services }
-    }
-
-    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
-        let _ = &self.services;
-        emit_log(level, message);
-    }
-}
-
-/// Client-side lifecycle API.
-pub struct ClientApi<'a> {
-    pub services: &'a mut dyn Services,
-    pub input: &'a mut dyn ClientInputProvider,
-    pub camera: &'a mut dyn ClientCameraHitProvider,
-    pub interaction: &'a mut dyn ClientInteractionProvider,
-    pub players: &'a mut dyn ClientPlayerProvider,
-}
-
-impl<'a> ClientApi<'a> {
-    #[must_use]
-    pub fn new(
-        services: &'a mut dyn Services,
-        input: &'a mut dyn ClientInputProvider,
-        camera: &'a mut dyn ClientCameraHitProvider,
-        interaction: &'a mut dyn ClientInteractionProvider,
-        players: &'a mut dyn ClientPlayerProvider,
-    ) -> Self {
-        Self {
-            services,
-            input,
-            camera,
-            interaction,
-            players,
-        }
-    }
-
-    #[must_use]
-    pub fn reborrow(&mut self) -> ClientApi<'_> {
-        ClientApi {
-            services: self.services,
-            input: self.input,
-            camera: self.camera,
-            interaction: self.interaction,
-            players: self.players,
-        }
     }
 
     pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
@@ -155,24 +100,6 @@ impl<'a> ServerMessagesApi<'a> {
     pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
         let _ = &self.services;
         emit_log(level, message);
-    }
-}
-
-/// Client-side lifecycle tick context.
-pub struct ClientTickApi<'a> {
-    pub tick: u64,
-    pub dt: Duration,
-    pub client: ClientApi<'a>,
-}
-
-impl<'a> ClientTickApi<'a> {
-    #[must_use]
-    pub fn new(tick: u64, dt: Duration, client: ClientApi<'a>) -> Self {
-        Self { tick, dt, client }
-    }
-
-    pub fn log(&mut self, level: LogLevel, message: impl AsRef<str>) {
-        self.client.log(level, message);
     }
 }
 

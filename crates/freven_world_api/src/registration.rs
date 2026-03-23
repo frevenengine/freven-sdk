@@ -1,22 +1,14 @@
-use std::sync::Arc;
-
 use freven_block_sdk_types::BlockDescriptor;
 use freven_mod_api::{
     CapabilityDeclaration, ChannelConfig, ChannelOrdering, ChannelReliability, ComponentCodec,
     MessageCodec, ModSide, Side,
 };
 use serde::de::DeserializeOwned;
+use std::{any::Any, sync::Arc};
 
 use crate::{
     action::{ActionHandler, ActionKindId},
-    character::{
-        CharacterController, CharacterControllerFactory, CharacterControllerInit,
-        ClientControlProvider, ClientControlProviderFactory, ClientControlProviderInit,
-    },
-    lifecycle::{
-        ClientMessagesHook, ServerMessagesHook, StartClientHook, StartServerHook, TickClientHook,
-        TickServerHook,
-    },
+    lifecycle::{ClientMessagesHook, ServerMessagesHook, StartServerHook, TickServerHook},
     worldgen::{WorldGenFactory, WorldGenInit, WorldGenProvider},
 };
 
@@ -66,17 +58,9 @@ pub struct MessageId(pub u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WorldGenId(pub u32);
 
-/// Numeric id for registered character controllers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CharacterControllerId(pub u32);
-
 /// Numeric id for registered modnet channels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ChannelId(pub u32);
-
-/// Numeric id for registered client control providers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ClientControlProviderId(pub u32);
 
 /// Message type registration config.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -118,16 +102,22 @@ pub trait ModContextBackend {
         key: &str,
         factory: WorldGenFactory,
     ) -> Result<WorldGenId, ModRegistrationError>;
-    fn register_character_controller(
+    #[doc(hidden)]
+    fn register_avatar_character_controller(
         &mut self,
         key: &str,
-        factory: CharacterControllerFactory,
-    ) -> Result<CharacterControllerId, ModRegistrationError>;
-    fn register_client_control_provider(
+        factory: Box<dyn Any + Send + Sync>,
+    ) -> Result<u32, ModRegistrationError>;
+    #[doc(hidden)]
+    fn register_avatar_client_control_provider(
         &mut self,
         key: &str,
-        factory: ClientControlProviderFactory,
-    ) -> Result<ClientControlProviderId, ModRegistrationError>;
+        factory: Box<dyn Any + Send + Sync>,
+    ) -> Result<u32, ModRegistrationError>;
+    #[doc(hidden)]
+    fn on_avatar_start_client(&mut self, hook: Box<dyn Any + Send + Sync>);
+    #[doc(hidden)]
+    fn on_avatar_tick_client(&mut self, hook: Box<dyn Any + Send + Sync>);
     fn register_channel(
         &mut self,
         key: &str,
@@ -143,9 +133,7 @@ pub trait ModContextBackend {
         &mut self,
         capability: CapabilityDeclaration,
     ) -> Result<(), ModRegistrationError>;
-    fn on_start_client(&mut self, hook: StartClientHook);
     fn on_start_server(&mut self, hook: StartServerHook);
-    fn on_tick_client(&mut self, hook: TickClientHook);
     fn on_tick_server(&mut self, hook: TickServerHook);
     fn on_client_messages(&mut self, hook: ClientMessagesHook);
     fn on_server_messages(&mut self, hook: ServerMessagesHook);
@@ -248,28 +236,34 @@ impl<'a> ModContext<'a> {
         self.backend.register_worldgen(key, Arc::new(factory))
     }
 
-    pub fn register_character_controller(
+    #[doc(hidden)]
+    pub fn __register_avatar_character_controller(
         &mut self,
         key: &str,
-        factory: impl Fn(CharacterControllerInit) -> Box<dyn CharacterController>
-        + Send
-        + Sync
-        + 'static,
-    ) -> Result<CharacterControllerId, ModRegistrationError> {
+        factory: Box<dyn Any + Send + Sync>,
+    ) -> Result<u32, ModRegistrationError> {
         self.backend
-            .register_character_controller(key, Arc::new(factory))
+            .register_avatar_character_controller(key, factory)
     }
 
-    pub fn register_client_control_provider(
+    #[doc(hidden)]
+    pub fn __register_avatar_client_control_provider(
         &mut self,
         key: &str,
-        factory: impl Fn(ClientControlProviderInit) -> Box<dyn ClientControlProvider>
-        + Send
-        + Sync
-        + 'static,
-    ) -> Result<ClientControlProviderId, ModRegistrationError> {
+        factory: Box<dyn Any + Send + Sync>,
+    ) -> Result<u32, ModRegistrationError> {
         self.backend
-            .register_client_control_provider(key, Arc::new(factory))
+            .register_avatar_client_control_provider(key, factory)
+    }
+
+    #[doc(hidden)]
+    pub fn __on_avatar_start_client(&mut self, hook: Box<dyn Any + Send + Sync>) {
+        self.backend.on_avatar_start_client(hook);
+    }
+
+    #[doc(hidden)]
+    pub fn __on_avatar_tick_client(&mut self, hook: Box<dyn Any + Send + Sync>) {
+        self.backend.on_avatar_tick_client(hook);
     }
 
     pub fn register_channel(
@@ -312,16 +306,8 @@ impl<'a> ModContext<'a> {
         self.backend.declare_capability(capability)
     }
 
-    pub fn on_start_client(&mut self, hook: StartClientHook) {
-        self.backend.on_start_client(hook);
-    }
-
     pub fn on_start_server(&mut self, hook: StartServerHook) {
         self.backend.on_start_server(hook);
-    }
-
-    pub fn on_tick_client(&mut self, hook: TickClientHook) {
-        self.backend.on_tick_client(hook);
     }
 
     pub fn on_tick_server(&mut self, hook: TickServerHook) {

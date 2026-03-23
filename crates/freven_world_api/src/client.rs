@@ -1,42 +1,7 @@
+use freven_block_api::{ClientActionEdit, ClientPredictedEdit};
 use std::sync::Arc;
 
-use freven_block_api::{ClientActionEdit, ClientPredictedEdit};
-
 use crate::action::ActionKindId;
-
-pub use freven_world_guest::ClientPlayerView as GuestClientPlayerView;
-
-/// Mouse buttons for client input polling/consumption.
-///
-/// This enum is a convenience surface for common desktop bindings.
-/// The primary cross-layer gameplay contract remains opaque input bytes
-/// (`ClientControlOutput::input` / `CharacterControllerInput::input`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum ClientMouseButton {
-    Left,
-    Right,
-    Middle,
-}
-
-/// Keyboard keys for client input polling/consumption.
-///
-/// This enum is a convenience surface for common desktop bindings.
-/// Prefer mod-defined opaque input payloads as the stable gameplay contract.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum ClientKeyCode {
-    KeyW,
-    KeyA,
-    KeyS,
-    KeyD,
-    KeyE,
-    KeyQ,
-    Space,
-    Shift,
-    Ctrl,
-    Escape,
-}
 
 /// Client-side action request submitted by gameplay/mods.
 ///
@@ -121,62 +86,6 @@ pub struct ClientActionResultEvent {
 
     /// Authoritative world edits produced by the server for this action.
     pub edits: Vec<ClientActionEdit>,
-}
-
-/// Lightweight player view for client-side presentation mods.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ClientPlayerView {
-    pub player_id: u64,
-    pub world_pos_m: (f32, f32, f32),
-    pub is_local: bool,
-}
-
-/// Engine-provided client input surface.
-pub trait ClientInputProvider {
-    /// Raw device hold state for the current engine frame.
-    fn mouse_button_down(&self, button: ClientMouseButton) -> bool;
-
-    /// Raw render/update-frame press edge.
-    ///
-    /// This is frame-scoped engine input state, not a gameplay-tick latch. Gameplay systems that
-    /// can tick at a different cadence must not rely on this for durable action submission.
-    fn mouse_button_just_pressed(&self, button: ClientMouseButton) -> bool;
-
-    /// Raw device hold state for the current engine frame.
-    fn key_down(&self, key: ClientKeyCode) -> bool;
-
-    /// Raw render/update-frame press edge.
-    ///
-    /// This is frame-scoped engine input state, not a gameplay-tick latch. Gameplay systems that
-    /// can tick at a different cadence must not rely on this for durable action submission.
-    fn key_just_pressed(&self, key: ClientKeyCode) -> bool;
-    fn bind_mouse_button(&mut self, button: ClientMouseButton, owner: &str) -> bool;
-    fn bind_key(&mut self, key: ClientKeyCode, owner: &str) -> bool;
-
-    /// Consume one buffered mouse press for a gameplay-tick owner.
-    ///
-    /// Contract:
-    /// - each successful consume corresponds to one raw press edge captured by the engine
-    /// - presses are buffered across render frames until consumed or a gameplay reset clears them
-    /// - multiple render-frame presses before the next gameplay tick must be delivered one-by-one
-    /// - multiple gameplay ticks in one render frame must not re-consume the same raw edge
-    fn consume_mouse_button_press(&mut self, button: ClientMouseButton, owner: &str) -> bool;
-
-    /// Consume one buffered key press for a gameplay-tick owner.
-    ///
-    /// Semantics match `consume_mouse_button_press`.
-    fn consume_key_press(&mut self, key: ClientKeyCode, owner: &str) -> bool;
-}
-
-/// Engine-provided raw device input state for client control providers.
-pub trait ClientControlDeviceState {
-    fn bind_mouse_button(&mut self, button: ClientMouseButton, owner: &str) -> bool;
-    fn bind_key(&mut self, key: ClientKeyCode, owner: &str) -> bool;
-    fn mouse_button_down(&self, button: ClientMouseButton, owner: &str) -> bool;
-    fn key_down(&self, key: ClientKeyCode, owner: &str) -> bool;
-    fn mouse_delta(&self) -> (f32, f32);
-    fn cursor_locked(&self) -> bool;
-    fn view_angles_deg(&self) -> (f32, f32);
 }
 
 /// Engine-provided interaction request/result surface.

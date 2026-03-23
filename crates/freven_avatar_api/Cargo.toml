@@ -1,0 +1,16 @@
+[package]
+name = "freven_avatar_api"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Explicit avatar-owned public SDK facade for Freven."
+publish = false
+
+[dependencies]
+freven_block_api.workspace = true
+freven_avatar_sdk_types.workspace = true
+freven_mod_api.workspace = true
+freven_world_api.workspace = true
