@@ -20,22 +20,23 @@ use freven_guest::{
     NegotiationRequest, RuntimeSessionInfo, RuntimeSessionSide,
 };
 pub use freven_world_guest::{
-    ActionDeclaration, ActionInput, ActionOutcome, ActionResult, BlockDeclaration, CharacterConfig,
-    CharacterControllerDeclaration, CharacterControllerInitInput, CharacterControllerInitResult,
-    CharacterControllerInput, CharacterControllerStepInput, CharacterControllerStepResult,
-    CharacterShape, CharacterState, ClientControlOutput, ClientControlProviderDeclaration,
-    ClientControlSampleInput, ClientControlSampleResult, ClientInboundMessage, ClientKeyCode,
-    ClientMessageInput, ClientMessageResult, ClientMouseButton, ClientOutboundMessage,
-    ClientOutboundMessageScope, ClientPlayerView, ClientVisibilityRequest,
-    ClientVisibilityResponse, GuestCallbacks, GuestDescription, GuestRegistration, InputTimeline,
-    KinematicMoveConfig, KinematicMoveResult, LifecycleResult, MessageScope, ModConfigDocument,
-    ModConfigFormat, NegotiationResponse, ProviderHooks, RuntimeCharacterPhysicsRequest,
-    RuntimeClientControlRequest, RuntimeEntityTarget, RuntimeLevelRef, RuntimeMessageOutput,
-    RuntimeObservabilityRequest, RuntimeOutput, ServerInboundMessage, ServerMessageInput,
-    ServerMessageResult, ServerOutboundMessage, StartInput, SweepHit, TickInput, WorldGenCallInput,
-    WorldGenCallResult, WorldGenDeclaration, WorldGenInit, WorldGenOutput, WorldGenRequest,
-    WorldQueryRequest, WorldQueryResponse, WorldServiceRequest, WorldServiceResponse,
-    WorldSessionRequest, WorldSessionResponse, WorldTerrainWrite,
+    ActionDeclaration, ActionInput, ActionOutcome, ActionResult, AvatarGuestRegistration,
+    AvatarProviderHooks, BlockDeclaration, CharacterConfig, CharacterControllerDeclaration,
+    CharacterControllerInitInput, CharacterControllerInitResult, CharacterControllerInput,
+    CharacterControllerStepInput, CharacterControllerStepResult, CharacterShape, CharacterState,
+    ClientControlOutput, ClientControlProviderDeclaration, ClientControlSampleInput,
+    ClientControlSampleResult, ClientInboundMessage, ClientKeyCode, ClientMessageInput,
+    ClientMessageResult, ClientMouseButton, ClientOutboundMessage, ClientOutboundMessageScope,
+    ClientPlayerView, ClientVisibilityRequest, ClientVisibilityResponse, GuestCallbacks,
+    GuestDescription, GuestRegistration, InputTimeline, KinematicMoveConfig, KinematicMoveResult,
+    LifecycleResult, MessageScope, ModConfigDocument, ModConfigFormat, NegotiationResponse,
+    ProviderHooks, RuntimeCharacterPhysicsRequest, RuntimeClientControlRequest, RuntimeLevelRef,
+    RuntimeMessageOutput, RuntimeObservabilityRequest, RuntimeOutput, ServerInboundMessage,
+    ServerMessageInput, ServerMessageResult, ServerOutboundMessage, StartInput, SweepHit,
+    TickInput, WorldGenCallInput, WorldGenCallResult, WorldGenDeclaration, WorldGenInit,
+    WorldGenOutput, WorldGenRequest, WorldGuestRegistration, WorldProviderHooks, WorldQueryRequest,
+    WorldQueryResponse, WorldServiceRequest, WorldServiceResponse, WorldSessionRequest,
+    WorldSessionResponse, WorldTerrainWrite,
 };
 use serde::de::DeserializeOwned;
 
@@ -404,9 +405,13 @@ impl GuestModule {
                 server: self.on_server_messages.is_some(),
             },
             providers: ProviderHooks {
-                worldgen: !self.worldgen_handlers.is_empty(),
-                character_controller: !self.character_controller_handlers.is_empty(),
-                client_control_provider: !self.client_control_provider_handlers.is_empty(),
+                world: WorldProviderHooks {
+                    worldgen: !self.worldgen_handlers.is_empty(),
+                },
+                avatar: AvatarProviderHooks {
+                    character_controller: !self.character_controller_handlers.is_empty(),
+                    client_control_provider: !self.client_control_provider_handlers.is_empty(),
+                },
             },
         }
     }
@@ -419,9 +424,13 @@ impl GuestModule {
                 blocks: self.blocks.clone(),
                 components: self.components.clone(),
                 messages: self.messages.clone(),
-                worldgen: self.worldgen.clone(),
-                character_controllers: self.character_controllers.clone(),
-                client_control_providers: self.client_control_providers.clone(),
+                world: WorldGuestRegistration {
+                    worldgen: self.worldgen.clone(),
+                },
+                avatar: AvatarGuestRegistration {
+                    character_controllers: self.character_controllers.clone(),
+                    client_control_providers: self.client_control_providers.clone(),
+                },
                 channels: self.channels.clone(),
                 actions: self
                     .actions
@@ -880,9 +889,16 @@ impl<S: 'static> StatefulGuestModule<S> {
                 server: self.on_server_messages.is_some(),
             },
             providers: ProviderHooks {
-                worldgen: !self.module.worldgen_handlers.is_empty(),
-                character_controller: !self.module.character_controller_handlers.is_empty(),
-                client_control_provider: !self.module.client_control_provider_handlers.is_empty(),
+                world: WorldProviderHooks {
+                    worldgen: !self.module.worldgen_handlers.is_empty(),
+                },
+                avatar: AvatarProviderHooks {
+                    character_controller: !self.module.character_controller_handlers.is_empty(),
+                    client_control_provider: !self
+                        .module
+                        .client_control_provider_handlers
+                        .is_empty(),
+                },
             },
         }
     }
@@ -896,9 +912,13 @@ impl<S: 'static> ExportedGuestModule for StatefulGuestModule<S> {
                 blocks: self.module.blocks.clone(),
                 components: self.module.components.clone(),
                 messages: self.module.messages.clone(),
-                worldgen: self.module.worldgen.clone(),
-                character_controllers: self.module.character_controllers.clone(),
-                client_control_providers: self.module.client_control_providers.clone(),
+                world: WorldGuestRegistration {
+                    worldgen: self.module.worldgen.clone(),
+                },
+                avatar: AvatarGuestRegistration {
+                    character_controllers: self.module.character_controllers.clone(),
+                    client_control_providers: self.module.client_control_providers.clone(),
+                },
                 channels: self.module.channels.clone(),
                 actions: self
                     .actions
@@ -1102,11 +1122,6 @@ impl<'a> ActionContext<'a> {
     #[must_use]
     pub fn at_input_seq(&self) -> u32 {
         self.input.at_input_seq
-    }
-
-    #[must_use]
-    pub fn player_position_m(&self) -> Option<[f32; 3]> {
-        self.input.player_position_m
     }
 
     #[must_use]
@@ -1377,33 +1392,6 @@ impl RuntimeServices {
             WorldQueryRequest::PlayerDisplayName { player_id },
         )) {
             WorldServiceResponse::Query(WorldQueryResponse::PlayerDisplayName(value)) => value,
-            _ => None,
-        }
-    }
-
-    #[must_use]
-    pub fn player_entity_id(self, player_id: u64) -> Option<u32> {
-        match runtime_service_call(WorldServiceRequest::Query(
-            WorldQueryRequest::PlayerEntityId { player_id },
-        )) {
-            WorldServiceResponse::Query(WorldQueryResponse::PlayerEntityId(value)) => value,
-            _ => None,
-        }
-    }
-
-    #[must_use]
-    pub fn entity_component_bytes(
-        self,
-        entity: RuntimeEntityTarget,
-        component_key: &str,
-    ) -> Option<Vec<u8>> {
-        match runtime_service_call(WorldServiceRequest::Query(
-            WorldQueryRequest::EntityComponentBytes {
-                entity,
-                component_key: component_key.to_string(),
-            },
-        )) {
-            WorldServiceResponse::Query(WorldQueryResponse::EntityComponentBytes(value)) => value,
             _ => None,
         }
     }
@@ -2504,9 +2492,13 @@ macro_rules! export_wasm_guest {
                     server: $crate::export_wasm_guest!(@bool $($server_messages)?),
                 },
                 $crate::ProviderHooks {
-                    worldgen: $crate::export_wasm_guest!(@bool $($worldgen)?),
-                    character_controller: $crate::export_wasm_guest!(@bool $($character_controller)?),
-                    client_control_provider: $crate::export_wasm_guest!(@bool $($client_control_provider)?),
+                    world: $crate::WorldProviderHooks {
+                        worldgen: $crate::export_wasm_guest!(@bool $($worldgen)?),
+                    },
+                    avatar: $crate::AvatarProviderHooks {
+                        character_controller: $crate::export_wasm_guest!(@bool $($character_controller)?),
+                        client_control_provider: $crate::export_wasm_guest!(@bool $($client_control_provider)?),
+                    },
                 },
             );
             $crate::__private::wasm_guest_negotiate(&module, ptr, len)
@@ -2709,9 +2701,13 @@ macro_rules! export_native_guest {
                     server: $crate::export_native_guest!(@bool $($server_messages)?),
                 },
                 $crate::ProviderHooks {
-                    worldgen: $crate::export_native_guest!(@bool $($worldgen)?),
-                    character_controller: $crate::export_native_guest!(@bool $($character_controller)?),
-                    client_control_provider: $crate::export_native_guest!(@bool $($client_control_provider)?),
+                    world: $crate::WorldProviderHooks {
+                        worldgen: $crate::export_native_guest!(@bool $($worldgen)?),
+                    },
+                    avatar: $crate::AvatarProviderHooks {
+                        character_controller: $crate::export_native_guest!(@bool $($character_controller)?),
+                        client_control_provider: $crate::export_native_guest!(@bool $($client_control_provider)?),
+                    },
                 },
             );
             $crate::__private::native_guest_negotiate(&module, input)
@@ -3897,9 +3893,19 @@ mod tests {
         assert_eq!(description.registration.blocks.len(), 1);
         assert_eq!(description.registration.components.len(), 1);
         assert_eq!(description.registration.messages.len(), 1);
-        assert_eq!(description.registration.worldgen.len(), 1);
-        assert_eq!(description.registration.character_controllers.len(), 1);
-        assert_eq!(description.registration.client_control_providers.len(), 1);
+        assert_eq!(description.registration.world.worldgen.len(), 1);
+        assert_eq!(
+            description.registration.avatar.character_controllers.len(),
+            1
+        );
+        assert_eq!(
+            description
+                .registration
+                .avatar
+                .client_control_providers
+                .len(),
+            1
+        );
         assert_eq!(description.registration.channels.len(), 1);
         assert_eq!(description.registration.actions.len(), 1);
         assert_eq!(description.registration.capabilities.len(), 1);
@@ -3977,7 +3983,6 @@ mod tests {
             stream_epoch: 4,
             action_seq: 8,
             at_input_seq: 16,
-            player_position_m: None,
             payload: &[],
         };
 
@@ -4028,7 +4033,6 @@ mod tests {
             stream_epoch: 3,
             action_seq: 4,
             at_input_seq: 5,
-            player_position_m: Some([1.0, 2.0, 3.0]),
             payload: &[],
         });
 
@@ -4264,15 +4268,27 @@ mod tests {
         );
 
         let description = module.description();
-        assert_eq!(description.registration.worldgen.len(), 1);
-        assert_eq!(description.registration.character_controllers.len(), 1);
-        assert_eq!(description.registration.client_control_providers.len(), 1);
+        assert_eq!(description.registration.world.worldgen.len(), 1);
+        assert_eq!(
+            description.registration.avatar.character_controllers.len(),
+            1
+        );
+        assert_eq!(
+            description
+                .registration
+                .avatar
+                .client_control_providers
+                .len(),
+            1
+        );
         assert_eq!(
             description.callbacks.providers,
             ProviderHooks {
-                worldgen: true,
-                character_controller: true,
-                client_control_provider: true,
+                world: WorldProviderHooks { worldgen: true },
+                avatar: AvatarProviderHooks {
+                    character_controller: true,
+                    client_control_provider: true,
+                },
             }
         );
 
@@ -4345,9 +4361,11 @@ mod tests {
         assert_eq!(
             module.description().callbacks.providers,
             ProviderHooks {
-                worldgen: true,
-                character_controller: true,
-                client_control_provider: true,
+                world: WorldProviderHooks { worldgen: true },
+                avatar: AvatarProviderHooks {
+                    character_controller: true,
+                    client_control_provider: true,
+                },
             }
         );
     }

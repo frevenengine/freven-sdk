@@ -52,12 +52,24 @@ pub struct GuestRegistration {
     pub blocks: Vec<BlockDeclaration>,
     pub components: Vec<ComponentDeclaration>,
     pub messages: Vec<MessageDeclaration>,
-    pub worldgen: Vec<WorldGenDeclaration>,
-    pub character_controllers: Vec<CharacterControllerDeclaration>,
-    pub client_control_providers: Vec<ClientControlProviderDeclaration>,
+    pub world: WorldGuestRegistration,
+    pub avatar: AvatarGuestRegistration,
     pub channels: Vec<ChannelDeclaration>,
     pub actions: Vec<ActionDeclaration>,
     pub capabilities: Vec<CapabilityDeclaration>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WorldGuestRegistration {
+    pub worldgen: Vec<WorldGenDeclaration>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AvatarGuestRegistration {
+    pub character_controllers: Vec<CharacterControllerDeclaration>,
+    pub client_control_providers: Vec<ClientControlProviderDeclaration>,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -70,7 +82,17 @@ pub struct GuestCallbacks {
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProviderHooks {
+    pub world: WorldProviderHooks,
+    pub avatar: AvatarProviderHooks,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorldProviderHooks {
     pub worldgen: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AvatarProviderHooks {
     pub character_controller: bool,
     pub client_control_provider: bool,
 }
@@ -307,7 +329,6 @@ pub struct ActionInput<'a> {
     pub stream_epoch: u32,
     pub action_seq: u32,
     pub at_input_seq: u32,
-    pub player_position_m: Option<[f32; 3]>,
     #[serde(borrow)]
     pub payload: &'a [u8],
 }
@@ -508,27 +529,14 @@ pub enum RuntimeEntityTarget {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldQueryRequest {
-    PlayerPosition {
-        player_id: u64,
-    },
-    PlayerDisplayName {
-        player_id: u64,
-    },
-    PlayerEntityId {
-        player_id: u64,
-    },
-    EntityComponentBytes {
-        entity: RuntimeEntityTarget,
-        component_key: String,
-    },
+    PlayerPosition { player_id: u64 },
+    PlayerDisplayName { player_id: u64 },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldQueryResponse {
     PlayerPosition(Option<[f32; 3]>),
     PlayerDisplayName(Option<String>),
-    PlayerEntityId(Option<u32>),
-    EntityComponentBytes(Option<Vec<u8>>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
