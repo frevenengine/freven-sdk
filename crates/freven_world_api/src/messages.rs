@@ -1,5 +1,3 @@
-use crate::ClientPlayerView;
-use crate::ComponentId;
 /// Mod message scope.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
@@ -119,12 +117,4 @@ where
     ) -> Result<(), ServerMessageSendError> {
         ServerMessageProvider::send_to(self, player_id, msg)
     }
-}
-
-/// Engine-provided player presentation query surface.
-pub trait ClientPlayerProvider {
-    fn list_players(&self, out: &mut Vec<ClientPlayerView>);
-    fn display_name_for(&self, player_id: u64) -> Option<String>;
-    fn component_bytes_for(&self, player_id: u64, component_id: ComponentId) -> Option<&[u8]>;
-    fn world_to_screen(&self, world_pos_m: (f32, f32, f32)) -> Option<(f32, f32)>;
 }

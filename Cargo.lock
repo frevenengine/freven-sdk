@@ -30,6 +30,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
+name = "freven_avatar_api"
+version = "0.1.0"
+dependencies = [
+ "freven_avatar_sdk_types",
+ "freven_block_api",
+ "freven_mod_api",
+ "freven_world_api",
+]
+
+[[package]]
+name = "freven_avatar_sdk_types"
+version = "0.1.0"
+dependencies = [
+ "freven_world_api",
+ "freven_world_guest",
+]
+
+[[package]]
 name = "freven_block_api"
 version = "0.1.0"
 dependencies = [

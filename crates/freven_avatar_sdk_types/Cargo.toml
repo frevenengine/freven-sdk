@@ -1,0 +1,14 @@
+[package]
+name = "freven_avatar_sdk_types"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Explicit avatar-owned SDK contracts for Freven identity, control, controller, and presentation surfaces."
+publish = false
+
+[dependencies]
+freven_world_api.workspace = true
+freven_world_guest.workspace = true

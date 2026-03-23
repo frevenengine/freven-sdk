@@ -7,6 +7,7 @@
 //! - act as the builtin / compile-time facade over the canonical declaration model exposed by `freven_guest`
 //! - import volumetric topology/addressing truth from `freven_volumetric_sdk_types` instead of owning it here
 //! - import standard block/profile vocabulary from `freven_block_sdk_types` instead of owning it here
+//! - remain free of avatar/controller/presentation public ownership, which lives in the avatar-owned family
 //!
 //! Current state note:
 //! - some world-stack consumer contracts in this crate still reference block/profile vocabulary
@@ -20,7 +21,6 @@
 //! - do not redefine or re-export standard block/profile vocabulary from this crate
 
 pub mod action;
-pub mod character;
 pub mod client;
 pub mod lifecycle;
 pub mod messages;
@@ -30,7 +30,6 @@ pub mod services;
 pub mod worldgen;
 
 pub use action::*;
-pub use character::*;
 pub use client::*;
 pub use lifecycle::*;
 pub use messages::*;
