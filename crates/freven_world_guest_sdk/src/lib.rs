@@ -7,31 +7,36 @@ use core::cell::RefCell;
 use core::ffi::c_void;
 use std::thread::LocalKey;
 
+pub use freven_block_guest::{
+    BlockClientQueryRequest, BlockClientQueryResponse, BlockMutation, BlockMutationBatch,
+    BlockQueryRequest, BlockQueryResponse, BlockServiceRequest, BlockServiceResponse,
+};
+pub use freven_block_sdk_types::{
+    BlockCollision, BlockDescriptor, BlockMaterial, BlockRuntimeId, BlockVisibility, RenderLayer,
+};
 use freven_guest::{
     CapabilityDeclaration, ChannelConfig, ChannelDeclaration, ComponentCodec, ComponentDeclaration,
     LifecycleHooks, LogLevel, LogPayload, MessageCodec, MessageDeclaration, MessageHooks,
     NegotiationRequest, RuntimeSessionInfo, RuntimeSessionSide,
 };
 pub use freven_world_guest::{
-    ActionDeclaration, ActionInput, ActionOutcome, ActionResult, BlockDeclaration, CharacterConfig,
-    CharacterControllerDeclaration, CharacterControllerInitInput, CharacterControllerInitResult,
-    CharacterControllerInput, CharacterControllerStepInput, CharacterControllerStepResult,
-    CharacterShape, CharacterState, ClientControlOutput, ClientControlProviderDeclaration,
-    ClientControlSampleInput, ClientControlSampleResult, ClientInboundMessage, ClientKeyCode,
-    ClientMessageInput, ClientMessageResult, ClientMouseButton, ClientOutboundMessage,
-    ClientOutboundMessageScope, ClientPlayerView, ClientVisibilityRequest,
-    ClientVisibilityResponse, GuestCallbacks, GuestDescription, GuestRegistration, InputTimeline,
-    KinematicMoveConfig, KinematicMoveResult, LifecycleResult, MessageScope, ModConfigDocument,
-    ModConfigFormat, NegotiationResponse, ProviderHooks, RuntimeCharacterPhysicsRequest,
-    RuntimeClientControlRequest, RuntimeEntityTarget, RuntimeLevelRef, RuntimeMessageOutput,
-    RuntimeObservabilityRequest, RuntimeOutput, ServerInboundMessage, ServerMessageInput,
-    ServerMessageResult, ServerOutboundMessage, StartInput, SweepHit, TickInput, WorldGenCallInput,
-    WorldGenCallResult, WorldGenDeclaration, WorldGenInit, WorldGenOutput, WorldGenRequest,
-    WorldMutation, WorldMutationBatch, WorldQueryRequest, WorldQueryResponse, WorldServiceRequest,
-    WorldServiceResponse, WorldSessionRequest, WorldSessionResponse, WorldTerrainWrite,
-};
-pub use freven_world_sdk_types::blocks::{
-    BlockCollision, BlockDescriptor, BlockMaterial, BlockRuntimeId, BlockVisibility, RenderLayer,
+    ActionDeclaration, ActionInput, ActionOutcome, ActionResult, AvatarGuestRegistration,
+    AvatarProviderHooks, BlockDeclaration, CharacterConfig, CharacterControllerDeclaration,
+    CharacterControllerInitInput, CharacterControllerInitResult, CharacterControllerInput,
+    CharacterControllerStepInput, CharacterControllerStepResult, CharacterShape, CharacterState,
+    ClientControlOutput, ClientControlProviderDeclaration, ClientControlSampleInput,
+    ClientControlSampleResult, ClientInboundMessage, ClientKeyCode, ClientMessageInput,
+    ClientMessageResult, ClientMouseButton, ClientOutboundMessage, ClientOutboundMessageScope,
+    ClientPlayerView, ClientVisibilityRequest, ClientVisibilityResponse, GuestCallbacks,
+    GuestDescription, GuestRegistration, InputTimeline, KinematicMoveConfig, KinematicMoveResult,
+    LifecycleResult, MessageScope, ModConfigDocument, ModConfigFormat, NegotiationResponse,
+    ProviderHooks, RuntimeCharacterPhysicsRequest, RuntimeClientControlRequest, RuntimeLevelRef,
+    RuntimeMessageOutput, RuntimeObservabilityRequest, RuntimeOutput, ServerInboundMessage,
+    ServerMessageInput, ServerMessageResult, ServerOutboundMessage, StartInput, SweepHit,
+    TickInput, WorldGenCallInput, WorldGenCallResult, WorldGenDeclaration, WorldGenInit,
+    WorldGenOutput, WorldGenRequest, WorldGuestRegistration, WorldProviderHooks, WorldQueryRequest,
+    WorldQueryResponse, WorldServiceRequest, WorldServiceResponse, WorldSessionRequest,
+    WorldSessionResponse, WorldTerrainWrite,
 };
 use serde::de::DeserializeOwned;
 
@@ -400,9 +405,13 @@ impl GuestModule {
                 server: self.on_server_messages.is_some(),
             },
             providers: ProviderHooks {
-                worldgen: !self.worldgen_handlers.is_empty(),
-                character_controller: !self.character_controller_handlers.is_empty(),
-                client_control_provider: !self.client_control_provider_handlers.is_empty(),
+                world: WorldProviderHooks {
+                    worldgen: !self.worldgen_handlers.is_empty(),
+                },
+                avatar: AvatarProviderHooks {
+                    character_controller: !self.character_controller_handlers.is_empty(),
+                    client_control_provider: !self.client_control_provider_handlers.is_empty(),
+                },
             },
         }
     }
@@ -415,9 +424,13 @@ impl GuestModule {
                 blocks: self.blocks.clone(),
                 components: self.components.clone(),
                 messages: self.messages.clone(),
-                worldgen: self.worldgen.clone(),
-                character_controllers: self.character_controllers.clone(),
-                client_control_providers: self.client_control_providers.clone(),
+                world: WorldGuestRegistration {
+                    worldgen: self.worldgen.clone(),
+                },
+                avatar: AvatarGuestRegistration {
+                    character_controllers: self.character_controllers.clone(),
+                    client_control_providers: self.client_control_providers.clone(),
+                },
                 channels: self.channels.clone(),
                 actions: self
                     .actions
@@ -876,9 +889,16 @@ impl<S: 'static> StatefulGuestModule<S> {
                 server: self.on_server_messages.is_some(),
             },
             providers: ProviderHooks {
-                worldgen: !self.module.worldgen_handlers.is_empty(),
-                character_controller: !self.module.character_controller_handlers.is_empty(),
-                client_control_provider: !self.module.client_control_provider_handlers.is_empty(),
+                world: WorldProviderHooks {
+                    worldgen: !self.module.worldgen_handlers.is_empty(),
+                },
+                avatar: AvatarProviderHooks {
+                    character_controller: !self.module.character_controller_handlers.is_empty(),
+                    client_control_provider: !self
+                        .module
+                        .client_control_provider_handlers
+                        .is_empty(),
+                },
             },
         }
     }
@@ -892,9 +912,13 @@ impl<S: 'static> ExportedGuestModule for StatefulGuestModule<S> {
                 blocks: self.module.blocks.clone(),
                 components: self.module.components.clone(),
                 messages: self.module.messages.clone(),
-                worldgen: self.module.worldgen.clone(),
-                character_controllers: self.module.character_controllers.clone(),
-                client_control_providers: self.module.client_control_providers.clone(),
+                world: WorldGuestRegistration {
+                    worldgen: self.module.worldgen.clone(),
+                },
+                avatar: AvatarGuestRegistration {
+                    character_controllers: self.module.character_controllers.clone(),
+                    client_control_providers: self.module.client_control_providers.clone(),
+                },
                 channels: self.module.channels.clone(),
                 actions: self
                     .actions
@@ -1098,11 +1122,6 @@ impl<'a> ActionContext<'a> {
     #[must_use]
     pub fn at_input_seq(&self) -> u32 {
         self.input.at_input_seq
-    }
-
-    #[must_use]
-    pub fn player_position_m(&self) -> Option<[f32; 3]> {
-        self.input.player_position_m
     }
 
     #[must_use]
@@ -1325,12 +1344,12 @@ impl RuntimeServices {
         self,
         pos: (i32, i32, i32),
     ) -> RuntimeQuerySupport<Option<BlockRuntimeId>> {
-        match runtime_service_call(WorldServiceRequest::Query(
-            WorldQueryRequest::AuthoritativeBlock { pos },
-        )) {
-            WorldServiceResponse::Query(WorldQueryResponse::AuthoritativeBlock(value)) => {
-                RuntimeQuerySupport::Supported(value)
-            }
+        match runtime_service_call(WorldServiceRequest::Block(BlockServiceRequest::Query(
+            BlockQueryRequest::AuthoritativeBlock { pos },
+        ))) {
+            WorldServiceResponse::Block(BlockServiceResponse::Query(
+                BlockQueryResponse::AuthoritativeBlock(value),
+            )) => RuntimeQuerySupport::Supported(value),
             WorldServiceResponse::Unsupported => RuntimeQuerySupport::Unsupported,
             other => {
                 debug_assert!(
@@ -1345,12 +1364,14 @@ impl RuntimeServices {
 
     #[must_use]
     pub fn block_id_by_key(self, key: &str) -> Option<BlockRuntimeId> {
-        match runtime_service_call(WorldServiceRequest::Query(
-            WorldQueryRequest::BlockIdByKey {
+        match runtime_service_call(WorldServiceRequest::Block(BlockServiceRequest::Query(
+            BlockQueryRequest::BlockIdByKey {
                 key: key.to_string(),
             },
-        )) {
-            WorldServiceResponse::Query(WorldQueryResponse::BlockIdByKey(value)) => value,
+        ))) {
+            WorldServiceResponse::Block(BlockServiceResponse::Query(
+                BlockQueryResponse::BlockIdByKey(value),
+            )) => value,
             _ => None,
         }
     }
@@ -1376,40 +1397,13 @@ impl RuntimeServices {
     }
 
     #[must_use]
-    pub fn player_entity_id(self, player_id: u64) -> Option<u32> {
-        match runtime_service_call(WorldServiceRequest::Query(
-            WorldQueryRequest::PlayerEntityId { player_id },
-        )) {
-            WorldServiceResponse::Query(WorldQueryResponse::PlayerEntityId(value)) => value,
-            _ => None,
-        }
-    }
-
-    #[must_use]
-    pub fn entity_component_bytes(
-        self,
-        entity: RuntimeEntityTarget,
-        component_key: &str,
-    ) -> Option<Vec<u8>> {
-        match runtime_service_call(WorldServiceRequest::Query(
-            WorldQueryRequest::EntityComponentBytes {
-                entity,
-                component_key: component_key.to_string(),
-            },
-        )) {
-            WorldServiceResponse::Query(WorldQueryResponse::EntityComponentBytes(value)) => value,
-            _ => None,
-        }
-    }
-
-    #[must_use]
     pub fn client_visible_block(self, pos: (i32, i32, i32)) -> Option<BlockRuntimeId> {
-        match runtime_service_call(WorldServiceRequest::ClientVisibility(
-            ClientVisibilityRequest::ClientVisibleBlock { pos },
+        match runtime_service_call(WorldServiceRequest::Block(
+            BlockServiceRequest::ClientQuery(BlockClientQueryRequest::ClientVisibleBlock { pos }),
         )) {
-            WorldServiceResponse::ClientVisibility(
-                ClientVisibilityResponse::ClientVisibleBlock(value),
-            ) => value,
+            WorldServiceResponse::Block(BlockServiceResponse::ClientQuery(
+                BlockClientQueryResponse::ClientVisibleBlock(value),
+            )) => value,
             _ => None,
         }
     }
@@ -1684,14 +1678,14 @@ impl ActionResponse {
 
 impl AppliedActionResponse {
     #[must_use]
-    pub fn push_world_mutation(mut self, command: WorldMutation) -> Self {
-        self.output.world.mutations.push(command);
+    pub fn push_block_mutation(mut self, command: BlockMutation) -> Self {
+        self.output.blocks.mutations.push(command);
         self
     }
 
     #[must_use]
     pub fn set_block(self, pos: (i32, i32, i32), block_id: BlockRuntimeId) -> Self {
-        self.push_world_mutation(WorldMutation::SetBlock {
+        self.push_block_mutation(BlockMutation::SetBlock {
             pos,
             block_id,
             expected_old: None,
@@ -1705,7 +1699,7 @@ impl AppliedActionResponse {
         expected_old: BlockRuntimeId,
         block_id: BlockRuntimeId,
     ) -> Self {
-        self.push_world_mutation(WorldMutation::SetBlock {
+        self.push_block_mutation(BlockMutation::SetBlock {
             pos,
             block_id,
             expected_old: Some(expected_old),
@@ -1801,7 +1795,7 @@ impl ClientMessageResponse {
 
     #[must_use]
     pub fn set_block(mut self, pos: (i32, i32, i32), block_id: BlockRuntimeId) -> Self {
-        self.output.world.mutations.push(WorldMutation::SetBlock {
+        self.output.blocks.mutations.push(BlockMutation::SetBlock {
             pos,
             block_id,
             expected_old: None,
@@ -1863,7 +1857,7 @@ impl ServerMessageResponse {
 
     #[must_use]
     pub fn set_block(mut self, pos: (i32, i32, i32), block_id: BlockRuntimeId) -> Self {
-        self.output.world.mutations.push(WorldMutation::SetBlock {
+        self.output.blocks.mutations.push(BlockMutation::SetBlock {
             pos,
             block_id,
             expected_old: None,
@@ -1899,7 +1893,7 @@ impl LifecycleResponse {
 
     #[must_use]
     pub fn set_block(mut self, pos: (i32, i32, i32), block_id: BlockRuntimeId) -> Self {
-        self.output.world.mutations.push(WorldMutation::SetBlock {
+        self.output.blocks.mutations.push(BlockMutation::SetBlock {
             pos,
             block_id,
             expected_old: None,
@@ -2498,9 +2492,13 @@ macro_rules! export_wasm_guest {
                     server: $crate::export_wasm_guest!(@bool $($server_messages)?),
                 },
                 $crate::ProviderHooks {
-                    worldgen: $crate::export_wasm_guest!(@bool $($worldgen)?),
-                    character_controller: $crate::export_wasm_guest!(@bool $($character_controller)?),
-                    client_control_provider: $crate::export_wasm_guest!(@bool $($client_control_provider)?),
+                    world: $crate::WorldProviderHooks {
+                        worldgen: $crate::export_wasm_guest!(@bool $($worldgen)?),
+                    },
+                    avatar: $crate::AvatarProviderHooks {
+                        character_controller: $crate::export_wasm_guest!(@bool $($character_controller)?),
+                        client_control_provider: $crate::export_wasm_guest!(@bool $($client_control_provider)?),
+                    },
                 },
             );
             $crate::__private::wasm_guest_negotiate(&module, ptr, len)
@@ -2703,9 +2701,13 @@ macro_rules! export_native_guest {
                     server: $crate::export_native_guest!(@bool $($server_messages)?),
                 },
                 $crate::ProviderHooks {
-                    worldgen: $crate::export_native_guest!(@bool $($worldgen)?),
-                    character_controller: $crate::export_native_guest!(@bool $($character_controller)?),
-                    client_control_provider: $crate::export_native_guest!(@bool $($client_control_provider)?),
+                    world: $crate::WorldProviderHooks {
+                        worldgen: $crate::export_native_guest!(@bool $($worldgen)?),
+                    },
+                    avatar: $crate::AvatarProviderHooks {
+                        character_controller: $crate::export_native_guest!(@bool $($character_controller)?),
+                        client_control_provider: $crate::export_native_guest!(@bool $($client_control_provider)?),
+                    },
                 },
             );
             $crate::__private::native_guest_negotiate(&module, input)
@@ -3833,7 +3835,7 @@ mod tests {
         WorldGenCallResult {
             output: WorldGenOutput {
                 writes: vec![WorldTerrainWrite::FillSection {
-                    sy: 0,
+                    sy: 0.into(),
                     block_id: BlockRuntimeId(7),
                 }],
             },
@@ -3891,9 +3893,19 @@ mod tests {
         assert_eq!(description.registration.blocks.len(), 1);
         assert_eq!(description.registration.components.len(), 1);
         assert_eq!(description.registration.messages.len(), 1);
-        assert_eq!(description.registration.worldgen.len(), 1);
-        assert_eq!(description.registration.character_controllers.len(), 1);
-        assert_eq!(description.registration.client_control_providers.len(), 1);
+        assert_eq!(description.registration.world.worldgen.len(), 1);
+        assert_eq!(
+            description.registration.avatar.character_controllers.len(),
+            1
+        );
+        assert_eq!(
+            description
+                .registration
+                .avatar
+                .client_control_providers
+                .len(),
+            1
+        );
         assert_eq!(description.registration.channels.len(), 1);
         assert_eq!(description.registration.actions.len(), 1);
         assert_eq!(description.registration.capabilities.len(), 1);
@@ -3971,7 +3983,6 @@ mod tests {
             stream_epoch: 4,
             action_seq: 8,
             at_input_seq: 16,
-            player_position_m: None,
             payload: &[],
         };
 
@@ -4022,7 +4033,6 @@ mod tests {
             stream_epoch: 3,
             action_seq: 4,
             at_input_seq: 5,
-            player_position_m: Some([1.0, 2.0, 3.0]),
             payload: &[],
         });
 
@@ -4258,15 +4268,27 @@ mod tests {
         );
 
         let description = module.description();
-        assert_eq!(description.registration.worldgen.len(), 1);
-        assert_eq!(description.registration.character_controllers.len(), 1);
-        assert_eq!(description.registration.client_control_providers.len(), 1);
+        assert_eq!(description.registration.world.worldgen.len(), 1);
+        assert_eq!(
+            description.registration.avatar.character_controllers.len(),
+            1
+        );
+        assert_eq!(
+            description
+                .registration
+                .avatar
+                .client_control_providers
+                .len(),
+            1
+        );
         assert_eq!(
             description.callbacks.providers,
             ProviderHooks {
-                worldgen: true,
-                character_controller: true,
-                client_control_provider: true,
+                world: WorldProviderHooks { worldgen: true },
+                avatar: AvatarProviderHooks {
+                    character_controller: true,
+                    client_control_provider: true,
+                },
             }
         );
 
@@ -4278,7 +4300,7 @@ mod tests {
         assert_eq!(worldgen.output.writes.len(), 1);
         match &worldgen.output.writes[0] {
             WorldTerrainWrite::FillSection { sy, block_id } => {
-                assert_eq!(*sy, 0);
+                assert_eq!(*sy, 0.into());
                 assert_eq!(*block_id, BlockRuntimeId(7));
             }
             write => panic!("unexpected worldgen write: {write:?}"),
@@ -4339,9 +4361,11 @@ mod tests {
         assert_eq!(
             module.description().callbacks.providers,
             ProviderHooks {
-                worldgen: true,
-                character_controller: true,
-                client_control_provider: true,
+                world: WorldProviderHooks { worldgen: true },
+                avatar: AvatarProviderHooks {
+                    character_controller: true,
+                    client_control_provider: true,
+                },
             }
         );
     }
@@ -4364,9 +4388,9 @@ mod tests {
         let _guard = install_test_runtime_service_hook(|request| {
             assert_eq!(
                 request,
-                WorldServiceRequest::Query(WorldQueryRequest::AuthoritativeBlock {
-                    pos: (1, 2, 3)
-                })
+                WorldServiceRequest::Block(BlockServiceRequest::Query(
+                    BlockQueryRequest::AuthoritativeBlock { pos: (1, 2, 3) }
+                ))
             );
             WorldServiceResponse::Unsupported
         });
@@ -4382,13 +4406,13 @@ mod tests {
         let _guard = install_test_runtime_service_hook(|request| {
             assert_eq!(
                 request,
-                WorldServiceRequest::Query(WorldQueryRequest::AuthoritativeBlock {
-                    pos: (4, 5, 6)
-                })
+                WorldServiceRequest::Block(BlockServiceRequest::Query(
+                    BlockQueryRequest::AuthoritativeBlock { pos: (4, 5, 6) }
+                ))
             );
-            WorldServiceResponse::Query(WorldQueryResponse::AuthoritativeBlock(Some(
-                BlockRuntimeId(7),
-            )))
+            WorldServiceResponse::Block(BlockServiceResponse::Query(
+                BlockQueryResponse::AuthoritativeBlock(Some(BlockRuntimeId(7))),
+            ))
         });
 
         assert_eq!(
@@ -4402,11 +4426,13 @@ mod tests {
         let _guard = install_test_runtime_service_hook(|request| {
             assert_eq!(
                 request,
-                WorldServiceRequest::Query(WorldQueryRequest::AuthoritativeBlock {
-                    pos: (8, 9, 10)
-                })
+                WorldServiceRequest::Block(BlockServiceRequest::Query(
+                    BlockQueryRequest::AuthoritativeBlock { pos: (8, 9, 10) }
+                ))
             );
-            WorldServiceResponse::Query(WorldQueryResponse::AuthoritativeBlock(None))
+            WorldServiceResponse::Block(BlockServiceResponse::Query(
+                BlockQueryResponse::AuthoritativeBlock(None),
+            ))
         });
 
         assert_eq!(

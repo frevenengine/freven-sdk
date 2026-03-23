@@ -122,8 +122,8 @@ Runtime validates and enforces:
 On decode/validation/contract errors, attach fails.
 On lifecycle, action-call, or message contract faults, runtime disables that
 guest mod for the current runtime session and later lifecycle/action calls
-reject. That includes host-side failure to apply guest-declared world
-mutations after a valid `ActionResult` returns.
+reject. That includes host-side failure to apply guest-declared block mutation batches
+after a valid `ActionResult` returns.
 
 ## Runtime services
 
@@ -133,10 +133,20 @@ Native guests can issue canonical runtime service requests through the installed
 - requests use `WorldServiceRequest`
 - responses use `WorldServiceResponse`
 - runtime output still flows separately through `RuntimeOutput.messages` and
-  `RuntimeOutput.world`
+  `RuntimeOutput.blocks`
+
+Ownership inside that model is explicit:
+
+- `freven_world_guest` owns the generic runtime-service and runtime-output
+  envelopes
+- `freven_block_guest` owns block mutation/query/service payload shapes
+- `WorldServiceRequest::Block(...)` / `WorldServiceResponse::Block(...)` and
+  `RuntimeOutput.blocks` are carrier/composition points for those block-owned
+  families
 
 The bridge is transport plumbing only. It must not redefine the semantic
-service families documented in `freven_world_guest`.
+service families documented in `freven_world_guest`, and it must not blur the
+ownership split between world-owned envelopes and block-owned payload shapes.
 
 Observability/logging uses that same canonical service surface:
 

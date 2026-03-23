@@ -1,0 +1,13 @@
+[package]
+name = "freven_volumetric_sdk_types"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Stable volumetric foundation SDK data contracts for Freven."
+publish = false
+
+[dependencies]
+serde.workspace = true

@@ -1,0 +1,13 @@
+[package]
+name = "freven_block_guest"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+publish = false
+
+[dependencies]
+freven_block_sdk_types.workspace = true
+serde.workspace = true

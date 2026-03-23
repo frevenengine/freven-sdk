@@ -1,19 +1,14 @@
-//! Stable voxel-space contract shared by SDK consumers.
-//!
-//! This module defines canonical world section topology and coordinate helpers.
-//! Raw storage encoding remains an engine-internal implementation detail.
-
-/// Chunk section edge length in blocks.
+/// Chunk section edge length in cells.
 ///
 /// Protocol v1 currently uses 32^3 sections.
 pub const CHUNK_SECTION_DIM: usize = 32;
 
-/// Total voxels in a section.
+/// Total cells in a section.
 pub const CHUNK_SECTION_VOLUME: usize = CHUNK_SECTION_DIM * CHUNK_SECTION_DIM * CHUNK_SECTION_DIM;
 
-/// Canonical linearization order for a 32x32x32 section.
+/// Canonical linearization order for one section.
 ///
-/// We use X-major order (x changes fastest), then Y, then Z:
+/// X-major order (x changes fastest), then Y, then Z:
 /// index = x + DIM * (y + DIM * z)
 #[inline]
 pub fn section_index(x: usize, y: usize, z: usize) -> usize {
@@ -25,9 +20,9 @@ pub fn section_index(x: usize, y: usize, z: usize) -> usize {
 
 /// Floor division and modulo for negative coordinates.
 ///
-/// Returns (q, r) such that:
-/// - x = q * d + r
-/// - r in [0, d)
+/// Returns `(q, r)` such that:
+/// - `x = q * d + r`
+/// - `r in [0, d)`
 #[inline]
 pub fn div_mod_floor_i32(x: i32, d: i32) -> (i32, i32) {
     debug_assert!(d > 0);
@@ -40,7 +35,7 @@ pub fn div_mod_floor_i32(x: i32, d: i32) -> (i32, i32) {
     (q, r)
 }
 
-/// Convert world-space block coordinate to (section coordinate, local coordinate in 0..DIM).
+/// Convert world-space cell coordinate to `(section coordinate, local coordinate in 0..DIM)`.
 #[inline]
 pub fn world_to_section_and_local(w: i32) -> (i32, usize) {
     let (q, r) = div_mod_floor_i32(w, CHUNK_SECTION_DIM as i32);
@@ -54,7 +49,6 @@ mod tests {
 
     #[test]
     fn section_index_matches_expected_layout() {
-        // Basic sanity for x-major order.
         assert_eq!(section_index(0, 0, 0), 0);
         assert_eq!(section_index(1, 0, 0), 1);
         assert_eq!(section_index(0, 1, 0), CHUNK_SECTION_DIM);

@@ -6,7 +6,10 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+freven_volumetric_sdk_types.workspace = true
 freven_guest.workspace = true
 freven_sdk_types.workspace = true
 freven_world_sdk_types.workspace = true
+freven_block_sdk_types.workspace = true
+freven_block_guest.workspace = true
 serde.workspace = true

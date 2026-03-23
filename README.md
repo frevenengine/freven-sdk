@@ -57,17 +57,27 @@ These cover generic platform-shaped authoring concerns.
 - `freven_mod_api` — builtin / compile-time facade over the same neutral semantic model
 - `freven_sdk_types` — neutral shared SDK types and observability helpers
 
-### Explicit world-owned SDK roots
+### Explicit world / volumetric / block-owned SDK roots
 
-These cover the current world/game-stack-shaped public surfaces.
+These cover the current non-neutral gameplay/runtime stacks.
+
+#### Generic world-owned roots
 
 - `freven_world_guest_sdk` — explicit world-owned guest authoring surface
 - `freven_world_guest` — explicit world-owned runtime-loaded world contract
 - `freven_world_api` — explicit world-owned builtin / compile-time facade
-- `freven_world_sdk_types` — explicit world-owned block/voxel/save shared types
+- `freven_world_sdk_types` — explicit generic world/shared types
 
-`freven_api` has been retired. The public crate name is now `freven_mod_api`
-so the builtin / compile-time surface is not mistaken for the whole SDK.
+#### Volumetric-owned roots
+
+- `freven_volumetric_sdk_types` — explicit volumetric topology/addressing types
+
+#### Reusable block-owned roots
+
+- `freven_block_sdk_types` — public standard block gameplay vocabulary
+- `freven_block_guest` — runtime-loaded block mutation/query/service contracts
+- `freven_block_api` — builtin / compile-time block-facing traits and client
+  interaction surfaces
 
 ## How to think about the split
 
@@ -76,7 +86,9 @@ The important rule is:
 - neutral SDK roots describe **platform-shaped** concepts
 - `freven_world_*` roots describe **explicit world-owned** concepts
 
-That means block/voxel/world-specific authoring is no longer presented as the neutral top-level SDK story.
+That means world-, volumetric-, and block-specific authoring is no longer
+presented as the neutral top-level SDK story, and those ownership lines are now
+explicitly separated instead of being treated as one mixed world/block surface.
 
 Reference first-party gameplay lives in the separate `freven-vanilla` repository.
 Vanilla-owned break/place payload helpers, humanoid input codecs, and first-party ids

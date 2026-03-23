@@ -1,10 +1,27 @@
+//! Public standard block/profile vocabulary for Freven.
+//!
+//! Ownership:
+//! - stable runtime ids for standard block/profile entries
+//! - reusable collision / visibility / material descriptor vocabulary
+//! - render-layer classification for standard block/profile presentation
+//!
+//! Non-responsibilities:
+//! - volumetric topology, addressing, storage, or extraction
+//! - generic world bootstrap / save / session truth
+//! - registry / lookup ownership
+//! - authority / prediction / manifest pipeline ownership
+//! - vanilla-specific defaults, balance, or content policy
+//!
+//! This crate is the public owner of reusable standard block gameplay-facing
+//! type surfaces that are not vanilla-specific.
+
 use serde::{Deserialize, Serialize};
 
-/// Global runtime id for a block type/state.
+/// Stable runtime id for a standard block/profile entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockRuntimeId(pub u32);
 
-/// Rendering layer classification.
+/// Rendering layer classification for standard block/profile presentation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RenderLayer {
@@ -13,27 +30,30 @@ pub enum RenderLayer {
     Transparent,
 }
 
-/// Collision-facing block semantics.
+/// Collision-facing reusable standard block/profile semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockCollision {
     pub is_solid: bool,
 }
 
-/// Visibility-facing block semantics.
+/// Visibility-facing reusable standard block/profile semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockVisibility {
     pub is_opaque: bool,
     pub render_layer: RenderLayer,
 }
 
-/// Client presentation metadata for a registered block.
+/// Client presentation metadata for a standard block/profile entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockMaterial {
     pub debug_tint_rgba: u32,
     pub material_id: u32,
 }
 
-/// Canonical world-owned block registration descriptor.
+/// Canonical reusable standard block/profile descriptor.
+///
+/// This is not generic world truth and not neutral volumetric truth.
+/// It belongs to the standard block/profile layer above volumetric foundations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockDescriptor {
     pub collision: BlockCollision,
