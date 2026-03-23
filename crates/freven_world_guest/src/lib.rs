@@ -329,7 +329,6 @@ pub struct ActionInput<'a> {
     pub stream_epoch: u32,
     pub action_seq: u32,
     pub at_input_seq: u32,
-    pub player_position_m: Option<[f32; 3]>,
     #[serde(borrow)]
     pub payload: &'a [u8],
 }
@@ -530,27 +529,14 @@ pub enum RuntimeEntityTarget {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldQueryRequest {
-    PlayerPosition {
-        player_id: u64,
-    },
-    PlayerDisplayName {
-        player_id: u64,
-    },
-    PlayerEntityId {
-        player_id: u64,
-    },
-    EntityComponentBytes {
-        entity: RuntimeEntityTarget,
-        component_key: String,
-    },
+    PlayerPosition { player_id: u64 },
+    PlayerDisplayName { player_id: u64 },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldQueryResponse {
     PlayerPosition(Option<[f32; 3]>),
     PlayerDisplayName(Option<String>),
-    PlayerEntityId(Option<u32>),
-    EntityComponentBytes(Option<Vec<u8>>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

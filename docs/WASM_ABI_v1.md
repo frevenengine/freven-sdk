@@ -122,7 +122,6 @@ message callbacks through `LifecycleResult.output`.
 - `stream_epoch: u32`
 - `action_seq: u32`
 - `at_input_seq: u32`
-- `player_position_m: Option<[f32; 3]>`
 - `payload: &[u8]` (opaque client/server action payload)
 
 ### Message callbacks

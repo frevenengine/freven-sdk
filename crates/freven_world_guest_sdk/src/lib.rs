@@ -30,13 +30,13 @@ pub use freven_world_guest::{
     ClientPlayerView, ClientVisibilityRequest, ClientVisibilityResponse, GuestCallbacks,
     GuestDescription, GuestRegistration, InputTimeline, KinematicMoveConfig, KinematicMoveResult,
     LifecycleResult, MessageScope, ModConfigDocument, ModConfigFormat, NegotiationResponse,
-    ProviderHooks, RuntimeCharacterPhysicsRequest, RuntimeClientControlRequest,
-    RuntimeEntityTarget, RuntimeLevelRef, RuntimeMessageOutput, RuntimeObservabilityRequest,
-    RuntimeOutput, ServerInboundMessage, ServerMessageInput, ServerMessageResult,
-    ServerOutboundMessage, StartInput, SweepHit, TickInput, WorldGenCallInput, WorldGenCallResult,
-    WorldGenDeclaration, WorldGenInit, WorldGenOutput, WorldGenRequest, WorldGuestRegistration,
-    WorldProviderHooks, WorldQueryRequest, WorldQueryResponse, WorldServiceRequest,
-    WorldServiceResponse, WorldSessionRequest, WorldSessionResponse, WorldTerrainWrite,
+    ProviderHooks, RuntimeCharacterPhysicsRequest, RuntimeClientControlRequest, RuntimeLevelRef,
+    RuntimeMessageOutput, RuntimeObservabilityRequest, RuntimeOutput, ServerInboundMessage,
+    ServerMessageInput, ServerMessageResult, ServerOutboundMessage, StartInput, SweepHit,
+    TickInput, WorldGenCallInput, WorldGenCallResult, WorldGenDeclaration, WorldGenInit,
+    WorldGenOutput, WorldGenRequest, WorldGuestRegistration, WorldProviderHooks, WorldQueryRequest,
+    WorldQueryResponse, WorldServiceRequest, WorldServiceResponse, WorldSessionRequest,
+    WorldSessionResponse, WorldTerrainWrite,
 };
 use serde::de::DeserializeOwned;
 
@@ -1125,11 +1125,6 @@ impl<'a> ActionContext<'a> {
     }
 
     #[must_use]
-    pub fn player_position_m(&self) -> Option<[f32; 3]> {
-        self.input.player_position_m
-    }
-
-    #[must_use]
     pub fn payload(&self) -> &'a [u8] {
         self.input.payload
     }
@@ -1397,33 +1392,6 @@ impl RuntimeServices {
             WorldQueryRequest::PlayerDisplayName { player_id },
         )) {
             WorldServiceResponse::Query(WorldQueryResponse::PlayerDisplayName(value)) => value,
-            _ => None,
-        }
-    }
-
-    #[must_use]
-    pub fn player_entity_id(self, player_id: u64) -> Option<u32> {
-        match runtime_service_call(WorldServiceRequest::Query(
-            WorldQueryRequest::PlayerEntityId { player_id },
-        )) {
-            WorldServiceResponse::Query(WorldQueryResponse::PlayerEntityId(value)) => value,
-            _ => None,
-        }
-    }
-
-    #[must_use]
-    pub fn entity_component_bytes(
-        self,
-        entity: RuntimeEntityTarget,
-        component_key: &str,
-    ) -> Option<Vec<u8>> {
-        match runtime_service_call(WorldServiceRequest::Query(
-            WorldQueryRequest::EntityComponentBytes {
-                entity,
-                component_key: component_key.to_string(),
-            },
-        )) {
-            WorldServiceResponse::Query(WorldQueryResponse::EntityComponentBytes(value)) => value,
             _ => None,
         }
     }
@@ -4015,7 +3983,6 @@ mod tests {
             stream_epoch: 4,
             action_seq: 8,
             at_input_seq: 16,
-            player_position_m: None,
             payload: &[],
         };
 
@@ -4066,7 +4033,6 @@ mod tests {
             stream_epoch: 3,
             action_seq: 4,
             at_input_seq: 5,
-            player_position_m: Some([1.0, 2.0, 3.0]),
             payload: &[],
         });
 

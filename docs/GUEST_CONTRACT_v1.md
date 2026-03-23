@@ -117,7 +117,6 @@ Current hosting policy:
 - `ActionResult.outcome` is `applied` or `rejected`
 - `ActionResult.output` carries canonical runtime output families
 - rejected actions may carry message output, but must not carry command output
-- `ActionInput.player_position_m` remains an action-scoped convenience slice, not the runtime service model
 
 ## Message path
 
