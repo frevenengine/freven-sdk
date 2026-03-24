@@ -11,6 +11,7 @@ members = [
     "crates/freven_world_guest",
     "crates/freven_world_guest_sdk",
     "crates/freven_world_sdk_types",
+    "crates/freven_volumetric_api",
     "crates/freven_volumetric_sdk_types",
     "crates/freven_block_sdk_types",
     "crates/freven_block_guest",
@@ -36,6 +37,7 @@ freven_sdk_types = { path = "crates/freven_sdk_types", version = "0.1.0" }
 freven_world_api = { path = "crates/freven_world_api", version = "0.1.0" }
 freven_world_guest = { path = "crates/freven_world_guest", version = "0.1.0" }
 freven_world_sdk_types = { path = "crates/freven_world_sdk_types", version = "0.1.0" }
+freven_volumetric_api = { path = "crates/freven_volumetric_api", version = "0.1.0" }
 freven_volumetric_sdk_types = { path = "crates/freven_volumetric_sdk_types", version = "0.1.0" }
 freven_block_sdk_types = { path = "crates/freven_block_sdk_types", version = "0.1.0" }
 freven_block_guest = { path = "crates/freven_block_guest", version = "0.1.0" }

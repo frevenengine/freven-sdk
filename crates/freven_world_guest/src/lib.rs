@@ -22,16 +22,17 @@
 
 extern crate alloc;
 
-use alloc::collections::BTreeMap;
 use alloc::{string::String, vec::Vec};
 use freven_block_guest::{BlockMutationBatch, BlockServiceRequest, BlockServiceResponse};
-use freven_block_sdk_types::{BlockDescriptor, BlockRuntimeId};
+use freven_block_sdk_types::BlockDescriptor;
 use freven_guest::{
     CapabilityDeclaration, ChannelDeclaration, ComponentDeclaration, LifecycleHooks, LogPayload,
     MessageDeclaration, MessageHooks, RuntimeSessionInfo,
 };
-use freven_volumetric_sdk_types::{ColumnCoord, SectionY, WorldCellPos};
 use serde::{Deserialize, Serialize};
+
+/// Volumetric-owned worldgen contracts consumed by runtime-loaded guests.
+pub use freven_volumetric_api::{WorldGenInit, WorldGenOutput, WorldGenRequest, WorldTerrainWrite};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NegotiationResponse {
@@ -139,77 +140,6 @@ pub struct WorldGenCallInput {
 #[serde(default)]
 pub struct WorldGenCallResult {
     pub output: WorldGenOutput,
-}
-
-/// Worldgen init payload for a runtime-loaded guest.
-///
-/// Volumetric topology/addressing live in `freven_volumetric_sdk_types`.
-/// Standard block/profile ids are imported from `freven_block_sdk_types`.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(default)]
-pub struct WorldGenInit {
-    pub seed: u64,
-    pub world_id: Option<String>,
-    /// Stable string-key -> standard block/profile runtime id mapping.
-    pub block_ids: BTreeMap<String, BlockRuntimeId>,
-}
-
-impl WorldGenInit {
-    #[must_use]
-    pub fn block_id_by_key(&self, key: &str) -> Option<BlockRuntimeId> {
-        self.block_ids.get(key).copied()
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(default)]
-pub struct WorldGenRequest {
-    pub seed: u64,
-    pub column: ColumnCoord,
-}
-
-impl WorldGenRequest {
-    #[must_use]
-    pub const fn new(seed: u64, column: ColumnCoord) -> Self {
-        Self { seed, column }
-    }
-
-    #[must_use]
-    pub const fn cx(&self) -> i32 {
-        self.column.cx
-    }
-
-    #[must_use]
-    pub const fn cz(&self) -> i32 {
-        self.column.cz
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(default)]
-pub struct WorldGenOutput {
-    pub writes: Vec<WorldTerrainWrite>,
-}
-
-/// Terrain writes emitted by a runtime-loaded worldgen provider.
-///
-/// Volumetric addressing is owned by `freven_volumetric_sdk_types`.
-/// Standard block/profile ids are imported from `freven_block_sdk_types`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum WorldTerrainWrite {
-    FillSection {
-        sy: SectionY,
-        block_id: BlockRuntimeId,
-    },
-    FillBox {
-        min: WorldCellPos,
-        max: WorldCellPos,
-        block_id: BlockRuntimeId,
-    },
-    SetBlock {
-        pos: WorldCellPos,
-        block_id: BlockRuntimeId,
-    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

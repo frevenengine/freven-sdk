@@ -246,6 +246,10 @@ Current worldgen output family uses:
 - `WorldTerrainWrite::FillBox { min, max, block_id }`
 - `WorldTerrainWrite::SetBlock { pos, block_id }`
 
+Ownership note: these structs live in `freven_volumetric_api`. The world guest
+contract consumes them but does not own the volumetric topology or section
+layout semantics.
+
 Transport adapters must carry these semantic families unchanged. They must not
 invent transport-specific truth about reads, messages, or command application.
 The same rule applies to observability/logging.

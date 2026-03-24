@@ -162,6 +162,9 @@ Current worldgen output family:
 - `WorldGenOutput.writes`
 - `WorldTerrainWrite::{FillSection, FillBox, SetBlock}`
 
+These volumetric structures live in `freven_volumetric_api` and are re-exported
+through the guest contract; the Wasm ABI keeps that ownership split intact.
+
 Current message families:
 
 - `RuntimeMessageOutput.client`

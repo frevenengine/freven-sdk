@@ -19,6 +19,7 @@ use freven_guest::{
     LifecycleHooks, LogLevel, LogPayload, MessageCodec, MessageDeclaration, MessageHooks,
     NegotiationRequest, RuntimeSessionInfo, RuntimeSessionSide,
 };
+pub use freven_volumetric_api::{WorldGenInit, WorldGenOutput, WorldGenRequest, WorldTerrainWrite};
 pub use freven_world_guest::{
     ActionDeclaration, ActionInput, ActionOutcome, ActionResult, AvatarGuestRegistration,
     AvatarProviderHooks, BlockDeclaration, CharacterConfig, CharacterControllerDeclaration,
@@ -33,10 +34,9 @@ pub use freven_world_guest::{
     ProviderHooks, RuntimeCharacterPhysicsRequest, RuntimeClientControlRequest, RuntimeLevelRef,
     RuntimeMessageOutput, RuntimeObservabilityRequest, RuntimeOutput, ServerInboundMessage,
     ServerMessageInput, ServerMessageResult, ServerOutboundMessage, StartInput, SweepHit,
-    TickInput, WorldGenCallInput, WorldGenCallResult, WorldGenDeclaration, WorldGenInit,
-    WorldGenOutput, WorldGenRequest, WorldGuestRegistration, WorldProviderHooks, WorldQueryRequest,
-    WorldQueryResponse, WorldServiceRequest, WorldServiceResponse, WorldSessionRequest,
-    WorldSessionResponse, WorldTerrainWrite,
+    TickInput, WorldGenCallInput, WorldGenCallResult, WorldGenDeclaration, WorldGuestRegistration,
+    WorldProviderHooks, WorldQueryRequest, WorldQueryResponse, WorldServiceRequest,
+    WorldServiceResponse, WorldSessionRequest, WorldSessionResponse,
 };
 use serde::de::DeserializeOwned;
 

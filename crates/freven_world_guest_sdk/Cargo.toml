@@ -12,6 +12,7 @@ freven_world_guest.workspace = true
 freven_world_sdk_types.workspace = true
 freven_block_sdk_types.workspace = true
 freven_block_guest.workspace = true
+freven_volumetric_api.workspace = true
 postcard.workspace = true
 serde.workspace = true
 toml.workspace = true

@@ -109,6 +109,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "freven_volumetric_api"
+version = "0.1.0"
+dependencies = [
+ "freven_block_sdk_types",
+ "freven_volumetric_sdk_types",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "freven_volumetric_sdk_types"
 version = "0.1.0"
 dependencies = [
@@ -125,7 +135,7 @@ dependencies = [
  "freven_guest",
  "freven_mod_api",
  "freven_sdk_types",
- "freven_volumetric_sdk_types",
+ "freven_volumetric_api",
  "freven_world_guest",
  "freven_world_sdk_types",
  "serde",
@@ -141,6 +151,7 @@ dependencies = [
  "freven_block_sdk_types",
  "freven_guest",
  "freven_sdk_types",
+ "freven_volumetric_api",
  "freven_volumetric_sdk_types",
  "freven_world_sdk_types",
  "serde",
@@ -154,6 +165,7 @@ dependencies = [
  "freven_block_sdk_types",
  "freven_guest",
  "freven_sdk_types",
+ "freven_volumetric_api",
  "freven_world_guest",
  "freven_world_sdk_types",
  "postcard",
@@ -336,10 +348,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a5364e9d77fcdeeaa6062ced926ee3381faa2ee02d3eb83a5c27a8825540829"
 
 [[patch.unused]]
-name = "freven_vanilla_essentials"
-version = "0.1.0"
-
-[[patch.unused]]
 name = "freven_block_runtime"
 version = "0.1.0"
 
@@ -413,4 +421,8 @@ version = "0.1.0"
 
 [[patch.unused]]
 name = "freven_world_runtime"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "freven_vanilla_essentials"
 version = "0.1.0"
