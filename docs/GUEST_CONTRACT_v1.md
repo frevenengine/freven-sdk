@@ -250,6 +250,11 @@ Ownership note: these structs live in `freven_volumetric_api`. The world guest
 contract consumes them but does not own the volumetric topology or section
 layout semantics.
 
+Worldgen provider execution concurrency is defined separately in
+`WORLDGEN_PROVIDER_CONCURRENCY_v1.md`. The current canonical mode is
+`serial_session`; `Send + Sync` on SDK provider traits are memory-safety bounds
+only and do not authorize shared-instance concurrent `generate`.
+
 Transport adapters must carry these semantic families unchanged. They must not
 invent transport-specific truth about reads, messages, or command application.
 The same rule applies to observability/logging.
