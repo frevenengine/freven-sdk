@@ -1,9 +1,21 @@
+//! Volumetric-owned public contracts for deterministic world generation.
+//!
+//! Responsibilities:
+//! - define the provider trait used by builtin mods and runtime hosts
+//! - keep volumetric topology/addressing truth imported from
+//!   `freven_volumetric_sdk_types`
+//! - consume standard block/profile vocabulary from `freven_block_sdk_types`
+//!   without claiming ownership of that gameplay layer
+//! - remain independent from generic world/experience registration so that
+//!   volumetric worldgen can be embedded by multiple world stacks
+
 use std::{collections::BTreeMap, sync::Arc};
 
 use freven_block_sdk_types::BlockRuntimeId;
 use freven_volumetric_sdk_types::{ColumnCoord, SectionY, WorldCellPos};
+use serde::{Deserialize, Serialize};
 
-/// Contract for worldgen providers registered through SDK.
+/// Contract for volumetric worldgen providers registered through SDK.
 pub trait WorldGenProvider: Send + Sync {
     fn generate(
         &mut self,
@@ -22,8 +34,9 @@ pub trait WorldGenProvider: Send + Sync {
 /// Standard block/profile ids are imported from
 /// `freven_block_sdk_types`. This crate consumes that vocabulary for
 /// worldgen convenience, but does not own it.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[serde(default)]
 pub struct WorldGenInit {
     pub seed: u64,
     pub world_id: Option<String>,
@@ -54,7 +67,8 @@ impl WorldGenInit {
 pub type WorldGenFactory = Arc<dyn Fn(WorldGenInit) -> Box<dyn WorldGenProvider> + Send + Sync>;
 
 /// Minimal worldgen request contract for one requested column.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct WorldGenRequest {
     pub seed: u64,
     pub column: ColumnCoord,
@@ -81,8 +95,7 @@ impl WorldGenRequest {
 ///
 /// Volumetric addressing is owned by `freven_volumetric_sdk_types`.
 /// Standard block/profile ids are imported from `freven_block_sdk_types`.
-/// `freven_world_api` does not own either lower-layer vocabulary.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WorldTerrainWrite {
     FillSection {
         sy: SectionY,
@@ -100,7 +113,8 @@ pub enum WorldTerrainWrite {
 }
 
 /// World-owned terrain generation output for one requested column.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct WorldGenOutput {
     pub writes: Vec<WorldTerrainWrite>,
 }

@@ -5,9 +5,9 @@
 //! - expose deterministic registration surfaces (components/messages/worldgen/modnet/capabilities)
 //! - define stable hook contexts and registration errors
 //! - act as the builtin / compile-time facade over the canonical declaration model exposed by `freven_guest`
-//! - import volumetric topology/addressing truth from `freven_volumetric_sdk_types` instead of owning it here
 //! - import standard block/profile vocabulary from `freven_block_sdk_types` instead of owning it here
 //! - remain free of avatar/controller/presentation public ownership, which lives in the avatar-owned family
+//! - delegate volumetric worldgen provider traits to `freven_volumetric_api` so the topology-owned layer retains public ownership
 //!
 //! Current state note:
 //! - some world-stack consumer contracts in this crate still reference block/profile vocabulary
@@ -27,8 +27,6 @@ pub mod messages;
 pub mod observability;
 pub mod registration;
 pub mod services;
-pub mod worldgen;
-
 pub use action::*;
 pub use client::*;
 pub use lifecycle::*;
@@ -36,4 +34,3 @@ pub use messages::*;
 pub use observability::*;
 pub use registration::*;
 pub use services::*;
-pub use worldgen::*;

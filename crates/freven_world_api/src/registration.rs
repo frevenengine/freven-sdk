@@ -3,13 +3,13 @@ use freven_mod_api::{
     CapabilityDeclaration, ChannelConfig, ChannelOrdering, ChannelReliability, ComponentCodec,
     MessageCodec, ModSide, Side,
 };
+use freven_volumetric_api::{WorldGenFactory, WorldGenInit, WorldGenProvider};
 use serde::de::DeserializeOwned;
 use std::{any::Any, sync::Arc};
 
 use crate::{
     action::{ActionHandler, ActionKindId},
     lifecycle::{ClientMessagesHook, ServerMessagesHook, StartServerHook, TickServerHook},
-    worldgen::{WorldGenFactory, WorldGenInit, WorldGenProvider},
 };
 
 /// Mod registration entrypoint type.

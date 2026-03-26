@@ -135,6 +135,9 @@ It also owns the current world runtime helpers:
 - `ClientMessageResponse`
 - `ServerMessageResponse`
 
+`WorldGenOutput`/`WorldTerrainWrite` come from the volumetric-owned
+`freven_volumetric_api` crate; the world guest SDK simply re-exports them.
+
 Those surfaces are intentionally not available from the neutral
 `freven_guest_sdk` crate.
 

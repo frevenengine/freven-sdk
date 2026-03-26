@@ -92,6 +92,9 @@ intentionally need to wire the raw surface yourself.
 - Worldgen output uses the same canonical terrain-write model as builtin
   worldgen: `WorldGenOutput.writes` plus
   `WorldTerrainWrite::{FillSection, FillBox, SetBlock}`.
+- Those `WorldGen*` structures are owned by `freven_volumetric_api`; this SDK
+  merely re-exports them so world-layer guests can author against the same
+  volumetric contract as builtin providers.
 - Block/content registration stays on `BlockDescriptor` and `BlockRuntimeId`;
   raw section encodings are not the authoring contract.
 - Guest start callbacks receive `StartInput { session, experience_id, mod_id, config }`.
