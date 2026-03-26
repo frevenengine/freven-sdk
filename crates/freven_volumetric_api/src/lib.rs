@@ -16,7 +16,23 @@ use freven_volumetric_sdk_types::{ColumnCoord, SectionY, WorldCellPos};
 use serde::{Deserialize, Serialize};
 
 /// Contract for volumetric worldgen providers registered through SDK.
+///
+/// Canonical concurrency mode is `serial_session`: one provider instance is
+/// session-owned and `generate` must not be invoked concurrently on that same
+/// provider/session.
+///
+/// `Send + Sync` are memory-safety / host-integration bounds only. They do not
+/// authorize shared-instance parallel worldgen execution, and they must not be
+/// read as permission for overlapping `generate` calls on one provider.
+///
+/// See `docs/WORLDGEN_PROVIDER_CONCURRENCY_v1.md` for the canonical contract.
 pub trait WorldGenProvider: Send + Sync {
+    /// Generate terrain writes for one requested column.
+    ///
+    /// Current canonical execution is `serial_session`, so a host must not
+    /// overlap `generate` calls on the same provider/session. Any future
+    /// widening must use an explicit isolated-job contract rather than shared
+    /// concurrent access to one provider instance.
     fn generate(
         &mut self,
         _request: &WorldGenRequest,
@@ -63,7 +79,15 @@ impl WorldGenInit {
     }
 }
 
-/// Worldgen provider factory. One provider instance can be created per world/session.
+/// Worldgen provider factory.
+///
+/// The factory object itself is `Send + Sync` so host registries can store and
+/// share it safely. That does not widen provider execution semantics.
+///
+/// One provider instance can be created per world/session, and the canonical
+/// execution contract for that provider remains `serial_session`. Future
+/// widening, if ever activated, must use isolated-job semantics rather than
+/// shared concurrent `generate` on one returned provider instance.
 pub type WorldGenFactory = Arc<dyn Fn(WorldGenInit) -> Box<dyn WorldGenProvider> + Send + Sync>;
 
 /// Minimal worldgen request contract for one requested column.

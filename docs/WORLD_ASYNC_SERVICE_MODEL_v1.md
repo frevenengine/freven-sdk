@@ -447,6 +447,12 @@ Candidate async service families may include workloads such as:
 These are candidates only. Each family still requires its own semantic
 definition before becoming public contract surface.
 
+Worldgen provider execution concurrency is defined separately in
+`WORLDGEN_PROVIDER_CONCURRENCY_v1.md`. That contract remains
+`serial_session` today, and any future widening must use
+`parallel_isolated_job` semantics rather than shared-instance concurrent
+provider callbacks.
+
 ## Explicitly Deferred Items
 
 This document intentionally defers:

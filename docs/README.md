@@ -11,6 +11,11 @@ Read them in this order:
   neutral runtime-loaded guest semantics
 - [GUEST_CONTRACT_v1.md](GUEST_CONTRACT_v1.md): canonical world-owned
   runtime-loaded guest semantics
+- [WORLDGEN_PROVIDER_CONCURRENCY_v1.md](WORLDGEN_PROVIDER_CONCURRENCY_v1.md):
+  canonical worldgen provider concurrency contract; current mode is
+  `serial_session`
+- [WORLD_ASYNC_SERVICE_MODEL_v1.md](WORLD_ASYNC_SERVICE_MODEL_v1.md):
+  canonical guest-facing async/background computation model
 - [SDK_DISTRIBUTION.md](SDK_DISTRIBUTION.md): distribution and release policy
 - [WASM_ABI_v1.md](WASM_ABI_v1.md): world-stack Wasm transport reference
 - [NATIVE_MOD_ABI_v1.md](NATIVE_MOD_ABI_v1.md): world-stack native transport reference
