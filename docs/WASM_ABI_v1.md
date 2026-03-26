@@ -73,6 +73,12 @@ Optional runtime-service import:
 The Wasm hostcall is transport plumbing only. Observability/logging semantics
 come from `freven_world_guest`, not from the Wasm ABI.
 
+Guest-facing background computation over Wasm follows
+`WORLD_ASYNC_SERVICE_MODEL_v1.md`. Typed async service submission and explicit
+completion poll/drain must use the same canonical runtime-service bridge
+semantics rather than Wasm-specific pushed completion callbacks or a raw public
+guest-thread model.
+
 ## Encoding
 
 ABI payloads are `postcard` encoded values from `freven_world_guest`.

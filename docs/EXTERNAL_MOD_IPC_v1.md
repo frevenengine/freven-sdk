@@ -113,6 +113,13 @@ per-mod config document (`ModConfigDocument`, currently TOML text).
 - The host answers each `service_request` with a matching `service_response`
   using the same envelope `id`, then continues waiting for the terminal
   callback response.
+- Guest-facing async/background computation follows
+  `WORLD_ASYNC_SERVICE_MODEL_v1.md`.
+- For that model, the companion process submits typed async service requests
+  and later explicitly polls/drains for completion through the same canonical
+  `service_request` / `service_response` path.
+- Host-pushed unsolicited completion messages are not the canonical external
+  transport truth.
 - Logging for external guests is not `stderr`-based. It uses the same explicit
   `service_request` path as other canonical runtime services.
 - Provider callbacks share the same runtime session lifetime as lifecycle,

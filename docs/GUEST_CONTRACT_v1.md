@@ -254,6 +254,13 @@ Transport adapters must carry these semantic families unchanged. They must not
 invent transport-specific truth about reads, messages, or command application.
 The same rule applies to observability/logging.
 
+Guest-facing background computation is also transport-agnostic semantic
+contract, not transport-local thread truth. The canonical model is defined in
+`WORLD_ASYNC_SERVICE_MODEL_v1.md`: typed async services, explicit submission,
+session-scoped tickets/completion records, explicit completion poll/drain, and
+owner-thread authoritative commit. `freven_world_guest` must not grow a raw
+public task/thread manager as its canonical async surface.
+
 ## Disable-on-session semantics
 
 `StartInput.session` is the canonical runtime-session identity for one resolved

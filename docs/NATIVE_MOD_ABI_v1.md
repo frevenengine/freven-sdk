@@ -148,6 +148,12 @@ The bridge is transport plumbing only. It must not redefine the semantic
 service families documented in `freven_world_guest`, and it must not blur the
 ownership split between world-owned envelopes and block-owned payload shapes.
 
+Guest-facing background computation for native guests also follows
+`WORLD_ASYNC_SERVICE_MODEL_v1.md`: typed async services, explicit submission,
+session-scoped tickets/completion records, and explicit completion poll/drain.
+Native transport must not redefine the public contract as a raw task/thread
+manager just because the host process has direct thread access.
+
 Observability/logging uses that same canonical service surface:
 
 - request: `WorldServiceRequest::Observability(RuntimeObservabilityRequest::Log(LogPayload))`
