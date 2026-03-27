@@ -166,10 +166,13 @@ Ownership note:
 Current worldgen output family:
 
 - `WorldGenOutput.writes`
+- `WorldGenOutput.bootstrap.initial_world_spawn_hint`
 - `WorldTerrainWrite::{FillSection, FillBox, SetBlock}`
 
 These volumetric structures live in `freven_volumetric_api` and are re-exported
 through the guest contract; the Wasm ABI keeps that ownership split intact.
+The bootstrap hint is advisory initial-world metadata; `feet_position` is the
+world-space feet point, not a collider center.
 
 Current message families:
 

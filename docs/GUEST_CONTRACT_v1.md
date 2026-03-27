@@ -242,6 +242,7 @@ Current block-mutation family carried by runtime output includes:
 Current worldgen output family uses:
 
 - `WorldGenOutput.writes`
+- `WorldGenOutput.bootstrap.initial_world_spawn_hint`
 - `WorldTerrainWrite::FillSection { sy, block_id }`
 - `WorldTerrainWrite::FillBox { min, max, block_id }`
 - `WorldTerrainWrite::SetBlock { pos, block_id }`
@@ -249,6 +250,11 @@ Current worldgen output family uses:
 Ownership note: these structs live in `freven_volumetric_api`. The world guest
 contract consumes them but does not own the volumetric topology or section
 layout semantics.
+
+`initial_world_spawn_hint` is advisory bootstrap metadata for initial world
+bring-up only. Its `feet_position` is a world-space feet position, not a
+collider center. Hosts resolve and persist a world-owned initial spawn from this
+hint family; later worldgen hints do not redefine runtime spawn policy.
 
 Worldgen provider execution concurrency is defined separately in
 `WORLDGEN_PROVIDER_CONCURRENCY_v1.md`. The current canonical mode is

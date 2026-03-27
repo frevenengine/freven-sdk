@@ -91,6 +91,8 @@ intentionally need to wire the raw surface yourself.
   capability keys in one transport-neutral registration model.
 - Worldgen output uses the same canonical terrain-write model as builtin
   worldgen: `WorldGenOutput.writes` plus
+  `WorldGenOutput.bootstrap.initial_world_spawn_hint` for advisory initial
+  world bootstrap spawn selection and
   `WorldTerrainWrite::{FillSection, FillBox, SetBlock}`.
 - Those `WorldGen*` structures are owned by `freven_volumetric_api`; this SDK
   merely re-exports them so world-layer guests can author against the same

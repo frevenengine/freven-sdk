@@ -136,11 +136,37 @@ pub enum WorldTerrainWrite {
     },
 }
 
+/// Advisory bootstrap-oriented metadata emitted by a worldgen provider.
+///
+/// This family is transport-independent semantic contract. Hosts may consume or
+/// ignore it when bootstrapping a world's initial spawn state.
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WorldGenBootstrapOutput {
+    /// Advisory hint for selecting an initial world bootstrap spawn.
+    pub initial_world_spawn_hint: Option<InitialWorldSpawnHint>,
+}
+
+/// Advisory initial world bootstrap spawn hint emitted by worldgen.
+///
+/// This hint is for initial world bootstrap semantics only. It is not a generic
+/// respawn policy, runtime spawn service, or lifecycle-owned spawn contract.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct InitialWorldSpawnHint {
+    /// Suggested world-space feet position in meters.
+    ///
+    /// This is the character feet position, not the collider center, capsule
+    /// origin, or any other body-local reference point.
+    pub feet_position: [f32; 3],
+}
+
 /// World-owned terrain generation output for one requested column.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct WorldGenOutput {
     pub writes: Vec<WorldTerrainWrite>,
+    /// Advisory bootstrap-oriented metadata for initial world bring-up.
+    pub bootstrap: WorldGenBootstrapOutput,
 }
 
 /// Worldgen contract error placeholder.
@@ -148,4 +174,40 @@ pub struct WorldGenOutput {
 #[error("worldgen error: {message}")]
 pub struct WorldGenError {
     pub message: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        InitialWorldSpawnHint, WorldGenBootstrapOutput, WorldGenOutput, WorldTerrainWrite,
+    };
+    use freven_block_sdk_types::BlockRuntimeId;
+
+    #[test]
+    fn worldgen_output_postcard_roundtrip_preserves_bootstrap_hint() {
+        let output = WorldGenOutput {
+            writes: vec![WorldTerrainWrite::FillSection {
+                sy: 0.into(),
+                block_id: BlockRuntimeId(7),
+            }],
+            bootstrap: WorldGenBootstrapOutput {
+                initial_world_spawn_hint: Some(InitialWorldSpawnHint {
+                    feet_position: [12.5, 65.0, -3.25],
+                }),
+            },
+        };
+
+        let encoded = postcard::to_allocvec(&output).expect("postcard encode");
+        let decoded: WorldGenOutput = postcard::from_bytes(&encoded).expect("postcard decode");
+
+        assert_eq!(decoded, output);
+    }
+
+    #[test]
+    fn worldgen_output_default_has_no_bootstrap_hint() {
+        let output = WorldGenOutput::default();
+
+        assert!(output.bootstrap.initial_world_spawn_hint.is_none());
+        assert!(output.writes.is_empty());
+    }
 }

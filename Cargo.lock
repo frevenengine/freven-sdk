@@ -114,6 +114,7 @@ version = "0.1.0"
 dependencies = [
  "freven_block_sdk_types",
  "freven_volumetric_sdk_types",
+ "postcard",
  "serde",
  "thiserror",
 ]

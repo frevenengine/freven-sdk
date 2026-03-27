@@ -32,7 +32,10 @@ use freven_guest::{
 use serde::{Deserialize, Serialize};
 
 /// Volumetric-owned worldgen contracts consumed by runtime-loaded guests.
-pub use freven_volumetric_api::{WorldGenInit, WorldGenOutput, WorldGenRequest, WorldTerrainWrite};
+pub use freven_volumetric_api::{
+    InitialWorldSpawnHint, WorldGenBootstrapOutput, WorldGenInit, WorldGenOutput, WorldGenRequest,
+    WorldTerrainWrite,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NegotiationResponse {
@@ -136,7 +139,7 @@ pub struct WorldGenCallInput {
     pub request: WorldGenRequest,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct WorldGenCallResult {
     pub output: WorldGenOutput,
