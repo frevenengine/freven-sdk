@@ -19,7 +19,10 @@ use freven_guest::{
     LifecycleHooks, LogLevel, LogPayload, MessageCodec, MessageDeclaration, MessageHooks,
     NegotiationRequest, RuntimeSessionInfo, RuntimeSessionSide,
 };
-pub use freven_volumetric_api::{WorldGenInit, WorldGenOutput, WorldGenRequest, WorldTerrainWrite};
+pub use freven_volumetric_api::{
+    InitialWorldSpawnHint, WorldGenBootstrapOutput, WorldGenInit, WorldGenOutput, WorldGenRequest,
+    WorldTerrainWrite,
+};
 pub use freven_world_guest::{
     ActionDeclaration, ActionInput, ActionOutcome, ActionResult, AvatarGuestRegistration,
     AvatarProviderHooks, BlockDeclaration, CharacterConfig, CharacterControllerDeclaration,
@@ -3838,6 +3841,11 @@ mod tests {
                     sy: 0.into(),
                     block_id: BlockRuntimeId(7),
                 }],
+                bootstrap: WorldGenBootstrapOutput {
+                    initial_world_spawn_hint: Some(InitialWorldSpawnHint {
+                        feet_position: [0.5, 65.0, 0.5],
+                    }),
+                },
             },
         }
     }
@@ -4305,6 +4313,12 @@ mod tests {
             }
             write => panic!("unexpected worldgen write: {write:?}"),
         }
+        assert_eq!(
+            worldgen.output.bootstrap.initial_world_spawn_hint,
+            Some(InitialWorldSpawnHint {
+                feet_position: [0.5, 65.0, 0.5],
+            })
+        );
 
         let init = module.handle_character_controller_init(CharacterControllerInitInput {
             key: "freven.test:humanoid".to_string(),

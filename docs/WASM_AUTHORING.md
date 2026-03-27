@@ -137,6 +137,9 @@ It also owns the current world runtime helpers:
 
 `WorldGenOutput`/`WorldTerrainWrite` come from the volumetric-owned
 `freven_volumetric_api` crate; the world guest SDK simply re-exports them.
+That includes `WorldGenOutput.bootstrap.initial_world_spawn_hint`, an advisory
+initial world bootstrap feet-position hint rather than a generic respawn
+policy.
 
 Those surfaces are intentionally not available from the neutral
 `freven_guest_sdk` crate.

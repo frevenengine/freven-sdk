@@ -14,3 +14,6 @@ freven_volumetric_sdk_types.workspace = true
 freven_block_sdk_types.workspace = true
 thiserror.workspace = true
 serde.workspace = true
+
+[dev-dependencies]
+postcard.workspace = true
