@@ -108,6 +108,59 @@ What stays explicit:
 magical. The hooks and registrations you write are the same data used to build
 the canonical `GuestDescription` and to emit the Wasm export surface.
 
+## Capability requests
+
+Declare Wasm capabilities in `mod.toml` as host policy requests, not as
+arbitrary guest-controlled runtime knobs.
+
+Current accepted capability keys are:
+
+- default/hot callback profile:
+  `max_linear_memory_bytes`, `max_call_millis`
+- worldgen provider profile:
+  `worldgen_max_linear_memory_bytes`, `worldgen_max_call_millis`,
+  `worldgen_max_result_bytes`
+- global validation flag:
+  `allow_unstable`
+
+Default/hot callback profile:
+
+- applies to lifecycle, tick, action, message, character-controller, and
+  client-control style interactive callbacks
+- current policy:
+  memory = `4 MiB`, call watchdog = `25 ms`, result bytes = `256 KiB`
+
+Worldgen provider profile:
+
+- applies only to declared worldgen providers
+- current policy defaults:
+  memory = `64 MiB`, call watchdog = `100 ms`, result bytes = `1 MiB`
+- current policy maxima:
+  memory = `128 MiB`, call watchdog = `250 ms`, result bytes = `4 MiB`
+
+Rules that matter in practice:
+
+- unknown capability keys are rejected
+- invalid value types are rejected
+- `allow_unstable` must remain `false`
+- old `max_*` keys do not raise worldgen limits
+- `worldgen_*` keys do not raise default/hot callback limits
+- `worldgen_*` keys require a declared worldgen provider
+- a both-side mod may declare `worldgen_*` keys and still attach on the client
+  side; the client side just does not host the worldgen runner
+
+Example:
+
+```toml
+[capabilities]
+max_linear_memory_bytes = 4194304
+max_call_millis = 25
+worldgen_max_linear_memory_bytes = 67108864
+worldgen_max_call_millis = 100
+worldgen_max_result_bytes = 1048576
+allow_unstable = false
+```
+
 ## World authoring details
 
 `freven_world_guest_sdk` exposes the current world-stack registration families

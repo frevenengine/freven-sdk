@@ -26,6 +26,12 @@ execution itself.
 A provider session is the host-owned logical execution context for one active
 worldgen provider identity within one active runtime/world binding.
 
+For Wasm guests, workload-scoped `worldgen_*` capability requests apply only
+when the runtime actually hosts that worldgen provider. A both-side mod may
+declare a worldgen provider and `worldgen_*` requests while still attaching on
+the client side; that client attachment does not create a client-side worldgen
+provider session.
+
 In the current model, a host may realize that session as:
 - one builtin provider instance bound to one active world/session, or
 - one hosted runtime-loaded guest worldgen session wrapped by transport/runtime-specific plumbing.
