@@ -220,26 +220,70 @@ crashing or destabilizing the runtime.
 
 ## Capability policy (implemented in `freven_runtime_wasm`)
 
+Capabilities are host policy requests, not arbitrary guest runtime knobs.
 Runtime accepts only these capability keys:
 
-- `max_call_millis` (integer, must be `> 0`, cannot exceed host policy max)
-- `max_linear_memory_bytes` (integer, must be `> 0`, cannot exceed host policy max)
-- `allow_unstable` (boolean, must be `false`)
+- default/hot callback profile:
+  `max_call_millis`, `max_linear_memory_bytes`
+- worldgen provider profile:
+  `worldgen_max_call_millis`, `worldgen_max_linear_memory_bytes`,
+  `worldgen_max_result_bytes`
+- global validation flag:
+  `allow_unstable`
+
+Accepted types and base validation:
+
+- `max_call_millis`: integer, must be `> 0`, cannot exceed host policy max
+- `max_linear_memory_bytes`: integer, must be `> 0`, cannot exceed host policy max
+- `worldgen_max_call_millis`: integer, must be `> 0`, cannot exceed host policy max
+- `worldgen_max_linear_memory_bytes`: integer, must be `> 0`, cannot exceed host policy max
+- `worldgen_max_result_bytes`: integer, must be `> 0`, cannot exceed host policy max
+- `allow_unstable`: boolean, must be `false`
 
 Unknown keys are rejected. Invalid types are rejected.
 Declared capability keys must also exist in the resolved capability table; the
 runtime reports that as an explicit capability-declaration error rather than a duplicate-key error.
 
-Current host policy maxima/defaults:
+Current host policy by workload:
 
-- `max_call_millis`: `25`
-- `max_linear_memory_bytes`: `4 MiB`
+- default/hot callback profile
+- applies to lifecycle, tick, action, message, character-controller, and
+  client-control style interactive callbacks
+- supported keys: `max_call_millis`, `max_linear_memory_bytes`
+- current policy:
+  `max_call_millis = 25`, `max_linear_memory_bytes = 4 MiB`,
+  result bytes = `256 KiB`
+
+- worldgen provider profile
+- applies only to declared worldgen providers
+- supported keys:
+  `worldgen_max_call_millis`, `worldgen_max_linear_memory_bytes`,
+  `worldgen_max_result_bytes`
+- current policy defaults:
+  `worldgen_max_call_millis = 100`, `worldgen_max_linear_memory_bytes = 64 MiB`,
+  `worldgen_max_result_bytes = 1 MiB`
+- current policy maxima:
+  `worldgen_max_call_millis = 250`,
+  `worldgen_max_linear_memory_bytes = 128 MiB`,
+  `worldgen_max_result_bytes = 4 MiB`
+
+Additional host limits remain:
+
 - `max_negotiation_bytes`: `64 KiB`
-- `max_result_bytes`: `256 KiB`
 - `max_input_payload_bytes`: `64 KiB`
 - `max_block_mutations`: `128` entries, applied to `RuntimeOutput.blocks.mutations`
 
-Capabilities may tighten selected limits (`max_call_millis`, `max_linear_memory_bytes`) but cannot raise limits above policy maxima.
+Capability-profile rules:
+
+- old `max_*` keys do not raise worldgen limits
+- `worldgen_*` keys do not raise default/hot callback limits
+- `worldgen_*` keys require the guest to declare a worldgen provider
+- a both-side mod may declare `worldgen_*` keys and still attach on the client
+  side; the client side simply does not host the worldgen runner
+
+Capabilities may tighten selected limits and may request wider worldgen limits
+within host policy maxima, but they cannot raise any workload above that
+workload's policy ceiling.
 
 ## Security defaults (WP7A)
 
