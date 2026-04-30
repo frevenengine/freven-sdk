@@ -5,6 +5,34 @@ pub const DIMENSION_SAVE_FORMAT_VERSION: u32 = 1;
 pub const DEFAULT_PRIMARY_DIMENSION_ID: &str = "overworld";
 const MM_PER_METER: f32 = 1000.0;
 
+/// Explicit authoritative vertical section contract for one dimension.
+///
+/// This is world-owned bootstrap/save truth and must not be inferred from
+/// observed/materialized runtime terrain.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DimensionVerticalContract {
+    pub min_section_y: i8,
+    pub section_count: u16,
+    pub vertical_streaming_enabled: bool,
+}
+
+impl DimensionVerticalContract {
+    #[must_use]
+    pub const fn primary_default() -> Self {
+        Self {
+            min_section_y: 0,
+            section_count: 1,
+            vertical_streaming_enabled: false,
+        }
+    }
+}
+
+impl Default for DimensionVerticalContract {
+    fn default() -> Self {
+        Self::primary_default()
+    }
+}
+
 /// Persisted, host-resolved initial world spawn for a world save.
 ///
 /// - This is world-owned truth (not advisory worldgen output).
@@ -85,20 +113,29 @@ impl WorldSaveMetadata {
 pub struct DimensionSaveMetadata {
     pub format_version: u32,
     pub dimension_id: String,
+    #[serde(default)]
+    pub vertical_contract: Option<DimensionVerticalContract>,
 }
 
 impl DimensionSaveMetadata {
     #[must_use]
-    pub fn new(dimension_id: impl Into<String>) -> Self {
+    pub fn new(
+        dimension_id: impl Into<String>,
+        vertical_contract: DimensionVerticalContract,
+    ) -> Self {
         Self {
             format_version: DIMENSION_SAVE_FORMAT_VERSION,
             dimension_id: dimension_id.into(),
+            vertical_contract: Some(vertical_contract),
         }
     }
 
     #[must_use]
     pub fn primary() -> Self {
-        Self::new(DEFAULT_PRIMARY_DIMENSION_ID)
+        Self::new(
+            DEFAULT_PRIMARY_DIMENSION_ID,
+            DimensionVerticalContract::primary_default(),
+        )
     }
 }
 
@@ -130,14 +167,27 @@ impl WorldBootstrapSpec {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DimensionLayoutSpec {
     pub dimension_id: String,
+    pub vertical_contract: DimensionVerticalContract,
 }
 
 impl DimensionLayoutSpec {
     #[must_use]
-    pub fn primary() -> Self {
+    pub fn new(
+        dimension_id: impl Into<String>,
+        vertical_contract: DimensionVerticalContract,
+    ) -> Self {
         Self {
-            dimension_id: DEFAULT_PRIMARY_DIMENSION_ID.to_string(),
+            dimension_id: dimension_id.into(),
+            vertical_contract,
         }
+    }
+
+    #[must_use]
+    pub fn primary() -> Self {
+        Self::new(
+            DEFAULT_PRIMARY_DIMENSION_ID,
+            DimensionVerticalContract::primary_default(),
+        )
     }
 }
 
@@ -149,7 +199,10 @@ fn meters_to_mm(value: f32) -> i32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{DEFAULT_PRIMARY_DIMENSION_ID, InitialWorldSpawn, WorldSaveMetadata};
+    use super::{
+        DEFAULT_PRIMARY_DIMENSION_ID, DimensionLayoutSpec, DimensionSaveMetadata,
+        DimensionVerticalContract, InitialWorldSpawn, WorldSaveMetadata,
+    };
 
     #[test]
     fn initial_world_spawn_meter_roundtrip_is_mm_quantized() {
@@ -168,5 +221,23 @@ mod tests {
             "overworld".to_string(),
         );
         assert!(metadata.initial_world_spawn.is_none());
+    }
+
+    #[test]
+    fn dimension_metadata_primary_includes_explicit_vertical_contract() {
+        let metadata = DimensionSaveMetadata::primary();
+        assert_eq!(
+            metadata.vertical_contract,
+            Some(DimensionVerticalContract::primary_default())
+        );
+    }
+
+    #[test]
+    fn dimension_layout_primary_includes_explicit_vertical_contract() {
+        let layout = DimensionLayoutSpec::primary();
+        assert_eq!(
+            layout.vertical_contract,
+            DimensionVerticalContract::primary_default()
+        );
     }
 }

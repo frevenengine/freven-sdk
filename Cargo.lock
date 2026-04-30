@@ -349,6 +349,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a5364e9d77fcdeeaa6062ced926ee3381faa2ee02d3eb83a5c27a8825540829"
 
 [[patch.unused]]
+name = "freven_vanilla_essentials"
+version = "0.1.0"
+
+[[patch.unused]]
 name = "freven_block_runtime"
 version = "0.1.0"
 
@@ -422,8 +426,4 @@ version = "0.1.0"
 
 [[patch.unused]]
 name = "freven_world_runtime"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "freven_vanilla_essentials"
 version = "0.1.0"
