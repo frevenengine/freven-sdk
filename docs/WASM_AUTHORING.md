@@ -108,6 +108,81 @@ What stays explicit:
 magical. The hooks and registrations you write are the same data used to build
 the canonical `GuestDescription` and to emit the Wasm export surface.
 
+
+## Disk layout and authored wiring
+
+There are two common disk layouts for runtime-loaded Wasm mods.
+
+### Instance-local mod in a mutable install
+
+Use this when you drop a mod into an install under `<instance>/mods/<mod_id>/...`.
+
+```text
+<instance>/
+  experiences/<experience_id>/experience.toml
+  mods/example.hello/
+    mod.toml
+    mod.wasm
+```
+
+Minimal `mod.toml`:
+
+```toml
+schema = 3
+id = "example.hello"
+version = "0.1.0"
+artifact = "wasm_module"
+execution = "wasm_guest"
+trust = "sandboxed"
+policy = "safe_guest"
+surfaces = "both"
+entry = "mod.wasm"
+```
+
+Reference it from the active experience by id/version:
+
+```toml
+[[mods]]
+id = "example.hello"
+version = "^0.1"
+```
+
+Runtime config belongs in the active experience:
+
+```toml
+[config."example.hello"]
+greeting = "hello"
+tick_every = 1
+```
+
+### Bundled product-owned mod inside an experience
+
+Use this when a bundled/shipped experience owns the mod subtree itself.
+
+```text
+<experience_root>/
+  experience.toml
+  mods/example.standalone.shell.core/
+    mod.toml
+    mod.wasm
+```
+
+Reference it with an explicit relative manifest path:
+
+```toml
+[[mods]]
+id = "example.standalone.shell.core"
+version = "^0.1"
+path = "mods/example.standalone.shell.core/mod.toml"
+```
+
+Notes:
+- `mod.toml` is the manifest / capability-request surface, not the active runtime config document.
+- Guest `StartInput.config` comes from `experience.config."<mod_id>"`.
+- Declare `[capabilities]` only when you need non-default limits or worldgen-specific budgets.
+- Use `surfaces = "server"` for server-only mods.
+  Use `surfaces = "both"` only when the guest is meant to attach on both sides.
+
 ## Capability requests
 
 Declare Wasm capabilities in `mod.toml` as host policy requests, not as
