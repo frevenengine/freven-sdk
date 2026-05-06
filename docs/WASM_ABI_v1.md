@@ -185,6 +185,10 @@ Current worldgen output family:
 `[min, max)`. `min` is inclusive, `max` is exclusive, and zero-volume boxes are
 invalid.
 
+SDK-side builders such as `WorldGenOutputBuilder` and `WorldGenColumnBuilder`
+are authoring helpers only. They do not add ABI variants and do not change the
+encoded `WorldGenOutput` / `WorldTerrainWrite` family.
+
 These volumetric structures live in `freven_volumetric_api` and are re-exported
 through the guest contract; the Wasm ABI keeps that ownership split intact.
 The bootstrap hint is advisory initial-world metadata; `feet_position` is the

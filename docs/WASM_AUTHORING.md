@@ -281,6 +281,55 @@ policy.
 
 
 
+### Worldgen output builders
+
+For normal custom worldgen authoring, prefer the SDK builders over manually
+pushing many `WorldTerrainWrite::SetBlock` values.
+
+Example:
+
+```rust
+use freven_world_guest_sdk::{
+    BlockRuntimeId,
+    ColumnLocalCellPos,
+    SectionY,
+    WorldGenCallResult,
+    WorldGenColumnBuilder,
+    WorldGenContext,
+};
+
+fn generate_worldgen(ctx: WorldGenContext<'_>) -> WorldGenCallResult {
+    let stone = BlockRuntimeId(1);
+    let dirt = BlockRuntimeId(2);
+    let grass = BlockRuntimeId(3);
+
+    let mut output = WorldGenColumnBuilder::for_request(&ctx.input.request);
+
+    output.fill_section(SectionY::new(0), stone);
+    output
+        .fill_vertical_run_local(10, 10, 32..64, dirt)
+        .expect("valid local vertical run");
+    output
+        .set_block_local(ColumnLocalCellPos::new(10, 64, 10), grass)
+        .expect("valid local cell");
+
+    WorldGenCallResult {
+        output: output.finish(),
+    }
+}
+```
+
+The builders are SDK-side authoring helpers only. The runtime still receives the
+same canonical `WorldGenOutput { writes, bootstrap }` shape. The helpers simply
+make the efficient forms easier to emit:
+
+- one cell -> `SetBlock`
+- vertical runs / boxes -> `FillBox`
+- whole uniform sections -> `FillSection`
+
+They also validate local coordinates and `FillBox` bounds before the host sees
+the result.
+
 ### `WorldTerrainWrite::FillBox` bounds semantics
 
 `WorldTerrainWrite::FillBox` uses half-open bounds in absolute world-cell

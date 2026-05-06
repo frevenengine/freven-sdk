@@ -20,7 +20,9 @@ use freven_guest::{
     NegotiationRequest, RuntimeSessionInfo, RuntimeSessionSide,
 };
 pub use freven_volumetric_api::{
-    InitialWorldSpawnHint, WorldGenBootstrapOutput, WorldGenInit, WorldGenOutput, WorldGenRequest,
+    CHUNK_SECTION_DIM, CHUNK_SECTION_VOLUME, ColumnCoord, ColumnLocalCellPos,
+    InitialWorldSpawnHint, SectionY, WorldCellPos, WorldGenBootstrapOutput, WorldGenColumnBuilder,
+    WorldGenInit, WorldGenOutput, WorldGenOutputBuildError, WorldGenOutputBuilder, WorldGenRequest,
     WorldTerrainWrite,
 };
 pub use freven_world_guest::{

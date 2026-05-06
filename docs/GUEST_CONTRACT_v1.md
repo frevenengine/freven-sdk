@@ -261,6 +261,11 @@ Current worldgen output family uses:
 invalid. A one-column vertical run therefore still uses `max.x = min.x + 1` and
 `max.z = min.z + 1`.
 
+SDK-side builders such as `WorldGenOutputBuilder` and `WorldGenColumnBuilder`
+may help authors construct this output efficiently, but they are not new guest
+transport semantics. Transport adapters still carry the same `WorldGenOutput`
+and `WorldTerrainWrite` families unchanged.
+
 Ownership note: these structs live in `freven_volumetric_api`. The world guest
 contract consumes them but does not own the volumetric topology or section
 layout semantics.
