@@ -12,8 +12,16 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use freven_block_sdk_types::BlockRuntimeId;
-use freven_volumetric_sdk_types::{ColumnCoord, SectionY, WorldCellPos};
+pub use freven_volumetric_sdk_types::{
+    CHUNK_SECTION_DIM, CHUNK_SECTION_VOLUME, ColumnCoord, SectionY, WorldCellPos,
+};
 use serde::{Deserialize, Serialize};
+
+mod output_builder;
+
+pub use output_builder::{
+    ColumnLocalCellPos, WorldGenColumnBuilder, WorldGenOutputBuildError, WorldGenOutputBuilder,
+};
 
 /// Contract for volumetric worldgen providers registered through SDK.
 ///
