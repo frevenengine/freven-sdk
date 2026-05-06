@@ -247,6 +247,11 @@ Current worldgen output family uses:
 - `WorldTerrainWrite::FillBox { min, max, block_id }`
 - `WorldTerrainWrite::SetBlock { pos, block_id }`
 
+`WorldTerrainWrite::FillBox` uses half-open absolute world-cell bounds:
+`[min, max)`. `min` is inclusive, `max` is exclusive, and zero-volume boxes are
+invalid. A one-column vertical run therefore still uses `max.x = min.x + 1` and
+`max.z = min.z + 1`.
+
 Ownership note: these structs live in `freven_volumetric_api`. The world guest
 contract consumes them but does not own the volumetric topology or section
 layout semantics.

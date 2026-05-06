@@ -270,6 +270,45 @@ initial world bootstrap feet-position hint rather than a generic respawn
 policy.
 
 
+
+### `WorldTerrainWrite::FillBox` bounds semantics
+
+`WorldTerrainWrite::FillBox` uses half-open bounds in absolute world-cell
+space: `[min, max)`.
+
+Example vertical run for one `(x, z)` column:
+
+```rust
+use freven_world_guest_sdk::{WorldCellPos, WorldTerrainWrite};
+
+let write = WorldTerrainWrite::FillBox {
+    min: WorldCellPos::new(x, start_y, z),
+    max: WorldCellPos::new(x + 1, end_y_exclusive, z + 1),
+    block_id,
+};
+```
+
+What this means:
+- `min` is inclusive
+- `max` is exclusive
+- `min == max` is invalid because it produces zero volume
+- minimum valid box extent is `1` on every axis
+- coordinates are absolute world-cell positions, not section-local offsets
+
+In practice:
+- use `SetBlock` for sparse or isolated cells
+- use `FillBox` for contiguous rectangular regions or vertical runs
+- use `FillSection` when one full section is uniform
+
+A vertical run at one `(x, z)` column therefore still needs:
+- `max.x = min.x + 1`
+- `max.z = min.z + 1`
+
+Do not treat `max` as an inclusive last block coordinate.
+If you have an inclusive end y from your own algorithm, convert it first to an
+exclusive bound before emitting `FillBox`.
+
+
 ### Initial world spawn hints for custom worldgen providers
 
 Custom worldgen providers may return an advisory initial bootstrap spawn hint

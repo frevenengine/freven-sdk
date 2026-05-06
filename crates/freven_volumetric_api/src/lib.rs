@@ -121,15 +121,42 @@ impl WorldGenRequest {
 /// Standard block/profile ids are imported from `freven_block_sdk_types`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WorldTerrainWrite {
+    /// Fill one whole canonical 32x32x32 section with one block id.
+    ///
+    /// Use this when the entire requested section volume is uniform.
     FillSection {
         sy: SectionY,
         block_id: BlockRuntimeId,
     },
+    /// Fill an axis-aligned box in absolute world-cell coordinates.
+    ///
+    /// Bounds are half-open on every axis: `[min, max)`.
+    ///
+    /// That means:
+    /// - `min` is inclusive
+    /// - `max` is exclusive
+    /// - each axis must satisfy `min < max`
+    /// - `min == max` is invalid because it produces zero volume
+    ///
+    /// Minimum valid box extent is therefore `1` on every axis.
+    ///
+    /// For a vertical run in one `(x, z)` column, use:
+    /// - `max.x = min.x + 1`
+    /// - `max.z = min.z + 1`
+    /// - `max.y = end_y_exclusive`
+    ///
+    /// Prefer `FillBox` for contiguous rectangular/column runs. Prefer
+    /// `SetBlock` for sparse or irregular writes. Prefer `FillSection` when a
+    /// whole section is uniform.
     FillBox {
         min: WorldCellPos,
         max: WorldCellPos,
         block_id: BlockRuntimeId,
     },
+    /// Write one absolute world cell.
+    ///
+    /// Prefer this for sparse or isolated writes. For contiguous rectangular
+    /// regions, `FillBox` is usually a better worldgen output shape.
     SetBlock {
         pos: WorldCellPos,
         block_id: BlockRuntimeId,

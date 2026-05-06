@@ -68,6 +68,39 @@ remain available for lower-level fixtures and ABI-focused tests when you
 intentionally need to wire the raw surface yourself.
 
 
+
+## `WorldTerrainWrite::FillBox` bounds semantics
+
+`WorldTerrainWrite::FillBox` uses half-open bounds in absolute world-cell
+space: `[min, max)`.
+
+Example vertical run for one `(x, z)` column:
+
+```rust
+use freven_world_guest_sdk::{WorldCellPos, WorldTerrainWrite};
+
+let write = WorldTerrainWrite::FillBox {
+    min: WorldCellPos::new(x, start_y, z),
+    max: WorldCellPos::new(x + 1, end_y_exclusive, z + 1),
+    block_id,
+};
+```
+
+Semantics that matter:
+- `min` is inclusive
+- `max` is exclusive
+- `min == max` is invalid
+- minimum valid box extent is `1` on every axis
+- coordinates are absolute world-cell positions
+
+Recommended usage:
+- `SetBlock` for sparse/isolated cells
+- `FillBox` for contiguous rectangular regions or vertical runs
+- `FillSection` when one full section is uniform
+
+Do not treat `max` as an inclusive last block coordinate.
+
+
 ## Initial world spawn hints for worldgen
 
 Worldgen providers may return an advisory initial bootstrap spawn hint through

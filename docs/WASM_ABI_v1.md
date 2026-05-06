@@ -169,6 +169,10 @@ Current worldgen output family:
 - `WorldGenOutput.bootstrap.initial_world_spawn_hint`
 - `WorldTerrainWrite::{FillSection, FillBox, SetBlock}`
 
+`WorldTerrainWrite::FillBox` uses half-open absolute world-cell bounds:
+`[min, max)`. `min` is inclusive, `max` is exclusive, and zero-volume boxes are
+invalid.
+
 These volumetric structures live in `freven_volumetric_api` and are re-exported
 through the guest contract; the Wasm ABI keeps that ownership split intact.
 The bootstrap hint is advisory initial-world metadata; `feet_position` is the
