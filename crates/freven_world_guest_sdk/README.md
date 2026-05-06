@@ -67,6 +67,48 @@ registration: {
 remain available for lower-level fixtures and ABI-focused tests when you
 intentionally need to wire the raw surface yourself.
 
+
+## Initial world spawn hints for worldgen
+
+Worldgen providers may return an advisory initial bootstrap spawn hint through
+`WorldGenOutput.bootstrap.initial_world_spawn_hint`.
+
+Example:
+
+```rust
+use freven_world_guest_sdk::{
+    InitialWorldSpawnHint,
+    WorldGenBootstrapOutput,
+    WorldGenOutput,
+};
+
+fn finish_worldgen(
+    writes: Vec<freven_world_guest_sdk::WorldTerrainWrite>,
+    surface_y: f32,
+) -> WorldGenOutput {
+    WorldGenOutput {
+        writes,
+        bootstrap: WorldGenBootstrapOutput {
+            initial_world_spawn_hint: Some(InitialWorldSpawnHint {
+                feet_position: [16.5, surface_y + 2.0, 16.5],
+            }),
+        },
+    }
+}
+```
+
+Semantics that matter:
+- advisory only
+- initial world bootstrap only
+- `feet_position` is world-space feet position
+- host may validate/correct the final resolved spawn
+- later worldgen calls do not redefine runtime spawn policy
+
+Recommended strategy:
+- return a natural safe surface candidate from your terrain generator
+- do not flatten terrain around origin just to force safe spawning
+- treat the hint as bootstrap advice, not guaranteed final spawn ownership
+
 ## Current boundaries
 
 - Lifecycle hooks return `LifecycleResult`.
