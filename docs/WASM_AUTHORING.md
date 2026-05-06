@@ -269,6 +269,53 @@ That includes `WorldGenOutput.bootstrap.initial_world_spawn_hint`, an advisory
 initial world bootstrap feet-position hint rather than a generic respawn
 policy.
 
+
+### Initial world spawn hints for custom worldgen providers
+
+Custom worldgen providers may return an advisory initial bootstrap spawn hint
+through `WorldGenOutput.bootstrap.initial_world_spawn_hint`.
+
+Example:
+
+```rust
+use freven_world_guest_sdk::{
+    InitialWorldSpawnHint,
+    WorldGenBootstrapOutput,
+    WorldGenOutput,
+};
+
+fn finish_worldgen(
+    writes: Vec<freven_world_guest_sdk::WorldTerrainWrite>,
+    surface_y: f32,
+) -> WorldGenOutput {
+    WorldGenOutput {
+        writes,
+        bootstrap: WorldGenBootstrapOutput {
+            initial_world_spawn_hint: Some(InitialWorldSpawnHint {
+                feet_position: [16.5, surface_y + 2.0, 16.5],
+            }),
+        },
+    }
+}
+```
+
+What this means:
+- this is for **initial world bootstrap** only, not general respawn policy
+- `feet_position` is a world-space **feet** position, not a collider center
+- the host resolves authoritative initial spawn and may validate or adjust the
+  final result against loaded terrain
+- current bootstrap flow explicitly probes the bootstrap worldgen column and
+  consumes the hint from that bootstrap bring-up path; later worldgen calls do
+  not redefine runtime spawn policy
+
+Recommended strategy:
+- return a natural safe candidate from your terrain generator, such as a known
+  walkable surface point with standing room
+- prefer a plausible gameplay spawn area rather than flattening terrain around
+  `(0, 0)` just to force safe spawning
+- treat the hint as advice to bootstrap resolution, not as a guarantee that the
+  exact returned feet position will be used unchanged
+
 Those surfaces are intentionally not available from the neutral
 `freven_guest_sdk` crate.
 
