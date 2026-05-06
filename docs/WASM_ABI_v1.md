@@ -83,6 +83,13 @@ guest-thread model.
 
 ABI payloads are `postcard` encoded values from `freven_world_guest`.
 
+Client-control payload semantics stay transport-neutral:
+
+- `ClientKeyCode` means physical key location semantics, not text input.
+- Names follow W3C `KeyboardEvent.code` / winit-style physical-key naming where practical.
+- `Shift` and `Ctrl` remain compatibility aggregates; prefer `ShiftLeft` / `ShiftRight` and `ControlLeft` / `ControlRight` for new bindings.
+- `ClientMouseButton::{Back, Forward, Other(u16)}` is part of the canonical transport payload surface.
+
 ### Negotiation (`freven_guest_negotiate`)
 
 Input: `NegotiationRequest`
@@ -137,6 +144,11 @@ message callbacks through `LifecycleResult.output`.
 - the host routes inbound mod messages only for the guest's declared side-appropriate readable channels
 - guest outbound sends must use declared message ids and declared side-appropriate writable channels
 - unsupported message-scope mapping is rejected explicitly; the runtime does not silently coerce scope
+
+For gameplay bindings over Wasm:
+
+- use `Digit1`..`Digit9` for hotbars and number-row gameplay slots
+- use `KeyA`..`KeyZ` for physical letter keys across keyboard layouts
 
 ### Action result (`freven_guest_handle_action` return bytes)
 

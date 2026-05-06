@@ -202,6 +202,15 @@ Current client-control/character-physics requests include:
 - solid-world collision checks
 - AABB sweeps and terrain movement resolution
 
+Client input vocabulary rules:
+
+- `ClientKeyCode` is a physical-key contract, not localized text input.
+- Names intentionally follow W3C `KeyboardEvent.code` / winit-style physical-key naming where practical.
+- Use `Digit1`..`Digit9` for hotbars and gameplay number-row bindings.
+- Use `KeyA`..`KeyZ` for physical key locations even when printed labels differ by layout.
+- `Shift` and `Ctrl` are compatibility aggregates; new bindings should prefer side-specific variants.
+- `ClientMouseButton::{Back, Forward, Other(u16)}` exposes extra mouse buttons in the canonical guest contract.
+
 Observability is a canonical semantic family owned by the host/runtime.
 In contract v1, observability currently contains only logging:
 

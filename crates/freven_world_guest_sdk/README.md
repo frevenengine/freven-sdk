@@ -67,6 +67,15 @@ registration: {
 remain available for lower-level fixtures and ABI-focused tests when you
 intentionally need to wire the raw surface yourself.
 
+## Client input notes
+
+- `ClientKeyCode` is a physical-key surface, not text input.
+- Names intentionally track W3C `KeyboardEvent.code` / winit-style physical-key naming where practical.
+- Use `Digit1`..`Digit9` for hotbars and number-row gameplay bindings.
+- Use `KeyA`..`KeyZ` for physical letter keys; the printed legend may differ by layout.
+- `Shift` and `Ctrl` are compatibility aggregates only; prefer side-specific variants for new bindings.
+- `ClientMouseButton::{Back, Forward, Other(u16)}` supports extra mouse buttons.
+
 
 
 ## `WorldTerrainWrite::FillBox` bounds semantics

@@ -410,21 +410,213 @@ pub enum ClientMouseButton {
     Left,
     Right,
     Middle,
+    Back,
+    Forward,
+    Other(u16),
 }
 
+/// Physical keyboard keys used by runtime-loaded guest client-control services.
+///
+/// Names intentionally follow W3C `KeyboardEvent.code` / winit-style physical
+/// key naming where practical. This surface is for gameplay bindings, not text
+/// input.
+///
+/// Use `Digit1`..`Digit9` for hotbars and number-row gameplay bindings.
+/// Use `KeyA`..`KeyZ` for physical letter-key positions even when printed
+/// legends differ by keyboard layout.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ClientKeyCode {
-    KeyW,
     KeyA,
-    KeyS,
+    KeyB,
+    KeyC,
     KeyD,
     KeyE,
+    KeyF,
+    KeyG,
+    KeyH,
+    KeyI,
+    KeyJ,
+    KeyK,
+    KeyL,
+    KeyM,
+    KeyN,
+    KeyO,
+    KeyP,
     KeyQ,
+    KeyR,
+    KeyS,
+    KeyT,
+    KeyU,
+    KeyV,
+    KeyW,
+    KeyX,
+    KeyY,
+    KeyZ,
+    Backquote,
+    Backslash,
+    BracketLeft,
+    BracketRight,
+    Comma,
+    Digit0,
+    Digit1,
+    Digit2,
+    Digit3,
+    Digit4,
+    Digit5,
+    Digit6,
+    Digit7,
+    Digit8,
+    Digit9,
+    Equal,
+    IntlBackslash,
+    IntlRo,
+    IntlYen,
+    Minus,
+    Period,
+    Quote,
+    Semicolon,
+    Slash,
+    AltLeft,
+    AltRight,
+    Backspace,
+    CapsLock,
+    ContextMenu,
+    ControlLeft,
+    ControlRight,
+    Enter,
+    SuperLeft,
+    SuperRight,
+    ShiftLeft,
+    ShiftRight,
     Space,
-    Shift,
-    Ctrl,
+    Tab,
+    Convert,
+    KanaMode,
+    Lang1,
+    Lang2,
+    Lang3,
+    Lang4,
+    Lang5,
+    NonConvert,
+    Delete,
+    End,
+    Help,
+    Home,
+    Insert,
+    PageDown,
+    PageUp,
+    ArrowDown,
+    ArrowLeft,
+    ArrowRight,
+    ArrowUp,
+    NumLock,
+    Numpad0,
+    Numpad1,
+    Numpad2,
+    Numpad3,
+    Numpad4,
+    Numpad5,
+    Numpad6,
+    Numpad7,
+    Numpad8,
+    Numpad9,
+    NumpadAdd,
+    NumpadBackspace,
+    NumpadClear,
+    NumpadClearEntry,
+    NumpadComma,
+    NumpadDecimal,
+    NumpadDivide,
+    NumpadEnter,
+    NumpadEqual,
+    NumpadHash,
+    NumpadMemoryAdd,
+    NumpadMemoryClear,
+    NumpadMemoryRecall,
+    NumpadMemoryStore,
+    NumpadMemorySubtract,
+    NumpadMultiply,
+    NumpadParenLeft,
+    NumpadParenRight,
+    NumpadStar,
+    NumpadSubtract,
     Escape,
+    Fn,
+    FnLock,
+    PrintScreen,
+    ScrollLock,
+    Pause,
+    F1,
+    F2,
+    F3,
+    F4,
+    F5,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
+    F13,
+    F14,
+    F15,
+    F16,
+    F17,
+    F18,
+    F19,
+    F20,
+    F21,
+    F22,
+    F23,
+    F24,
+    F25,
+    F26,
+    F27,
+    F28,
+    F29,
+    F30,
+    F31,
+    F32,
+    F33,
+    F34,
+    F35,
+    BrowserBack,
+    BrowserFavorites,
+    BrowserForward,
+    BrowserHome,
+    BrowserRefresh,
+    BrowserSearch,
+    BrowserStop,
+    Eject,
+    LaunchApp1,
+    LaunchApp2,
+    LaunchMail,
+    MediaPlayPause,
+    MediaSelect,
+    MediaStop,
+    MediaTrackNext,
+    MediaTrackPrevious,
+    Power,
+    Sleep,
+    AudioVolumeDown,
+    AudioVolumeMute,
+    AudioVolumeUp,
+    WakeUp,
+    Again,
+    Copy,
+    Cut,
+    Find,
+    Open,
+    Paste,
+    Props,
+    Select,
+    Undo,
+    /// Compatibility aggregate. New bindings should prefer `shift_left` / `shift_right`.
+    Shift,
+    /// Compatibility aggregate. New bindings should prefer `control_left` / `control_right`.
+    Ctrl,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -570,4 +762,93 @@ pub enum WorldServiceResponse {
     CharacterPhysicsSweepAabb(SweepHit),
     CharacterPhysicsMoveAabbTerrain(KinematicMoveResult),
     Unsupported,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ClientKeyCode, ClientMouseButton, RuntimeClientControlRequest, WorldServiceRequest,
+    };
+
+    fn postcard_roundtrip<T>(value: &T) -> T
+    where
+        T: Clone + PartialEq + core::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned,
+    {
+        let bytes = postcard::to_allocvec(value).expect("postcard encode");
+        let decoded = postcard::from_bytes(&bytes).expect("postcard decode");
+        assert_eq!(decoded, *value);
+        decoded
+    }
+
+    #[test]
+    fn client_mouse_button_other_json_shape_stays_stable() {
+        let encoded =
+            serde_json::to_string(&ClientMouseButton::Other(8)).expect("serialize mouse button");
+
+        assert_eq!(encoded, "{\"other\":8}");
+        assert_eq!(
+            serde_json::from_str::<ClientMouseButton>(&encoded).expect("deserialize mouse button"),
+            ClientMouseButton::Other(8)
+        );
+    }
+
+    #[test]
+    fn representative_client_input_variants_roundtrip_through_json_and_postcard() {
+        let mouse_buttons = [
+            ClientMouseButton::Back,
+            ClientMouseButton::Forward,
+            ClientMouseButton::Other(8),
+        ];
+        for button in mouse_buttons {
+            let encoded = serde_json::to_string(&button).expect("serialize mouse button");
+            let decoded = serde_json::from_str::<ClientMouseButton>(&encoded)
+                .expect("deserialize mouse button");
+            assert_eq!(decoded, button);
+            postcard_roundtrip(&button);
+        }
+
+        let keys = [
+            ClientKeyCode::Digit1,
+            ClientKeyCode::KeyZ,
+            ClientKeyCode::Tab,
+            ClientKeyCode::AltLeft,
+            ClientKeyCode::ShiftRight,
+            ClientKeyCode::ControlRight,
+            ClientKeyCode::ArrowLeft,
+            ClientKeyCode::F12,
+            ClientKeyCode::Numpad1,
+        ];
+        for key in keys {
+            let encoded = serde_json::to_string(&key).expect("serialize key");
+            let decoded = serde_json::from_str::<ClientKeyCode>(&encoded).expect("deserialize key");
+            assert_eq!(decoded, key);
+            postcard_roundtrip(&key);
+        }
+    }
+
+    #[test]
+    fn runtime_client_control_requests_roundtrip_with_expanded_inputs() {
+        let requests = [
+            WorldServiceRequest::ClientControl(RuntimeClientControlRequest::BindKey {
+                key: ClientKeyCode::Digit1,
+                owner: "hotbar".to_string(),
+            }),
+            WorldServiceRequest::ClientControl(RuntimeClientControlRequest::KeyDown {
+                key: ClientKeyCode::ControlRight,
+                owner: "editor".to_string(),
+            }),
+            WorldServiceRequest::ClientControl(RuntimeClientControlRequest::BindMouseButton {
+                button: ClientMouseButton::Back,
+                owner: "nav".to_string(),
+            }),
+            WorldServiceRequest::ClientControl(RuntimeClientControlRequest::MouseButtonDown {
+                button: ClientMouseButton::Other(8),
+                owner: "mod".to_string(),
+            }),
+        ];
+
+        for request in requests {
+            postcard_roundtrip(&request);
+        }
+    }
 }
