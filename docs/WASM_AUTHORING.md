@@ -52,6 +52,16 @@ semantics:
   `WorldServiceRequest::{Query, ClientVisibility, Session, ClientControl, CharacterPhysics, Observability}`
 - player/world view queries and other world-facing runtime hooks
 
+## Client input contract
+
+Client-control providers use a physical input surface, not text input.
+
+- `ClientKeyCode` follows W3C `KeyboardEvent.code` / winit-style physical-key names where practical.
+- Use `Digit1`..`Digit9` for hotbars and number-row gameplay bindings.
+- Use `KeyA`..`KeyZ` for physical letter-key locations; legends may differ on AZERTY/QWERTZ/etc.
+- `Shift` and `Ctrl` remain compatibility aggregates for older code, but new bindings should prefer `ShiftLeft` / `ShiftRight` and `ControlLeft` / `ControlRight`.
+- `ClientMouseButton::{Back, Forward, Other(u16)}` supports extra mouse buttons beyond left/right/middle.
+
 ## Minimal neutral example
 
 ```rust
