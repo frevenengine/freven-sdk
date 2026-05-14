@@ -8,6 +8,7 @@
 //! - generic guest/runtime transport semantics live in `freven_guest`
 //! - volumetric topology/addressing live in `freven_volumetric_sdk_types`
 //! - standard block/profile vocabulary lives in `freven_block_sdk_types`
+//! - gameplay-state identity/value vocabulary lives in `freven_gameplay_state_sdk_types`
 //! - this crate defines the canonical runtime-loaded world guest contract that
 //!   consumes those lower-layer vocabularies
 //!
@@ -15,16 +16,19 @@
 //! - block/profile vocabulary is owned by `freven_block_sdk_types`
 //! - runtime-loaded block mutation/query/service contracts are owned by
 //!   `freven_block_guest`
-//! - this crate may still carry block-owned families inside the generic
-//!   world guest/runtime envelope
+//! - this crate may still carry block-owned and gameplay-state-owned families
+//!   inside the generic world guest/runtime envelope
 //! - that carrier role does not make `freven_world_guest` the owner of
-//!   block gameplay semantics
+//!   block gameplay or gameplay-state semantics
 
 extern crate alloc;
 
 use alloc::{string::String, vec::Vec};
 use freven_block_guest::{BlockMutationBatch, BlockServiceRequest, BlockServiceResponse};
 use freven_block_sdk_types::BlockDescriptor;
+use freven_gameplay_state_guest::{
+    GameplayStateMutationBatch, GameplayStateServiceRequest, GameplayStateServiceResponse,
+};
 use freven_guest::{
     CapabilityDeclaration, ChannelDeclaration, ComponentDeclaration, LifecycleHooks, LogPayload,
     MessageDeclaration, MessageHooks, RuntimeSessionInfo,
@@ -316,12 +320,13 @@ pub enum ActionOutcome {
 pub struct RuntimeOutput {
     pub messages: RuntimeMessageOutput,
     pub blocks: BlockMutationBatch,
+    pub gameplay_state: GameplayStateMutationBatch,
 }
 
 impl RuntimeOutput {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.messages.is_empty() && self.blocks.is_empty()
+        self.messages.is_empty() && self.blocks.is_empty() && self.gameplay_state.is_empty()
     }
 }
 
@@ -741,6 +746,7 @@ pub enum RuntimeObservabilityRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldServiceRequest {
     Block(BlockServiceRequest),
+    GameplayState(GameplayStateServiceRequest),
     Query(WorldQueryRequest),
     ClientVisibility(ClientVisibilityRequest),
     Session(WorldSessionRequest),
@@ -752,6 +758,7 @@ pub enum WorldServiceRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WorldServiceResponse {
     Block(BlockServiceResponse),
+    GameplayState(GameplayStateServiceResponse),
     Query(WorldQueryResponse),
     ClientVisibility(ClientVisibilityResponse),
     Session(WorldSessionResponse),
@@ -767,7 +774,16 @@ pub enum WorldServiceResponse {
 #[cfg(test)]
 mod tests {
     use super::{
-        ClientKeyCode, ClientMouseButton, RuntimeClientControlRequest, WorldServiceRequest,
+        ClientKeyCode, ClientMouseButton, RuntimeClientControlRequest, RuntimeOutput,
+        WorldServiceRequest,
+    };
+    use freven_gameplay_state_guest::{
+        GameplayStateMutation, GameplayStateMutationBatch, GameplayStateQueryRequest,
+        GameplayStateServiceRequest,
+    };
+    use freven_gameplay_state_sdk_types::{
+        GameplayStateCodec, GameplayStateKey, GameplayStateOwner, GameplayStatePolicy,
+        GameplayStateValue,
     };
 
     fn postcard_roundtrip<T>(value: &T) -> T
@@ -824,6 +840,47 @@ mod tests {
             assert_eq!(decoded, key);
             postcard_roundtrip(&key);
         }
+    }
+
+    #[test]
+    fn runtime_output_empty_tracks_gameplay_state_family() {
+        let key = GameplayStateKey::new(
+            GameplayStateOwner::Player { player_id: 1 },
+            "example.mod",
+            "loadout",
+        )
+        .expect("valid key");
+
+        let mut output = RuntimeOutput::default();
+        assert!(output.is_empty());
+
+        output.gameplay_state = GameplayStateMutationBatch {
+            mutations: vec![GameplayStateMutation::Set {
+                key,
+                value: GameplayStateValue::new(1, GameplayStateCodec::OpaqueBytes, [1, 2, 3])
+                    .expect("valid value"),
+                policy: GameplayStatePolicy::default(),
+            }],
+        };
+
+        assert!(!output.is_empty());
+        postcard_roundtrip(&output);
+    }
+
+    #[test]
+    fn gameplay_state_service_request_roundtrips_through_world_envelope() {
+        let key = GameplayStateKey::new(
+            GameplayStateOwner::Player { player_id: 7 },
+            "freven.vanilla",
+            "selected_slot",
+        )
+        .expect("valid key");
+
+        let request = WorldServiceRequest::GameplayState(GameplayStateServiceRequest::Query(
+            GameplayStateQueryRequest::Get { key },
+        ));
+
+        postcard_roundtrip(&request);
     }
 
     #[test]

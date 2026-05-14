@@ -1,0 +1,14 @@
+[package]
+name = "freven_gameplay_state_api"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Builtin gameplay-state authority traits for Freven."
+publish = false
+
+[dependencies]
+freven_gameplay_state_sdk_types.workspace = true
+freven_gameplay_state_guest.workspace = true
