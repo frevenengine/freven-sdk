@@ -141,9 +141,14 @@ Current hosting policy:
 - `mod_id`
 - `config`
 
-`config` is the resolved per-mod config document from `experience.config."<mod_id>"`.
-Contract v1 currently serializes that document as TOML text with an explicit
-`ModConfigFormat`.
+`config` is the final resolved per-mod config document for this mod. It is
+computed by the host from schema defaults plus active experience/stack authored
+overrides. Guests do not read `mod.toml`, `config.schema.toml`, experience files,
+or stack files directly.
+
+Contract v1 currently serializes the resolved document as TOML text with an
+explicit `ModConfigFormat`. See `MOD_CONFIG_v1.md` for the public authoring and
+resolution model.
 
 Runtime/config/experience metadata is carried where it is semantically stable:
 

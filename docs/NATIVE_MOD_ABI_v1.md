@@ -91,8 +91,10 @@ Returned bytes are postcard-encoded `freven_world_guest` contract types:
 - `freven_guest_on_server_messages` takes `ServerMessageInput` and returns `ServerMessageResult`
 - lifecycle exports take `StartInput` or `TickInput` and return `LifecycleResult`
 
-`StartInput` carries `experience_id`, `mod_id`, and the resolved per-mod config
-document (`ModConfigDocument`, currently TOML text).
+`StartInput` carries `experience_id`, `mod_id`, and the final resolved per-mod
+config document (`ModConfigDocument`, currently TOML text). The host computes it
+from schema defaults plus active experience/stack authored overrides; native
+guests must not treat `mod.toml [config]` as active runtime config.
 
 `ActionInput` carries `binding_id`, `player_id`, `level_id`, `stream_epoch`,
 `action_seq`, `at_input_seq`, and opaque payload bytes. Those fields inside the

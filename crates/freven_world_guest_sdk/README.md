@@ -225,8 +225,12 @@ Recommended strategy:
 - Block/content registration stays on `BlockDescriptor` and `BlockRuntimeId`;
   raw section encodings are not the authoring contract.
 - Guest start callbacks receive `StartInput { session, experience_id, mod_id, config }`.
-  `StartInputExt::config_typed::<T>()` decodes the canonical per-mod TOML
-  config document for the guest path.
+  `StartInputExt::config_typed::<T>()` decodes the canonical final resolved
+  per-mod TOML config document. Schema/defaults are declared through
+  `config_schema = "config.schema.toml"` in `mod.toml`; active values are
+  authored through `[config."<mod_id>"]` in an experience or
+  `[layers.config."<mod_id>"]` in a stack layer. `mod.toml [config]` is not
+  active runtime config.
 - `StartInput.session` is the canonical runtime-session identity for that guest
   instance on one hosted side. Stateful guests should key long-lived state off
   that session identity instead of ad hoc process statics.

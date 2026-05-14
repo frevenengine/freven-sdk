@@ -157,13 +157,9 @@ id = "example.hello"
 version = "^0.1"
 ```
 
-Runtime config belongs in the active experience:
-
-```toml
-[config."example.hello"]
-greeting = "hello"
-tick_every = 1
-```
+Runtime config belongs to the active experience or experience stack, not
+`mod.toml`. See [MOD_CONFIG_v1.md](MOD_CONFIG_v1.md) for the canonical schema,
+override, validation, and guest delivery model.
 
 ### Bundled product-owned mod inside an experience
 
@@ -188,10 +184,119 @@ path = "mods/example.standalone.shell.core/mod.toml"
 
 Notes:
 - `mod.toml` is the manifest / capability-request surface, not the active runtime config document.
-- Guest `StartInput.config` comes from `experience.config."<mod_id>"`.
+- `mod.toml [config]` is not a supported runtime config path.
+- `config_schema = "config.schema.toml"` declares schema/defaults for tooling and validation.
+- Active values come from `[config."<mod_id>"]` in an experience or `[layers.config."<mod_id>"]` in a stack layer.
+- Guest `StartInput.config` is the final resolved per-mod config after schema defaults and authored overrides.
 - Declare `[capabilities]` only when you need non-default limits or worldgen-specific budgets.
 - Use `surfaces = "server"` for server-only mods.
   Use `surfaces = "both"` only when the guest is meant to attach on both sides.
+
+## Runtime config
+
+The supported runtime config path is documented in
+[MOD_CONFIG_v1.md](MOD_CONFIG_v1.md).
+
+Minimal schema-backed mod layout:
+
+```text
+mods/example.hello/
+  mod.toml
+  config.schema.toml
+  mod.wasm
+```
+
+`mod.toml` references the schema file:
+
+```toml
+config_schema = "config.schema.toml"
+```
+
+`config.schema.toml` declares defaults and validation:
+
+```toml
+schema = 1
+
+[[settings]]
+key = "enabled"
+type = "bool"
+default = true
+scope = "server_world"
+reload = "runtime"
+authority = "server"
+
+[[settings]]
+key = "max_mutations_per_tick"
+type = "int"
+default = 128
+min = 1
+max = 4096
+scope = "server_world"
+reload = "world_restart"
+authority = "server"
+
+[[settings]]
+key = "gravity"
+type = "float"
+default = 9.8
+min = 0.0
+max = 20.0
+scope = "server_world"
+reload = "world_restart"
+authority = "server"
+
+[[settings]]
+key = "difficulty"
+type = "enum"
+default = "normal"
+allowed_values = ["easy", "normal", "hard"]
+scope = "server_world"
+reload = "world_restart"
+authority = "server"
+```
+
+An experience authors active values:
+
+```toml
+[config."example.hello"]
+enabled = true
+max_mutations_per_tick = 256
+gravity = 8.5
+difficulty = "hard"
+```
+
+A stack layer can override them:
+
+```toml
+[layers.config."example.hello"]
+difficulty = "normal"
+```
+
+Guests read only the resolved final config:
+
+```rust
+use serde::Deserialize;
+use freven_world_guest_sdk::{StartInput, StartInputExt};
+
+#[derive(Deserialize)]
+struct Config {
+    enabled: bool,
+    max_mutations_per_tick: u32,
+    gravity: f32,
+    difficulty: String,
+}
+
+fn start_server(input: &StartInput) {
+    let config: Config = input.config_typed().expect("valid resolved config");
+    let _ = config;
+}
+```
+
+For local verification, use:
+
+```bash
+freven_boot config explain --instance <instance> --experience <experience_id> --mod example.hello
+```
 
 ## Capability requests
 
