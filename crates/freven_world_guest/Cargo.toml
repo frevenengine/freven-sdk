@@ -12,6 +12,8 @@ freven_sdk_types.workspace = true
 freven_world_sdk_types.workspace = true
 freven_block_sdk_types.workspace = true
 freven_block_guest.workspace = true
+freven_gameplay_state_sdk_types.workspace = true
+freven_gameplay_state_guest.workspace = true
 serde.workspace = true
 freven_volumetric_api.workspace = true
 

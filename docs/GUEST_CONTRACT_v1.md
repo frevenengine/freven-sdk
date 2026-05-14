@@ -175,6 +175,7 @@ generic world runtime-service envelope:
 - `WorldServiceRequest::Observability(...)`
 - `RuntimeOutput.messages`
 - `RuntimeOutput.blocks`
+- `RuntimeOutput.gameplay_state`
 
 Ownership inside that model is explicit:
 
@@ -182,10 +183,12 @@ Ownership inside that model is explicit:
   envelopes
 - `freven_block_guest` owns block mutation/query/service payload shapes
 - `WorldServiceRequest::Block(...)` / `WorldServiceResponse::Block(...)` and
-  `RuntimeOutput.blocks` are carrier/composition points for those block-owned
+  `RuntimeOutput.blocks` are carrier/composition points for block-owned families
+- `WorldServiceRequest::GameplayState(...)` / `WorldServiceResponse::GameplayState(...)`
+  and `RuntimeOutput.gameplay_state` are carrier/composition points for gameplay-state-owned
   families
 - that carrier role does not make `freven_world_guest` the owner of block
-  gameplay semantics
+  gameplay or gameplay-state semantics
 
 Current query/session/visibility requests include:
 
@@ -252,6 +255,13 @@ Current block-mutation family carried by runtime output includes:
 - `RuntimeOutput.blocks`
 - `BlockMutationBatch.mutations`
 - `BlockMutation::SetBlock { pos, block_id, expected_old }`
+
+Current gameplay-state mutation family carried by runtime output includes:
+
+- `RuntimeOutput.gameplay_state`
+- `GameplayStateMutationBatch.mutations`
+- `GameplayStateMutation::Set { key, value, policy }`
+- `GameplayStateMutation::Delete { key }`
 
 Current worldgen output family uses:
 

@@ -134,8 +134,8 @@ Native guests can issue canonical runtime service requests through the installed
 
 - requests use `WorldServiceRequest`
 - responses use `WorldServiceResponse`
-- runtime output still flows separately through `RuntimeOutput.messages` and
-  `RuntimeOutput.blocks`
+- runtime output still flows separately through `RuntimeOutput.messages`,
+  `RuntimeOutput.blocks`, and `RuntimeOutput.gameplay_state`
 
 Ownership inside that model is explicit:
 
@@ -143,7 +143,9 @@ Ownership inside that model is explicit:
   envelopes
 - `freven_block_guest` owns block mutation/query/service payload shapes
 - `WorldServiceRequest::Block(...)` / `WorldServiceResponse::Block(...)` and
-  `RuntimeOutput.blocks` are carrier/composition points for those block-owned
+  `RuntimeOutput.blocks` are carrier/composition points for block-owned families
+- `WorldServiceRequest::GameplayState(...)` / `WorldServiceResponse::GameplayState(...)`
+  and `RuntimeOutput.gameplay_state` are carrier/composition points for gameplay-state-owned
   families
 
 The bridge is transport plumbing only. It must not redefine the semantic

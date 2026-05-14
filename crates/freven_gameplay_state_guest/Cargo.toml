@@ -1,0 +1,17 @@
+[package]
+name = "freven_gameplay_state_guest"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Runtime-loaded gameplay-state contract for Freven."
+publish = false
+
+[dependencies]
+freven_gameplay_state_sdk_types.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+postcard.workspace = true

@@ -174,11 +174,20 @@ Current block-mutation family carried by `RuntimeOutput`:
 - `BlockMutationBatch.mutations`
 - `BlockMutation::SetBlock { pos, block_id, expected_old }`
 
+Current gameplay-state mutation family carried by `RuntimeOutput`:
+
+- `RuntimeOutput.gameplay_state`
+- `GameplayStateMutationBatch.mutations`
+- `GameplayStateMutation::Set { key, value, policy }`
+- `GameplayStateMutation::Delete { key }`
+
 Ownership note:
 
 - `RuntimeOutput` is part of the generic `freven_world_guest` contract
 - the payload shape carried in `RuntimeOutput.blocks` is owned by
   `freven_block_guest`
+- the payload shape carried in `RuntimeOutput.gameplay_state` is owned by
+  `freven_gameplay_state_guest`
 - this transport mapping must preserve that ownership split rather than blur it
 
 Current worldgen output family:
