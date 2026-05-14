@@ -261,3 +261,14 @@ Example:
 The helper uses an automatic debug material id. The host resolves that automatic id to a stable per-block palette slot, so multiple custom blocks can have distinct colors without mod authors guessing raw renderer indices.
 
 Manual `BlockDescriptor::new(..., material_id)` remains available for low-level legacy/debug-palette use, but it is not the recommended authoring path.
+
+Material-key block visuals are now available as the forward-compatible authoring surface for the future Material Registry v1 path:
+
+    use freven_world_guest_sdk::BlockDescriptor;
+
+    let block = BlockDescriptor::solid_material_cube(
+        "example.mod:block/green",
+        0x2EA0_43FF,
+    );
+
+The namespaced key is the stable author-facing identity. The fallback color keeps the block visible in the current debug-palette renderer until the host resolves real material assets. Renderer palette/atlas ids remain host-internal implementation details.

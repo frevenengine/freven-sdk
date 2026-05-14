@@ -64,21 +64,101 @@ pub struct BlockVisibility {
     pub render_layer: RenderLayer,
 }
 
+/// Author-facing visual source for a standard block/profile entry.
+///
+/// `DebugColor` is the current simple/debug fallback path.
+///
+/// `MaterialKey` means the block was authored against a stable namespaced
+/// material key. The host still resolves that key to renderer-internal
+/// palette/atlas/texture-array slots during load; mod authors must not depend
+/// on raw renderer ids.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum BlockVisualKind {
+    #[default]
+    DebugColor,
+    MaterialKey,
+}
+
+/// Empty material-key hash used by pure debug-colored blocks.
+pub const NO_MATERIAL_KEY_HASH: u64 = 0;
+
+/// FNV-1a offset basis for stable material-key hashing.
+const MATERIAL_KEY_HASH_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
+
+/// FNV-1a prime for stable material-key hashing.
+const MATERIAL_KEY_HASH_PRIME: u64 = 0x0000_0100_0000_01B3;
+
+/// Compute the stable compact hash used to carry namespaced material-key identity.
+///
+/// The original namespaced key remains the authoring/debug/error-reporting
+/// surface. This hash is only a compact deterministic ABI/runtime identity and
+/// must not be treated as a renderer slot.
+#[must_use]
+pub const fn material_key_hash(key: &str) -> u64 {
+    let bytes = key.as_bytes();
+    let mut hash = MATERIAL_KEY_HASH_OFFSET_BASIS;
+    let mut i = 0usize;
+
+    while i < bytes.len() {
+        hash ^= bytes[i] as u64;
+        hash = hash.wrapping_mul(MATERIAL_KEY_HASH_PRIME);
+        i += 1;
+    }
+
+    hash
+}
+
+/// Returns true when `key` is a stable Freven namespaced material key.
+///
+/// The accepted MVP shape is `namespace:path`, where the namespace allows
+/// lowercase ASCII letters, digits, `_`, `-`, and `.`, and the path also allows
+/// `/` for folders. This intentionally mirrors resource-key style authoring
+/// instead of exposing renderer-local numeric ids.
+#[must_use]
+pub fn is_valid_material_key(key: &str) -> bool {
+    let Some((namespace, path)) = key.split_once(':') else {
+        return false;
+    };
+
+    !namespace.is_empty()
+        && !path.is_empty()
+        && namespace.bytes().all(is_valid_namespace_byte)
+        && path.bytes().all(is_valid_material_path_byte)
+}
+
+#[inline]
+fn is_valid_namespace_byte(b: u8) -> bool {
+    b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'_' | b'-' | b'.')
+}
+
+#[inline]
+fn is_valid_material_path_byte(b: u8) -> bool {
+    is_valid_namespace_byte(b) || b == b'/'
+}
+
 /// Client presentation metadata for a standard block/profile entry.
 ///
-/// `debug_tint_rgba` is authored as `0xRRGGBBAA`.
+/// `debug_tint_rgba` is authored as `0xRRGGBBAA` and remains the simple fallback
+/// color for debug-colored blocks and material-key blocks whose real material
+/// has not been resolved yet.
 ///
 /// `material_id` is the current low-level debug-palette slot. Normal mod
 /// authors should not guess this value manually; use the `BlockDescriptor`
-/// colored helpers, which set [`AUTO_DEBUG_MATERIAL_ID`] and let the host choose
-/// a stable per-block palette slot.
+/// colored/material helpers, which set [`AUTO_DEBUG_MATERIAL_ID`] and let the
+/// host choose stable internal slots.
 ///
-/// Long term, real texture/material asset registration should live above this
-/// legacy debug-palette field and resolve to renderer-internal slots.
+/// `material_key_hash` is a deterministic compact identity for a namespaced
+/// material key. It is not a renderer slot; the host must resolve the authored
+/// key through the material registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockMaterial {
     pub debug_tint_rgba: u32,
     pub material_id: u32,
+    #[serde(default)]
+    pub visual_kind: BlockVisualKind,
+    #[serde(default)]
+    pub material_key_hash: u64,
 }
 
 /// Canonical reusable standard block/profile descriptor.
@@ -110,6 +190,8 @@ impl BlockDescriptor {
             material: BlockMaterial {
                 debug_tint_rgba,
                 material_id,
+                visual_kind: BlockVisualKind::DebugColor,
+                material_key_hash: NO_MATERIAL_KEY_HASH,
             },
         }
     }
@@ -144,6 +226,77 @@ impl BlockDescriptor {
     #[must_use]
     pub const fn solid_colored_cube(debug_tint_rgba: u32) -> Self {
         Self::colored_cube(true, true, RenderLayer::Opaque, debug_tint_rgba)
+    }
+
+    /// Define a block that references a namespaced material key.
+    ///
+    /// The key is validated and hashed for compact ABI/runtime identity. The
+    /// host resolves the original key through Material Registry v1; until that
+    /// registry exists, `fallback_debug_tint_rgba` keeps the block visible in
+    /// the current debug-palette renderer.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `material_key` is not a valid `namespace:path` key.
+    #[must_use]
+    pub fn material_cube(
+        is_solid: bool,
+        is_opaque: bool,
+        render_layer: RenderLayer,
+        material_key: &str,
+        fallback_debug_tint_rgba: u32,
+    ) -> Self {
+        assert!(
+            is_valid_material_key(material_key),
+            "invalid Freven material key; expected namespace:path"
+        );
+        Self::material_cube_hashed(
+            is_solid,
+            is_opaque,
+            render_layer,
+            material_key_hash(material_key),
+            fallback_debug_tint_rgba,
+        )
+    }
+
+    /// Define a block that references an already-hashed material key.
+    ///
+    /// This is primarily useful for generated code and tests. Normal authoring
+    /// should use [`Self::material_cube`] or [`Self::solid_material_cube`] with
+    /// the readable namespaced key.
+    #[must_use]
+    pub const fn material_cube_hashed(
+        is_solid: bool,
+        is_opaque: bool,
+        render_layer: RenderLayer,
+        material_key_hash: u64,
+        fallback_debug_tint_rgba: u32,
+    ) -> Self {
+        Self {
+            collision: BlockCollision { is_solid },
+            visibility: BlockVisibility {
+                is_opaque,
+                render_layer,
+            },
+            material: BlockMaterial {
+                debug_tint_rgba: fallback_debug_tint_rgba,
+                material_id: AUTO_DEBUG_MATERIAL_ID,
+                visual_kind: BlockVisualKind::MaterialKey,
+                material_key_hash,
+            },
+        }
+    }
+
+    /// Define a normal opaque solid cube backed by a namespaced material key.
+    #[must_use]
+    pub fn solid_material_cube(material_key: &str, fallback_debug_tint_rgba: u32) -> Self {
+        Self::material_cube(
+            true,
+            true,
+            RenderLayer::Opaque,
+            material_key,
+            fallback_debug_tint_rgba,
+        )
     }
 
     /// Define a non-solid transparent debug-colored cube.
@@ -204,6 +357,21 @@ impl BlockDescriptor {
     pub const fn material_id(self) -> u32 {
         self.material.material_id
     }
+
+    #[must_use]
+    pub const fn visual_kind(self) -> BlockVisualKind {
+        self.material.visual_kind
+    }
+
+    #[must_use]
+    pub const fn uses_material_key(self) -> bool {
+        matches!(self.visual_kind(), BlockVisualKind::MaterialKey)
+    }
+
+    #[must_use]
+    pub const fn material_key_hash(self) -> u64 {
+        self.material.material_key_hash
+    }
 }
 
 #[cfg(test)]
@@ -229,5 +397,46 @@ mod tests {
 
         assert_eq!(def.material_id(), 7);
         assert!(!def.uses_auto_debug_material_id());
+        assert_eq!(def.visual_kind(), BlockVisualKind::DebugColor);
+        assert_eq!(def.material_key_hash(), NO_MATERIAL_KEY_HASH);
+    }
+
+    #[test]
+    fn solid_material_cube_uses_namespaced_key_hash_and_debug_fallback() {
+        let key = "freven.test:block/green";
+        let def = BlockDescriptor::solid_material_cube(key, 0x2EA0_43FF);
+
+        assert!(def.is_solid());
+        assert!(def.is_opaque());
+        assert_eq!(def.render_layer(), RenderLayer::Opaque);
+        assert_eq!(def.debug_tint_rgba(), 0x2EA0_43FF);
+        assert_eq!(def.material_id(), AUTO_DEBUG_MATERIAL_ID);
+        assert_eq!(def.visual_kind(), BlockVisualKind::MaterialKey);
+        assert!(def.uses_material_key());
+        assert_eq!(def.material_key_hash(), material_key_hash(key));
+    }
+
+    #[test]
+    fn material_key_validation_requires_namespace_and_path() {
+        assert!(is_valid_material_key("freven.test:block/green"));
+        assert!(is_valid_material_key("example-mod:block_01"));
+
+        assert!(!is_valid_material_key("missing_namespace"));
+        assert!(!is_valid_material_key(":missing_namespace"));
+        assert!(!is_valid_material_key("missing_path:"));
+        assert!(!is_valid_material_key("Upper:block"));
+        assert!(!is_valid_material_key("example:block space"));
+    }
+
+    #[test]
+    fn material_key_hash_is_stable() {
+        assert_eq!(
+            material_key_hash("freven.test:block/green"),
+            material_key_hash("freven.test:block/green")
+        );
+        assert_ne!(
+            material_key_hash("freven.test:block/green"),
+            material_key_hash("freven.test:block/brown")
+        );
     }
 }

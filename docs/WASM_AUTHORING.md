@@ -567,6 +567,19 @@ Current semantics:
 - The host resolves automatic debug material ids to stable per-runtime-block palette slots.
 - Low-level explicit `material_id` values are legacy/debug-palette slots in the current MVP renderer.
 - Explicit material ids are not the long-term texture/material asset model and should not be guessed by normal mod authors.
+
+- Material-key block visuals are the forward-compatible SDK bridge for real material registration:
+
+      use freven_world_guest_sdk::BlockDescriptor;
+
+      let leaves = BlockDescriptor::solid_material_cube(
+          "example.mod:block/leaves",
+          0x2EA0_43FF,
+      );
+
+- The namespaced material key is the stable author-facing identity.
+- `fallback_debug_tint_rgba` keeps the block visible in the current debug-palette renderer.
+- Host-side Material Registry v1 still owns real asset declaration/resolution.
 - The current debug palette has 256 slots because current block storage is still `u8`-backed.
 - Real namespaced texture/material asset registration is future work and should resolve to renderer-internal slots rather than exposing raw palette indices.
 
