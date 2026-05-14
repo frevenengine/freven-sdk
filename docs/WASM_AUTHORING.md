@@ -549,6 +549,35 @@ Builtin / compile-time execution is the same semantic system through a
 different execution path. Use `freven_mod_api` for neutral builtin authoring
 and `freven_world_api` for current world-stack builtin authoring.
 
+## Custom block visuals in the current debug-palette renderer
+
+For simple custom colored blocks, prefer the high-level `BlockDescriptor`
+helpers instead of manually guessing `material_id` values.
+
+Example:
+
+    use freven_world_guest_sdk::BlockDescriptor;
+
+    let leaves = BlockDescriptor::solid_colored_cube(0x2EA0_43FF);
+
+Current semantics:
+
+- `debug_tint_rgba` is authored as `0xRRGGBBAA`.
+- `BlockDescriptor::solid_colored_cube(...)` and related helpers use an automatic debug material id.
+- The host resolves automatic debug material ids to stable per-runtime-block palette slots.
+- Low-level explicit `material_id` values are legacy/debug-palette slots in the current MVP renderer.
+- Explicit material ids are not the long-term texture/material asset model and should not be guessed by normal mod authors.
+- The current debug palette has 256 slots because current block storage is still `u8`-backed.
+- Real namespaced texture/material asset registration is future work and should resolve to renderer-internal slots rather than exposing raw palette indices.
+
+`RenderLayer`, `is_opaque`, and `is_solid` are separate concerns:
+
+- `is_solid` controls collision/gameplay solidity.
+- `is_opaque` controls whether the block can occlude neighboring faces.
+- `RenderLayer::Opaque`, `Cutout`, and `Transparent` choose the client draw path.
+- Use opaque solid colored cubes for normal simple blocks.
+- Use transparent/cutout helpers only when the visual actually needs alpha.
+
 ## Reference docs
 
 - Canonical neutral guest contract: [NEUTRAL_GUEST_CONTRACT_v1.md](NEUTRAL_GUEST_CONTRACT_v1.md)
