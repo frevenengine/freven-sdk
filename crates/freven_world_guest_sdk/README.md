@@ -247,3 +247,17 @@ Recommended strategy:
   new `StartInput.session` arrives.
 - Wasm is the primary safe path. Native and external transports remain
   secondary transport integrations with separate operational tradeoffs.
+
+## Simple custom colored blocks
+
+For simple custom blocks, prefer the high-level colored helpers instead of manually choosing `material_id` values.
+
+Example:
+
+    use freven_world_guest_sdk::BlockDescriptor;
+
+    let block = BlockDescriptor::solid_colored_cube(0x3C7A_52FF);
+
+The helper uses an automatic debug material id. The host resolves that automatic id to a stable per-block palette slot, so multiple custom blocks can have distinct colors without mod authors guessing raw renderer indices.
+
+Manual `BlockDescriptor::new(..., material_id)` remains available for low-level legacy/debug-palette use, but it is not the recommended authoring path.
