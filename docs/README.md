@@ -11,6 +11,8 @@ Read them in this order:
   neutral runtime-loaded guest semantics
 - [GUEST_CONTRACT_v1.md](GUEST_CONTRACT_v1.md): canonical world-owned
   runtime-loaded guest semantics
+- [MOD_CONFIG_v1.md](MOD_CONFIG_v1.md): public mod config schema,
+  experience/stack authoring, resolution, and guest delivery semantics
 - [WORLDGEN_PROVIDER_CONCURRENCY_v1.md](WORLDGEN_PROVIDER_CONCURRENCY_v1.md):
   canonical worldgen provider concurrency contract; current mode is
   `serial_session`

@@ -85,8 +85,11 @@ through `freven_world_api`, but they do not use this IPC transport.
 
 ## Behavioral rules
 
-`StartInput` carries `session`, `experience_id`, `mod_id`, and the resolved
-per-mod config document (`ModConfigDocument`, currently TOML text).
+`StartInput` carries `session`, `experience_id`, `mod_id`, and the final
+resolved per-mod config document (`ModConfigDocument`, currently TOML text). The
+host computes it from schema defaults plus active experience/stack authored
+overrides; external guests must not treat `mod.toml [config]` as active runtime
+config.
 
 - Host enforces per-call timeout for handshake, negotiation, steady-state
   lifecycle calls, and action IPC.

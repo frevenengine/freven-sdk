@@ -122,6 +122,12 @@ Host behavior:
 - `format: ModConfigFormat` (`toml`)
 - `text: String`
 
+`ModConfigDocument` carries the final resolved per-mod config. The host
+computes it from schema defaults plus active experience/stack authored overrides.
+Wasm guests must treat `StartInput.config` as the only runtime config input.
+`mod.toml [config]` is not a supported active config path. See
+`MOD_CONFIG_v1.md` for authoring details.
+
 Lifecycle now uses the same canonical runtime-output model as actions and
 message callbacks through `LifecycleResult.output`.
 
