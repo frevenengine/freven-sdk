@@ -71,6 +71,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "freven_gameplay_state_api"
+version = "0.1.0"
+dependencies = [
+ "freven_gameplay_state_guest",
+ "freven_gameplay_state_sdk_types",
+]
+
+[[package]]
 name = "freven_gameplay_state_guest"
 version = "0.1.0"
 dependencies = [
@@ -150,6 +158,9 @@ dependencies = [
  "freven_block_api",
  "freven_block_guest",
  "freven_block_sdk_types",
+ "freven_gameplay_state_api",
+ "freven_gameplay_state_guest",
+ "freven_gameplay_state_sdk_types",
  "freven_guest",
  "freven_mod_api",
  "freven_sdk_types",
