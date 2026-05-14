@@ -1,4 +1,5 @@
 use freven_block_guest::BlockMutationBatch;
+use freven_gameplay_state_guest::GameplayStateMutationBatch;
 
 use crate::observability::HostLogRecord;
 
@@ -24,6 +25,19 @@ pub trait Services {
         } else {
             Err(RuntimeOutputApplyError::UnsupportedFamily {
                 family: "block_mutations",
+            })
+        }
+    }
+
+    fn apply_gameplay_state_mutations(
+        &mut self,
+        mutations: &GameplayStateMutationBatch,
+    ) -> Result<(), RuntimeOutputApplyError> {
+        if mutations.is_empty() {
+            Ok(())
+        } else {
+            Err(RuntimeOutputApplyError::UnsupportedFamily {
+                family: "gameplay_state_mutations",
             })
         }
     }

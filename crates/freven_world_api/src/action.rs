@@ -3,6 +3,8 @@ use freven_block_guest::{
     BlockQueryRequest, BlockQueryResponse, BlockServiceRequest, BlockServiceResponse,
 };
 use freven_block_sdk_types::BlockRuntimeId;
+use freven_gameplay_state_api::{GameplayStateAuthority, GameplayStateMutationResult};
+use freven_gameplay_state_sdk_types::{GameplayStateKey, GameplayStatePolicy, GameplayStateValue};
 use freven_mod_api::{LogLevel, emit_log};
 
 use crate::services::{Services, WorldServiceRequest, WorldServiceResponse};
@@ -41,6 +43,7 @@ pub struct ActionContext<'a> {
     pub block_world: Option<&'a dyn BlockWorldView>,
     pub block_authority: Option<&'a mut dyn BlockAuthority>,
     pub character_physics: Option<&'a dyn CharacterPhysicsQuery>,
+    pub gameplay_state: Option<&'a mut dyn GameplayStateAuthority>,
     pub services: Option<&'a mut dyn Services>,
     pub player_id: u64,
     pub at_input_seq: u32,
@@ -60,10 +63,70 @@ impl<'a> ActionContext<'a> {
             block_world,
             block_authority,
             character_physics,
+            gameplay_state: None,
             services,
             player_id,
             at_input_seq,
         }
+    }
+
+    #[must_use]
+    pub fn new_with_gameplay_state(
+        block_world: Option<&'a dyn BlockWorldView>,
+        block_authority: Option<&'a mut dyn BlockAuthority>,
+        character_physics: Option<&'a dyn CharacterPhysicsQuery>,
+        gameplay_state: Option<&'a mut dyn GameplayStateAuthority>,
+        services: Option<&'a mut dyn Services>,
+        player_id: u64,
+        at_input_seq: u32,
+    ) -> Self {
+        Self {
+            block_world,
+            block_authority,
+            character_physics,
+            gameplay_state,
+            services,
+            player_id,
+            at_input_seq,
+        }
+    }
+
+    #[must_use]
+    pub fn gameplay_state_value(&mut self, key: &GameplayStateKey) -> Option<GameplayStateValue> {
+        self.gameplay_state.as_deref_mut()?.gameplay_state(key)
+    }
+
+    #[must_use]
+    pub fn contains_gameplay_state(&mut self, key: &GameplayStateKey) -> Option<bool> {
+        Some(
+            self.gameplay_state
+                .as_deref_mut()?
+                .contains_gameplay_state(key),
+        )
+    }
+
+    pub fn set_gameplay_state(
+        &mut self,
+        key: GameplayStateKey,
+        value: GameplayStateValue,
+        policy: GameplayStatePolicy,
+    ) -> Option<GameplayStateMutationResult> {
+        Some(
+            self.gameplay_state
+                .as_deref_mut()?
+                .set_gameplay_state(key, value, policy),
+        )
+    }
+
+    pub fn delete_gameplay_state(
+        &mut self,
+        key: GameplayStateKey,
+    ) -> Option<GameplayStateMutationResult> {
+        Some(
+            self.gameplay_state
+                .as_deref_mut()?
+                .delete_gameplay_state(key),
+        )
     }
 
     /// Resolve a registered standard block/profile id by stable string key.

@@ -6,9 +6,7 @@
 //! - builtin/compile-time authority and view traits live here
 
 use freven_gameplay_state_guest::GameplayStateMutation;
-use freven_gameplay_state_sdk_types::{
-    GameplayStateKey, GameplayStatePolicy, GameplayStateValue,
-};
+use freven_gameplay_state_sdk_types::{GameplayStateKey, GameplayStatePolicy, GameplayStateValue};
 
 pub trait GameplayStateView {
     fn gameplay_state(&self, key: &GameplayStateKey) -> Option<GameplayStateValue>;

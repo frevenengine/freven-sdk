@@ -38,6 +38,7 @@ compile-time world authoring. It does not own them.
 - world-facing provider registration such as worldgen, character controller, and
   client-control provider families
 - action-handler contracts over `ActionContext`
+- gameplay-state authority/view composition for server-authoritative extensible gameplay state
 - generic world-facing runtime-service composition for builtin / compile-time
   integrations
 
@@ -48,6 +49,7 @@ Some world-facing flows still compose over block-owned families.
 Examples:
 
 - `ActionContext::block_id_by_key(...)`
+- `ActionContext::gameplay_state_value(...)` / `set_gameplay_state(...)` / `delete_gameplay_state(...)`
 - `WorldServiceRequest::Block(...)`
 - `WorldServiceResponse::Block(...)`
 - `apply_block_mutations(...)`
