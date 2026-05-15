@@ -102,3 +102,8 @@ assert!(ModSide::Both.matches(Side::Client));
 * ABI docs: `docs/WASM_ABI_v1.md`, `docs/NATIVE_MOD_ABI_v1.md`,
   `docs/EXTERNAL_MOD_IPC_v1.md`
 * Safety note: `docs/UNSAFE_NATIVE_MODS.md`
+
+Runtime block mutation output may use scalar `BlockMutation::SetBlock` for
+single-cell actions, `BlockMutation::SetBlocks` for compact cell-edit batches,
+or half-open `BlockMutation::FillBox` for region-style edits. Hosts own budget
+validation, deterministic application, and replication/coalescing policy.

@@ -8,8 +8,9 @@ use core::ffi::c_void;
 use std::thread::LocalKey;
 
 pub use freven_block_guest::{
-    BlockClientQueryRequest, BlockClientQueryResponse, BlockMutation, BlockMutationBatch,
-    BlockQueryRequest, BlockQueryResponse, BlockServiceRequest, BlockServiceResponse,
+    BlockClientQueryRequest, BlockClientQueryResponse, BlockEdit, BlockMutation,
+    BlockMutationBatch, BlockQueryRequest, BlockQueryResponse, BlockReplacePolicy,
+    BlockServiceRequest, BlockServiceResponse,
 };
 pub use freven_block_sdk_types::{
     BlockCollision, BlockDescriptor, BlockMaterial, BlockRuntimeId, BlockVisibility, RenderLayer,
@@ -1762,6 +1763,27 @@ impl AppliedActionResponse {
     }
 
     #[must_use]
+    pub fn set_blocks(self, edits: Vec<BlockEdit>) -> Self {
+        self.push_block_mutation(BlockMutation::SetBlocks { edits })
+    }
+
+    #[must_use]
+    pub fn fill_box(
+        self,
+        min: (i32, i32, i32),
+        max: (i32, i32, i32),
+        block_id: BlockRuntimeId,
+        replace: BlockReplacePolicy,
+    ) -> Self {
+        self.push_block_mutation(BlockMutation::FillBox {
+            min,
+            max,
+            block_id,
+            replace,
+        })
+    }
+
+    #[must_use]
     pub fn send_client(mut self, message: ClientOutboundMessage) -> Self {
         self.output.messages.client.push(message);
         self
@@ -1859,6 +1881,32 @@ impl ClientMessageResponse {
     }
 
     #[must_use]
+    pub fn set_blocks(mut self, edits: Vec<BlockEdit>) -> Self {
+        self.output
+            .blocks
+            .mutations
+            .push(BlockMutation::SetBlocks { edits });
+        self
+    }
+
+    #[must_use]
+    pub fn fill_box(
+        mut self,
+        min: (i32, i32, i32),
+        max: (i32, i32, i32),
+        block_id: BlockRuntimeId,
+        replace: BlockReplacePolicy,
+    ) -> Self {
+        self.output.blocks.mutations.push(BlockMutation::FillBox {
+            min,
+            max,
+            block_id,
+            replace,
+        });
+        self
+    }
+
+    #[must_use]
     pub fn finish(self) -> ClientMessageResult {
         ClientMessageResult {
             output: self.output,
@@ -1921,6 +1969,32 @@ impl ServerMessageResponse {
     }
 
     #[must_use]
+    pub fn set_blocks(mut self, edits: Vec<BlockEdit>) -> Self {
+        self.output
+            .blocks
+            .mutations
+            .push(BlockMutation::SetBlocks { edits });
+        self
+    }
+
+    #[must_use]
+    pub fn fill_box(
+        mut self,
+        min: (i32, i32, i32),
+        max: (i32, i32, i32),
+        block_id: BlockRuntimeId,
+        replace: BlockReplacePolicy,
+    ) -> Self {
+        self.output.blocks.mutations.push(BlockMutation::FillBox {
+            min,
+            max,
+            block_id,
+            replace,
+        });
+        self
+    }
+
+    #[must_use]
     pub fn finish(self) -> ServerMessageResult {
         ServerMessageResult {
             output: self.output,
@@ -1952,6 +2026,32 @@ impl LifecycleResponse {
             pos,
             block_id,
             expected_old: None,
+        });
+        self
+    }
+
+    #[must_use]
+    pub fn set_blocks(mut self, edits: Vec<BlockEdit>) -> Self {
+        self.output
+            .blocks
+            .mutations
+            .push(BlockMutation::SetBlocks { edits });
+        self
+    }
+
+    #[must_use]
+    pub fn fill_box(
+        mut self,
+        min: (i32, i32, i32),
+        max: (i32, i32, i32),
+        block_id: BlockRuntimeId,
+        replace: BlockReplacePolicy,
+    ) -> Self {
+        self.output.blocks.mutations.push(BlockMutation::FillBox {
+            min,
+            max,
+            block_id,
+            replace,
         });
         self
     }
