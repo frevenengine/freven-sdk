@@ -69,6 +69,14 @@ pub struct WorldGenInit {
     /// The ids are block-layer vocabulary imported from
     /// `freven_block_sdk_types`.
     pub block_ids: BTreeMap<String, BlockRuntimeId>,
+    /// Resolved semantic block tag membership for worldgen convenience.
+    ///
+    /// Keys are namespaced block tag keys such as `freven:stones`. Values are
+    /// runtime block ids resolved by the host for the active world/session.
+    ///
+    /// The host owns the canonical tag registry. Worldgen providers should treat
+    /// this as a read-only resolved view, not as an authoring surface.
+    pub block_tags: BTreeMap<String, Vec<BlockRuntimeId>>,
 }
 
 impl WorldGenInit {
@@ -78,12 +86,24 @@ impl WorldGenInit {
             seed,
             world_id: None,
             block_ids: BTreeMap::new(),
+            block_tags: BTreeMap::new(),
         }
     }
 
     #[must_use]
     pub fn block_id_by_key(&self, key: &str) -> Option<BlockRuntimeId> {
         self.block_ids.get(key).copied()
+    }
+
+    #[must_use]
+    pub fn blocks_with_tag(&self, tag_key: &str) -> Option<&[BlockRuntimeId]> {
+        self.block_tags.get(tag_key).map(Vec::as_slice)
+    }
+
+    #[must_use]
+    pub fn block_has_tag(&self, block_id: BlockRuntimeId, tag_key: &str) -> bool {
+        self.blocks_with_tag(tag_key)
+            .is_some_and(|blocks| blocks.contains(&block_id))
     }
 }
 
@@ -244,5 +264,23 @@ mod tests {
 
         assert!(output.bootstrap.initial_world_spawn_hint.is_none());
         assert!(output.writes.is_empty());
+    }
+
+    #[test]
+    fn worldgen_init_exposes_resolved_block_tags() {
+        let mut init = crate::WorldGenInit::new(42);
+        let stone = BlockRuntimeId(1);
+        let dirt = BlockRuntimeId(2);
+
+        init.block_ids
+            .insert("freven.vanilla:stone".to_string(), stone);
+        init.block_tags
+            .insert("freven:terrain_solids".to_string(), vec![stone, dirt]);
+
+        assert_eq!(init.block_id_by_key("freven.vanilla:stone"), Some(stone));
+        assert!(init.block_has_tag(stone, "freven:terrain_solids"));
+        assert!(init.block_has_tag(dirt, "freven:terrain_solids"));
+        assert!(!init.block_has_tag(BlockRuntimeId(9), "freven:terrain_solids"));
+        assert_eq!(init.blocks_with_tag("missing"), None);
     }
 }
