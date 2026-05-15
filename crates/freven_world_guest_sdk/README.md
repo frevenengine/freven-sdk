@@ -248,6 +248,32 @@ Recommended strategy:
 - Wasm is the primary safe path. Native and external transports remain
   secondary transport integrations with separate operational tradeoffs.
 
+## Semantic block tag queries
+
+Semantic block tags are the cross-mod compatibility layer for asking about
+content by meaning instead of hardcoding exact block keys. Tags use namespaced
+keys such as `freven:stones` or `modid:gas_permeable`.
+
+The SDK owns the transport-neutral query contract:
+
+    let services = freven_world_guest_sdk::RuntimeServices;
+    if let Some(stone) = services.block_id_by_key("freven.vanilla:stone") {
+        match services.block_has_tag(stone, "freven:stones") {
+            freven_world_guest_sdk::RuntimeQuerySupport::Supported(true) => {
+                // stone is currently resolved as a member of freven:stones
+            }
+            freven_world_guest_sdk::RuntimeQuerySupport::Supported(false) => {
+                // the tag registry exists, but this block is not a member
+            }
+            freven_world_guest_sdk::RuntimeQuerySupport::Unsupported => {
+                // the active host/runtime does not expose block tag queries yet
+            }
+        }
+    }
+
+The host/runtime owns the resolved tag registry. Tags are not renderer ids,
+runtime block ids, or hardcoded engine gameplay concepts.
+
 ## Simple custom colored blocks
 
 For simple custom blocks, prefer the high-level colored helpers instead of manually choosing `material_id` values.

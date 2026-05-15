@@ -89,13 +89,12 @@ const MATERIAL_KEY_HASH_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
 /// FNV-1a prime for stable material-key hashing.
 const MATERIAL_KEY_HASH_PRIME: u64 = 0x0000_0100_0000_01B3;
 
-/// Compute the stable compact hash used to carry namespaced material-key identity.
+/// Compute the stable compact hash used to carry namespaced resource-key identity.
 ///
-/// The original namespaced key remains the authoring/debug/error-reporting
-/// surface. This hash is only a compact deterministic ABI/runtime identity and
-/// must not be treated as a renderer slot.
+/// This is shared by material keys, block tag keys, and other compact
+/// `namespace:path` identities that need deterministic ABI/runtime fingerprints.
 #[must_use]
-pub const fn material_key_hash(key: &str) -> u64 {
+pub const fn namespaced_key_hash(key: &str) -> u64 {
     let bytes = key.as_bytes();
     let mut hash = MATERIAL_KEY_HASH_OFFSET_BASIS;
     let mut i = 0usize;
@@ -109,6 +108,43 @@ pub const fn material_key_hash(key: &str) -> u64 {
     hash
 }
 
+/// Compute the stable compact hash used to carry namespaced material-key identity.
+///
+/// The original namespaced key remains the authoring/debug/error-reporting
+/// surface. This hash is only a compact deterministic ABI/runtime identity and
+/// must not be treated as a renderer slot.
+#[must_use]
+pub const fn material_key_hash(key: &str) -> u64 {
+    namespaced_key_hash(key)
+}
+
+/// Compute the stable compact hash used to carry namespaced block-tag identity.
+///
+/// The readable tag key remains the public authoring/debug surface. This hash is
+/// only a compact deterministic ABI/runtime identity and must not be treated as
+/// a runtime block id, renderer slot, or gameplay-specific meaning.
+#[must_use]
+pub const fn block_tag_key_hash(key: &str) -> u64 {
+    namespaced_key_hash(key)
+}
+
+/// Returns true when `key` is a stable Freven namespaced resource key.
+///
+/// The accepted MVP shape is `namespace:path`, where the namespace allows
+/// lowercase ASCII letters, digits, `_`, `-`, and `.`, and the path also allows
+/// `/` for folders.
+#[must_use]
+pub fn is_valid_namespaced_key(key: &str) -> bool {
+    let Some((namespace, path)) = key.split_once(':') else {
+        return false;
+    };
+
+    !namespace.is_empty()
+        && !path.is_empty()
+        && namespace.bytes().all(is_valid_namespace_byte)
+        && path.bytes().all(is_valid_resource_path_byte)
+}
+
 /// Returns true when `key` is a stable Freven namespaced material key.
 ///
 /// The accepted MVP shape is `namespace:path`, where the namespace allows
@@ -117,14 +153,17 @@ pub const fn material_key_hash(key: &str) -> u64 {
 /// instead of exposing renderer-local numeric ids.
 #[must_use]
 pub fn is_valid_material_key(key: &str) -> bool {
-    let Some((namespace, path)) = key.split_once(':') else {
-        return false;
-    };
+    is_valid_namespaced_key(key)
+}
 
-    !namespace.is_empty()
-        && !path.is_empty()
-        && namespace.bytes().all(is_valid_namespace_byte)
-        && path.bytes().all(is_valid_material_path_byte)
+/// Returns true when `key` is a stable Freven namespaced block tag key.
+///
+/// Block tags are semantic content groupings such as `freven:stones` or
+/// `modid:gas_permeable`. They are not block runtime ids, renderer ids, or
+/// hardcoded engine gameplay concepts.
+#[must_use]
+pub fn is_valid_block_tag_key(key: &str) -> bool {
+    is_valid_namespaced_key(key)
 }
 
 #[inline]
@@ -133,7 +172,7 @@ fn is_valid_namespace_byte(b: u8) -> bool {
 }
 
 #[inline]
-fn is_valid_material_path_byte(b: u8) -> bool {
+fn is_valid_resource_path_byte(b: u8) -> bool {
     is_valid_namespace_byte(b) || b == b'/'
 }
 
@@ -438,5 +477,24 @@ mod tests {
             material_key_hash("freven.test:block/green"),
             material_key_hash("freven.test:block/brown")
         );
+    }
+    #[test]
+    fn block_tag_key_validation_uses_namespaced_resource_shape() {
+        assert!(is_valid_block_tag_key("freven:stones"));
+        assert!(is_valid_block_tag_key("freven:terrain/solids"));
+        assert!(is_valid_block_tag_key("example.mod:gas_permeable"));
+        assert!(!is_valid_block_tag_key("missing_namespace"));
+        assert!(!is_valid_block_tag_key(":missing_namespace"));
+        assert!(!is_valid_block_tag_key("freven:"));
+        assert!(!is_valid_block_tag_key("Freven:stones"));
+        assert!(!is_valid_block_tag_key("freven:bad tag"));
+    }
+
+    #[test]
+    fn block_tag_key_hash_is_stable_and_shared_with_namespaced_hash() {
+        let key = "freven:stones";
+        assert_eq!(block_tag_key_hash(key), namespaced_key_hash(key));
+        assert_eq!(block_tag_key_hash(key), block_tag_key_hash(key));
+        assert_ne!(block_tag_key_hash(key), block_tag_key_hash("freven:soils"));
     }
 }

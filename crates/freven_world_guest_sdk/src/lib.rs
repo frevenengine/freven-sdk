@@ -13,6 +13,7 @@ pub use freven_block_guest::{
 };
 pub use freven_block_sdk_types::{
     BlockCollision, BlockDescriptor, BlockMaterial, BlockRuntimeId, BlockVisibility, RenderLayer,
+    block_tag_key_hash, is_valid_block_tag_key,
 };
 use freven_guest::{
     CapabilityDeclaration, ChannelConfig, ChannelDeclaration, ComponentCodec, ComponentDeclaration,
@@ -1378,6 +1379,55 @@ impl RuntimeServices {
                 BlockQueryResponse::BlockIdByKey(value),
             )) => value,
             _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn block_has_tag(
+        self,
+        block_id: BlockRuntimeId,
+        tag_key: &str,
+    ) -> RuntimeQuerySupport<bool> {
+        match runtime_service_call(WorldServiceRequest::Block(BlockServiceRequest::Query(
+            BlockQueryRequest::BlockHasTag {
+                block_id,
+                tag_key: tag_key.to_string(),
+            },
+        ))) {
+            WorldServiceResponse::Block(BlockServiceResponse::Query(
+                BlockQueryResponse::BlockHasTag(value),
+            )) => RuntimeQuerySupport::Supported(value),
+            WorldServiceResponse::Unsupported => RuntimeQuerySupport::Unsupported,
+            other => {
+                debug_assert!(
+                    false,
+                    "unexpected response for BlockHasTag query: {:?}",
+                    other
+                );
+                RuntimeQuerySupport::Unsupported
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn blocks_with_tag(self, tag_key: &str) -> RuntimeQuerySupport<Vec<BlockRuntimeId>> {
+        match runtime_service_call(WorldServiceRequest::Block(BlockServiceRequest::Query(
+            BlockQueryRequest::BlocksWithTag {
+                tag_key: tag_key.to_string(),
+            },
+        ))) {
+            WorldServiceResponse::Block(BlockServiceResponse::Query(
+                BlockQueryResponse::BlocksWithTag(value),
+            )) => RuntimeQuerySupport::Supported(value),
+            WorldServiceResponse::Unsupported => RuntimeQuerySupport::Unsupported,
+            other => {
+                debug_assert!(
+                    false,
+                    "unexpected response for BlocksWithTag query: {:?}",
+                    other
+                );
+                RuntimeQuerySupport::Unsupported
+            }
         }
     }
 
