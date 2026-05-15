@@ -1,0 +1,15 @@
+schema = 3
+id = "example.first_wasm"
+version = "0.1.0"
+artifact = "wasm_module"
+execution = "wasm_guest"
+trust = "sandboxed"
+policy = "safe_guest"
+surfaces = "server"
+entry = "mod.wasm"
+
+[capabilities]
+worldgen_max_linear_memory_bytes = 67108864
+worldgen_max_call_millis = 100
+worldgen_max_result_bytes = 1048576
+allow_unstable = false

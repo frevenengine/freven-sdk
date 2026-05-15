@@ -98,6 +98,9 @@ do **not** live in the neutral SDK roots.
 
 Start with [docs/WASM_AUTHORING.md](docs/WASM_AUTHORING.md).
 
+For a copyable, buildable first project, see
+[`examples/first_wasm_mod`](examples/first_wasm_mod/).
+
 Recommended path:
 
 - use **`freven_guest_sdk`** for neutral runtime-loaded Wasm guests
