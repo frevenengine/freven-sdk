@@ -25,6 +25,27 @@ impl BlockMutationBatch {
     }
 }
 
+/// A single cell edit carried by a bulk block mutation.
+///
+/// `expected_old` keeps the same compare-and-set meaning as scalar `SetBlock`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BlockEdit {
+    pub pos: (i32, i32, i32),
+    pub block_id: BlockRuntimeId,
+    pub expected_old: Option<BlockRuntimeId>,
+}
+
+/// Replacement policy for region-style block mutations.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum BlockReplacePolicy {
+    /// Replace any currently loaded block.
+    Any,
+    /// Replace only air blocks.
+    OnlyAir,
+    /// Replace only blocks matching the expected runtime id.
+    Matching(BlockRuntimeId),
+}
+
 /// Runtime output block mutations.
 ///
 /// This is standard block gameplay/runtime vocabulary, not generic world truth.
@@ -34,6 +55,23 @@ pub enum BlockMutation {
         pos: (i32, i32, i32),
         block_id: BlockRuntimeId,
         expected_old: Option<BlockRuntimeId>,
+    },
+    /// Apply a compact list of independent cell edits.
+    ///
+    /// Hosts may normalize, de-duplicate, budget, and group these edits by
+    /// chunk/section before applying them, but the semantic payload remains a
+    /// deterministic list of compare-and-set cell edits.
+    SetBlocks { edits: Vec<BlockEdit> },
+    /// Fill a half-open world-cell box: `[min, max)`.
+    ///
+    /// This intentionally matches the half-open bounds used by
+    /// `WorldTerrainWrite::FillBox` so runtime mutations and worldgen writes use
+    /// the same spatial convention.
+    FillBox {
+        min: (i32, i32, i32),
+        max: (i32, i32, i32),
+        block_id: BlockRuntimeId,
+        replace: BlockReplacePolicy,
     },
 }
 
@@ -107,6 +145,41 @@ pub enum BlockServiceResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bulk_block_mutations_are_transport_neutral_contract_shapes() {
+        let block_id = BlockRuntimeId(7);
+        let edit = BlockEdit {
+            pos: (1, 2, 3),
+            block_id,
+            expected_old: Some(BlockRuntimeId(2)),
+        };
+
+        assert_eq!(
+            BlockMutation::SetBlocks {
+                edits: vec![edit.clone()]
+            },
+            BlockMutation::SetBlocks { edits: vec![edit] }
+        );
+        assert_eq!(
+            BlockMutation::FillBox {
+                min: (0, 0, 0),
+                max: (16, 16, 16),
+                block_id,
+                replace: BlockReplacePolicy::OnlyAir,
+            },
+            BlockMutation::FillBox {
+                min: (0, 0, 0),
+                max: (16, 16, 16),
+                block_id,
+                replace: BlockReplacePolicy::OnlyAir,
+            }
+        );
+        assert_eq!(
+            BlockReplacePolicy::Matching(block_id),
+            BlockReplacePolicy::Matching(block_id)
+        );
+    }
 
     #[test]
     fn block_tag_queries_are_transport_neutral_contract_shapes() {

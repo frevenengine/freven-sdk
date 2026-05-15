@@ -255,6 +255,14 @@ Current block-mutation family carried by runtime output includes:
 - `RuntimeOutput.blocks`
 - `BlockMutationBatch.mutations`
 - `BlockMutation::SetBlock { pos, block_id, expected_old }`
+- `BlockMutation::SetBlocks { edits }`
+- `BlockMutation::FillBox { min, max, block_id, replace }`
+
+`BlockMutation::FillBox` uses half-open absolute world-cell bounds:
+
+```text
+[min.x, max.x) x [min.y, max.y) x [min.z, max.z)
+```
 
 Current gameplay-state mutation family carried by runtime output includes:
 
