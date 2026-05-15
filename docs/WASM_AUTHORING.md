@@ -68,6 +68,13 @@ Client-control providers use a physical input surface, not text input.
 freven_guest_sdk::log_info!("hello from a neutral guest");
 ```
 
+## First project example
+
+For a complete buildable project, use
+[`examples/first_wasm_mod`](../examples/first_wasm_mod/). It includes a
+current `schema = 3` `mod.toml`, a custom block registration, server lifecycle
+logging, a worldgen provider, and a bootstrap spawn hint.
+
 ## Minimal world authoring example
 
 ```rust
