@@ -18,6 +18,8 @@ It builds on:
   mipmap, alpha, color-space, and validation policy;
 - [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md):
   generated texture backend planning and internal atlas/array boundaries;
+- [BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md): block visual
+  bindings from gameplay block keys to model/material/tint/render policy;
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): visual asset
   layer ordering and override policy;
 - [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): semantic add, replace,
@@ -176,7 +178,8 @@ min = 1
 max = 3
 ```
 
-The authoring compiler expands this into semantic content such as:
+The authoring compiler expands this into semantic content such as, following
+[BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md):
 
 - `add block:example.gems:blocks/ruby_ore`;
 - `add material:example.gems:materials/block/ruby_ore` if the friendly block owns

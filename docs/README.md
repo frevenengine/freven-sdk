@@ -21,6 +21,9 @@ Read them in this order:
 - [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md):
   generated atlas/texture-array/backend planning, deterministic ordering,
   fingerprints, cache invalidation, and internal-slot boundaries
+- [BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md):
+  data-driven block visual bindings, cube/per-face/model material references,
+  render-layer/tint hooks, and collision/selection separation
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): deterministic
   visual asset layering, override policy, conflict diagnostics, and
   server/client cosmetic rules
