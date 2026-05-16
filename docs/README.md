@@ -16,6 +16,8 @@ Read them in this order:
   renderer-backend boundaries
 - [MATERIAL_DEFINITIONS_v1.md](MATERIAL_DEFINITIONS_v1.md): data-driven
   material definitions with PBR-ready fields and renderer-internal boundaries
+- [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md): texture size,
+  format, sampling, mipmap, alpha, color-space, and validation policy
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): deterministic
   visual asset layering, override policy, conflict diagnostics, and
   server/client cosmetic rules
