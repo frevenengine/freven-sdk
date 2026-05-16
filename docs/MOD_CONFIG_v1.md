@@ -2,6 +2,10 @@
 
 This document defines the public Freven mod configuration authoring path.
 
+For the broader manifest / config schema / active config / content data /
+assets / generated cache / save-state boundary model, see
+[PACKAGE_BOUNDARIES.md](PACKAGE_BOUNDARIES.md).
+
 The core rule is simple:
 
 - `mod.toml` is manifest, execution, trust, surface, entrypoint, capability, and
