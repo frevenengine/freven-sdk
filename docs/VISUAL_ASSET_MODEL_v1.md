@@ -37,6 +37,8 @@ This document does not define:
   [BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md);
 - the model asset format, defined by
   [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md);
+- the content variant/family expansion schema, defined by
+  [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md);
 - the texture atlas or texture-array packing algorithm, defined by [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md);
 - the layered asset override algorithm;
 - the content patch/merge algorithm defined by [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md);

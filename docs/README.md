@@ -27,6 +27,9 @@ Read them in this order:
 - [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md): model asset
   declarations for cube, per-face cube, cuboid parts, material slots,
   transforms, UVs, and future item/entity/imported model paths
+- [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md):
+  deterministic content family expansion for variant axes, generated keys,
+  allow/skip lists, overrides, and generated block/material/model/visual entries
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): deterministic
   visual asset layering, override policy, conflict diagnostics, and
   server/client cosmetic rules

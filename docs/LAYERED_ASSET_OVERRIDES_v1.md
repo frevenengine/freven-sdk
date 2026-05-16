@@ -337,6 +337,8 @@ This document does not define:
 - texture atlas or texture-array packing;
 - model format, defined by
   [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md);
+- content variant/family expansion schema, defined by
+  [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md);
 - shader/effect ABI;
 - structured content patch/merge semantics defined by [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md);
 - save/world migration format;

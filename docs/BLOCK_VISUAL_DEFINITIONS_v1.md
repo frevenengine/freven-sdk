@@ -90,7 +90,8 @@ This document does not define:
 
 - the model asset format, defined by
   [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md);
-- the final content family/variant expansion schema;
+- the content variant/family expansion schema, defined by
+  [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md);
 - the final engine meshing implementation;
 - arbitrary glTF/static mesh/entity animation support;
 - final lighting, tint/color-map, or shader extension implementation;
@@ -446,7 +447,8 @@ Rules:
 - diagnostics should show generated block, material, model, and visual keys;
 - runtime block ids remain internal;
 - variant axes, skip/allow lists, per-variant overrides, and generated-key policy
-  are defined by content variant/family expansion work.
+  are defined by
+  [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md).
 
 ## Composition and patching
 
@@ -588,6 +590,8 @@ If there is disagreement, the model format owns geometry and material-slot
 declaration, while this document owns block-to-visual binding.
 
 ## Relationship to variants/families
+
+See [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md).
 
 This document reserves variant hooks and shows how variant-specific visual fields
 can be represented.

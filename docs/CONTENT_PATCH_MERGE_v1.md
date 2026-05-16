@@ -64,6 +64,9 @@ model:freven.vanilla:models/block/cube_all
 visual:freven.vanilla:visuals/block/stone
 tag:freven.vanilla:tags/stone
 family:freven.vanilla:families/planks
+
+Family expansion details are defined by
+[CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md).
 ```
 
 The exact file layout and schema syntax are follow-up documents. The semantic
