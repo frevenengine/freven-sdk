@@ -199,7 +199,7 @@ This document does not define the full schemas for:
 - manifest vs config vs content data vs assets vs save state;
 - detailed material/model/texture/shader schemas beyond the shared visual asset
   model;
-- layered asset override rules;
+- layered asset override implementation details beyond the v1 policy model;
 - data-driven content patch and merge semantics;
 - beginner-friendly data authoring formats;
 - future scripting-language bindings.

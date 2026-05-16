@@ -273,7 +273,8 @@ High-level rules:
 - save/world state is migrated, not overridden like a content file;
 - generated cache is invalidated/rebuilt, not patched as source.
 
-Detailed layered asset override rules belong in the asset override document.
+Detailed layered asset override rules are defined in
+[LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md).
 Detailed content add/patch/replace/disable semantics belong in the content
 patch/merge document.
 
@@ -385,7 +386,7 @@ This document does not define:
 
 - detailed texture/material/model/shader schemas beyond the shared visual asset
   model;
-- the asset override algorithm;
+- the asset override algorithm beyond the v1 policy model;
 - the content patch/merge algorithm;
 - final content-pack manifest schema;
 - final generated cache directory names;
