@@ -96,7 +96,8 @@ This document does not define:
 - final entity renderer;
 - final item renderer;
 - final collision or selection schema;
-- final variant/family expansion schema;
+- content variant/family expansion schema, defined by
+  [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md);
 - Vanilla's actual model library.
 
 Those are separate rc10 SDK, engine, DevKit, and Vanilla issues.
@@ -640,8 +641,8 @@ affects = ["material_slots", "parts", "transform"]
 Rules:
 
 - variant hooks are declarations of intended variation points;
-- generated model keys and generated entries are owned by the variant/family
-  expansion schema;
+- generated model keys and generated entries are owned by
+  [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md);
 - runtime ids remain internal;
 - diagnostics should show both source model key and generated effective model
   keys when expansion is used.
@@ -792,6 +793,8 @@ tables, and GPU resources. Those outputs are host/backend state, not model
 source.
 
 ## Relationship to variants/families
+
+See [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md).
 
 This document reserves variant hooks and defines fields that generated models may
 use.

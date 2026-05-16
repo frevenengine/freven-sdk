@@ -18,7 +18,10 @@ It builds on:
   bindings from gameplay block keys to model/material/tint/render policy;
 - [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md): model asset
   declarations for cube, cuboid, item, entity/static, material-slot, UV, and
-  transform authoring.
+  transform authoring;
+- [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md):
+  deterministic content family expansion for variants, generated keys,
+  allow/skip lists, and per-variant overrides.
 
 The goal is to let simple Freven content be authored without Rust while keeping
 the same long-term semantic model used by advanced Wasm mods, standalone games,
@@ -109,7 +112,7 @@ Each file family should map to one or more content kinds:
 | `content/models/` | model declarations or model wrappers |
 | `content/visuals/` | visual bindings from gameplay content to material/model keys |
 | `content/tags/` | semantic tag membership |
-| `content/families/` | variant families such as wood sets, stone sets, ore sets |
+| `content/families/` | variant families such as wood sets, stone sets, ore sets; see [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md) |
 | `content/behaviors/` | behavior declarations bound to Wasm/script/native-capable systems |
 | `content/components/` | reusable typed component declarations |
 

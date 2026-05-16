@@ -23,6 +23,9 @@ It builds on:
 - [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md): model asset
   declarations for cube, cuboid, item, entity/static, material-slot, UV, and
   transform authoring;
+- [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md):
+  deterministic content family expansion for variants, generated keys,
+  allow/skip lists, and per-variant overrides;
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): visual asset
   layer ordering and override policy;
 - [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): semantic add, replace,
@@ -322,6 +325,9 @@ Rules:
 - behavior config remains authored content/config data, not generated cache.
 
 ## Tags and families
+
+Variant family expansion is defined by
+[CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md).
 
 Tags and families should be beginner-friendly but deterministic.
 
