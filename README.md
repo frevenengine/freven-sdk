@@ -31,6 +31,11 @@ It is **not**:
 
 ## Freven architecture at a glance
 
+For the canonical architecture and ownership vocabulary, see
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). That document defines the
+engine / SDK / experience / Vanilla / mod / content-pack /
+standalone-product boundaries used by the rc10 visual/data foundation work.
+
 The current long-term direction is:
 
 - **engine/platform layer**: neutral runtime/platform substrate

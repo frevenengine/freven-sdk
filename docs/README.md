@@ -5,6 +5,9 @@ Engine internals are private.
 
 Read them in this order:
 
+- [ARCHITECTURE.md](ARCHITECTURE.md): canonical Freven platform architecture
+  and ownership vocabulary for engine, SDK, experiences, Vanilla, mods,
+  content packs, script packs, standalone products, and save/world state
 - [WASM_AUTHORING.md](WASM_AUTHORING.md): recommended Wasm authoring paths for
   neutral guests and explicit world-stack guests
 - [NEUTRAL_GUEST_CONTRACT_v1.md](NEUTRAL_GUEST_CONTRACT_v1.md): canonical
