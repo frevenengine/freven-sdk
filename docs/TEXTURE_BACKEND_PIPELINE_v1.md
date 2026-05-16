@@ -17,7 +17,10 @@ It builds on:
 - [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md): texture size, format,
   sampling, mipmap, alpha, color-space, and validation policy;
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): effective
-  texture override selection and asset graph fingerprints.
+  texture override selection and asset graph fingerprints;
+- [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md): shader/effect
+  ownership boundary for effect texture capabilities and generated shader/cache
+  boundaries.
 
 ## Goals
 
@@ -611,3 +614,18 @@ Future versions may add:
 - DevKit visual reports for packing efficiency.
 
 Those extensions should preserve the author-facing key boundary.
+
+## Relationship to shader/effect boundary
+
+Texture backend planning may generate resources consumed by effects, but
+shader/effect ownership is defined by
+[SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md).
+
+Rules:
+
+- effect texture inputs use stable texture keys and declared capabilities;
+- backend texture entries, sampler objects, bind groups, and GPU handles remain
+  renderer-internal;
+- generated shader/cache artifacts are invalid as authored source;
+- cache fingerprints may include effect capability inputs, but not generated
+  backend ids.

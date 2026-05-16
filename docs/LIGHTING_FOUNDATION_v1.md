@@ -31,7 +31,9 @@ It builds on:
 - [CREATOR_CONTENT_SCHEMA_v1.md](CREATOR_CONTENT_SCHEMA_v1.md): creator-facing
   source schema direction;
 - [DATA_DRIVEN_AUTHORING_LAYER_v1.md](DATA_DRIVEN_AUTHORING_LAYER_v1.md):
-  practical authoring workflow and shorthand expansion.
+  practical authoring workflow and shorthand expansion;
+- [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md): shader/effect
+  ownership boundary for effects that consume lighting capabilities.
 
 The goal is to define a minimal, stable author-facing lighting vocabulary without
 exposing renderer slots, shader uniforms, GPU buffers, lightmap coordinates,
@@ -592,3 +594,17 @@ Future versions may add:
 
 Those additions should extend the author-facing schema without exposing renderer
 internals.
+
+## Relationship to shader/effect boundary
+
+Lighting vocabulary is consumed by renderer effects, but shader/effect ownership
+is defined by [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md).
+
+Rules:
+
+- lighting fields are semantic content/scene policy;
+- effects may declare lighting-related capabilities such as `surface_lighting`,
+  `emissive`, or `occlusion`;
+- shader uniforms, bind groups, generated lightmaps, and renderer light handles
+  are backend/generated output;
+- raw shader effects must not become hidden gameplay light authority.

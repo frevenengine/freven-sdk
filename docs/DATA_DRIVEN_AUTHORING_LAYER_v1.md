@@ -31,7 +31,10 @@ It builds on:
 - [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): semantic add, replace,
   patch, append, disable, compatibility, and diagnostics model;
 - [CREATOR_CONTENT_SCHEMA_v1.md](CREATOR_CONTENT_SCHEMA_v1.md): creator-friendly
-  schema direction for common content files.
+  schema direction for common content files;
+- [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md): shader/effect
+  ownership boundary for friendly effect shorthand, named effects, capability
+  checks, fallbacks, trust, and diagnostics.
 
 The goal is to describe the first practical authoring workflow that new modders,
 content packs, Vanilla-like mods, and simple standalone games should be able to
@@ -593,4 +596,20 @@ Rules:
 - generated lightmaps, probes, chunk light buffers, shader uniforms, renderer
   light handles, and lightmap coordinates are generated/backend output;
 - lighting authoring must preserve the split between visual presentation and
+  authoritative gameplay/world state.
+
+## Relationship to shader/effect boundary
+
+The practical authoring layer should expose shaders/effects through the shared
+contract in [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md).
+
+Rules:
+
+- friendly effect shorthand compiles into semantic effect declarations and
+  references;
+- DevKit validation should report missing effect keys, unsupported capabilities,
+  denied raw source, and fallback choices;
+- generated shader modules, bind group layouts, pipeline ids, GPU handles, and
+  cache paths are generated/backend output;
+- shader/effect authoring must preserve the split between visual presentation and
   authoritative gameplay/world state.
