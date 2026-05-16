@@ -406,7 +406,9 @@ Examples:
 This document defines semantics, not beginner syntax.
 
 [CREATOR_CONTENT_SCHEMA_v1.md](CREATOR_CONTENT_SCHEMA_v1.md) defines the
-creator-friendly schema direction for simpler files such as block, item,
+creator-friendly schema direction, and
+[DATA_DRIVEN_AUTHORING_LAYER_v1.md](DATA_DRIVEN_AUTHORING_LAYER_v1.md)
+defines the practical authoring workflow for simpler files such as block, item,
 recipe, material, model, or family definitions. Those files should compile down
 to the same semantic operations described here.
 

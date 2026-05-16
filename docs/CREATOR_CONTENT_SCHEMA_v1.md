@@ -510,8 +510,8 @@ be changed rather than creating a second interpretation.
 
 ## Relationship to authoring layer
 
-This document defines schema direction. It does not implement the full authoring
-layer.
+This document defines schema direction. The practical authoring workflow is
+defined in [DATA_DRIVEN_AUTHORING_LAYER_v1.md](DATA_DRIVEN_AUTHORING_LAYER_v1.md).
 
 The authoring layer should later define:
 
@@ -523,8 +523,8 @@ The authoring layer should later define:
 - packaging templates;
 - beginner tutorials.
 
-That implementation work belongs to the data-driven content authoring layer
-follow-up.
+That implementation work should build on
+[DATA_DRIVEN_AUTHORING_LAYER_v1.md](DATA_DRIVEN_AUTHORING_LAYER_v1.md).
 
 ## DevKit guidance
 
@@ -548,7 +548,7 @@ This document does not define:
 - final block/item/entity runtime schema;
 - final scripting language;
 - final Wasm behavior API;
-- final DevKit templates;
+- final DevKit templates beyond the v1 authoring workflow;
 - final implementation of content compilation;
 - final save/world migration format;
 - marketplace policy.

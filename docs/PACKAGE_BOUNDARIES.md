@@ -390,6 +390,7 @@ This document does not define:
 - the content patch/merge algorithm beyond the v1 semantic model;
 - final content-pack manifest schema;
 - final creator-friendly content file schemas beyond the v1 schema direction;
+- final data-driven authoring tooling beyond the v1 authoring workflow;
 - final generated cache directory names;
 - final save migration format;
 - package marketplace rules.
