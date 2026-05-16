@@ -18,6 +18,10 @@ For file/state ownership between manifests, config, content data, assets,
 generated cache, and save/world state, see
 [PACKAGE_BOUNDARIES.md](PACKAGE_BOUNDARIES.md).
 
+For the long-term visual asset identity and dependency model behind textures,
+materials, models, effects, and generated renderer load plans, see
+[VISUAL_ASSET_MODEL_v1.md](VISUAL_ASSET_MODEL_v1.md).
+
 Most gameplay mods and current Vanilla-style authoring should use
 `freven_world_guest_sdk`.
 
