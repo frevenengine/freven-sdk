@@ -140,9 +140,11 @@ Content data rules:
   state;
 - content data should not rely on renderer-internal slots or host object ids.
 
-The exact data schemas for visual assets, content authoring, override behavior,
-and patch/merge behavior are separate rc10 documents. This document only defines
-where those files belong and how they relate to state ownership.
+The core visual asset identity, category, dependency, validation, and resolution
+model is defined in [VISUAL_ASSET_MODEL_v1.md](VISUAL_ASSET_MODEL_v1.md).
+Detailed content authoring schemas, override behavior, and patch/merge behavior
+are separate rc10 documents. This document only defines where those files belong
+and how they relate to state ownership.
 
 ## Assets
 
@@ -381,8 +383,8 @@ authors to edit the wrong file.
 
 This document does not define:
 
-- the full visual asset model;
-- texture/material/model/shader schemas;
+- detailed texture/material/model/shader schemas beyond the shared visual asset
+  model;
 - the asset override algorithm;
 - the content patch/merge algorithm;
 - final content-pack manifest schema;

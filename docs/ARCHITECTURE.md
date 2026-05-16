@@ -155,7 +155,9 @@ The architecture uses these high-level boundaries:
 | Save/world state | persistent runtime state produced by play and simulation |
 
 Detailed rules for these file and state boundaries are defined in
-[PACKAGE_BOUNDARIES.md](PACKAGE_BOUNDARIES.md). The core architecture rule is
+[PACKAGE_BOUNDARIES.md](PACKAGE_BOUNDARIES.md). The shared visual asset identity
+and dependency model is defined in
+[VISUAL_ASSET_MODEL_v1.md](VISUAL_ASSET_MODEL_v1.md). The core architecture rule is
 that shipped defaults, active config, generated cache, and save/world state are
 not the same thing.
 
@@ -195,7 +197,8 @@ file at runtime.
 This document does not define the full schemas for:
 
 - manifest vs config vs content data vs assets vs save state;
-- visual asset keys, materials, models, textures, shaders, or atlases;
+- detailed material/model/texture/shader schemas beyond the shared visual asset
+  model;
 - layered asset override rules;
 - data-driven content patch and merge semantics;
 - beginner-friendly data authoring formats;

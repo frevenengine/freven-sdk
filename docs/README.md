@@ -11,6 +11,9 @@ Read them in this order:
 - [PACKAGE_BOUNDARIES.md](PACKAGE_BOUNDARIES.md): manifest, config schema,
   active config, content data, assets, generated cache, and save/world state
   ownership boundaries
+- [VISUAL_ASSET_MODEL_v1.md](VISUAL_ASSET_MODEL_v1.md): stable visual asset
+  keys, asset categories, dependency graph, validation, resolution, and
+  renderer-backend boundaries
 - [WASM_AUTHORING.md](WASM_AUTHORING.md): recommended Wasm authoring paths for
   neutral guests and explicit world-stack guests
 - [NEUTRAL_GUEST_CONTRACT_v1.md](NEUTRAL_GUEST_CONTRACT_v1.md): canonical
