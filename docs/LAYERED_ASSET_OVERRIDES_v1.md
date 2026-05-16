@@ -96,8 +96,8 @@ Layered asset override v1 recognizes these high-level operations.
 | Disable | Remove a lower asset only if a future schema explicitly allows disable tombstones |
 | Conflict | Fail resolution because policy cannot pick one effective asset safely |
 
-Patch/merge of structured content data is not defined here. That belongs to the
-content patch/merge document.
+Patch/merge of structured content data is not defined here. That is defined in
+[CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md).
 
 ## Same-namespace and cross-namespace rules
 
@@ -296,8 +296,9 @@ Examples that belong to content patch/merge, not this document:
 - disabling one item variant inside a family;
 - merging tag members.
 
-This document can say whether one whole visual asset key replaces another. The
-content patch/merge document defines how structured data changes within a key.
+This document can say whether one whole visual asset key replaces another.
+[CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md) defines how structured
+data changes within a key.
 
 ## Relationship to visual asset model
 
@@ -335,7 +336,7 @@ This document does not define:
 - texture atlas or texture-array packing;
 - model format;
 - shader/effect ABI;
-- structured content patch/merge semantics;
+- structured content patch/merge semantics defined by [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md);
 - save/world migration format;
 - final marketplace/resource-pack policy UI.
 
