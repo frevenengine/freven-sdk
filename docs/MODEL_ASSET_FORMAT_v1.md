@@ -856,3 +856,18 @@ Models own reusable geometry, layout, material slots, UV intent, transforms, and
 future import/animation hooks while keeping gameplay behavior, collision,
 selection, runtime ids, renderer slots, atlas coordinates, GPU handles, and
 generated cache out of authored model data.
+
+## Relationship to lighting foundation
+
+Model lighting participation is defined by
+[LIGHTING_FOUNDATION_v1.md](LIGHTING_FOUNDATION_v1.md).
+
+Rules:
+
+- `model.ambient_occlusion` is an author-facing AO participation hint;
+- future `model.face_shading` or face-level light hooks are semantic policy, not
+  GPU vertex layout;
+- generated normals, AO vertex values, lightmap coordinates, and renderer buffers
+  are backend/generated-cache details;
+- visual model geometry must not silently change gameplay collision, selection,
+  or authoritative light semantics.

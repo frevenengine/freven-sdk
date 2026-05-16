@@ -633,3 +633,19 @@ blocks and visual assets.
 They bind block keys to model/material/tint/render policy while keeping gameplay
 logic, collision, selection, runtime block ids, renderer slots, atlases, GPU
 handles, and generated cache out of authored visual data.
+
+## Relationship to lighting foundation
+
+Lighting behavior for block visuals is defined by
+[LIGHTING_FOUNDATION_v1.md](LIGHTING_FOUNDATION_v1.md).
+
+Rules:
+
+- render layer does not silently define light opacity or transmission;
+- transparent and cutout visuals should declare explicit light behavior or inherit
+  selected-stack policy;
+- per-face shading and AO are visual policy, not gameplay collision;
+- emitted block light belongs to explicit light metadata, not just emissive
+  material appearance;
+- shader uniforms, vertex attributes, lightmap coordinates, and renderer light
+  handles must not appear in block visual files.

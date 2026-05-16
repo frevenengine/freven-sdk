@@ -579,3 +579,18 @@ This document does not define:
 - replacement of Wasm for advanced behavior.
 
 Those remain separate implementation and design follow-ups.
+
+## Relationship to lighting foundation
+
+The practical authoring layer should expose lighting through the shared contract in
+[LIGHTING_FOUNDATION_v1.md](LIGHTING_FOUNDATION_v1.md).
+
+Rules:
+
+- friendly lighting shorthand compiles into semantic content operations;
+- DevKit diagnostics should explain unsupported lighting fields and deterministic
+  fallbacks;
+- generated lightmaps, probes, chunk light buffers, shader uniforms, renderer
+  light handles, and lightmap coordinates are generated/backend output;
+- lighting authoring must preserve the split between visual presentation and
+  authoritative gameplay/world state.

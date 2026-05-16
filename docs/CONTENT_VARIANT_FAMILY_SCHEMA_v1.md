@@ -1048,3 +1048,18 @@ It lets authors describe large content sets such as woods, soils, grass variants
 stone types, ores, and colored glass while keeping generated keys stable,
 diagnostics explicit, runtime ids internal, and renderer/backend state out of
 authored data.
+
+## Relationship to lighting foundation
+
+Variant families may generate light, opacity, transmission, emissive, shading, and
+AO metadata using the shared vocabulary in
+[LIGHTING_FOUNDATION_v1.md](LIGHTING_FOUNDATION_v1.md).
+
+Rules:
+
+- generated lighting fields are normal semantic content entries;
+- generated light/opacity metadata must remain deterministic and diagnosable;
+- generated renderer light ids, lightmap coordinates, shader constants, and cache
+  paths are never authored family output;
+- Vanilla-like families such as torches, lamps, glass, leaves, water, and glowing
+  plants should express lighting through content metadata, not engine hardcode.
