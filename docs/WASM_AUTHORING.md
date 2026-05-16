@@ -24,6 +24,8 @@ materials, models, effects, and generated renderer load plans, see
 material content schema, see [MATERIAL_DEFINITIONS_v1.md](MATERIAL_DEFINITIONS_v1.md).
 For texture size, sampling, mipmap, alpha, and validation policy, see
 [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md).
+For generated texture atlas/array/backend planning and internal-slot boundaries, see
+[TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md).
 
 For deterministic visual asset layering, override policy, conflict diagnostics,
 and server/client cosmetic rules, see

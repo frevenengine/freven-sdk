@@ -35,7 +35,7 @@ This document does not define:
 - the full material schema, defined by [MATERIAL_DEFINITIONS_v1.md](MATERIAL_DEFINITIONS_v1.md);
 - the full block visual schema;
 - the final model asset format;
-- the texture atlas or texture-array packing algorithm;
+- the texture atlas or texture-array packing algorithm, defined by [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md);
 - the layered asset override algorithm;
 - the content patch/merge algorithm defined by [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md);
 - shader plugin ABI or arbitrary renderer extension APIs;
@@ -159,7 +159,7 @@ Texture rules:
 - generated atlas coordinates and texture-array layers are host-internal.
 
 Texture authoring, size, sampling, mipmap, alpha, and validation rules are defined by
-[TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md). Packing rules belong to the atlas/array pipeline.
+[TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md). Packing and generated backend planning rules are defined by [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md).
 
 ## Material assets
 
@@ -462,7 +462,7 @@ Follow-up work should define:
 
 - material schema v1, defined by [MATERIAL_DEFINITIONS_v1.md](MATERIAL_DEFINITIONS_v1.md);
 - texture metadata and authoring policy, defined by [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md);
-- atlas/array pipeline;
+- atlas/array pipeline, defined by [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md);
 - block visual data schema;
 - model asset format v1;
 - shader/effect extension boundary;

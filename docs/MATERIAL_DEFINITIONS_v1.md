@@ -253,7 +253,7 @@ Rules:
 - texture file path, dimensions, format, mip policy, sampling policy, color space, compression, and atlas packing are not defined by this document;
 - generated atlas coordinates or texture-array layers must never appear in a material definition.
 
-Texture size, sampling, and validation rules are defined by [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md). Atlas/array packing is defined by the texture pipeline follow-up.
+Texture size, sampling, and validation rules are defined by [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md). Atlas/array packing is defined by [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md).
 
 ## Sampling reference
 
@@ -526,7 +526,7 @@ Other fields are preserved as author-facing schema intent for the real material 
 This document intentionally leaves these details to follow-up work:
 
 - texture size, format, filtering, mipmap, color-space, and sampling validation, defined by [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md);
-- atlas or texture-array packing;
+- atlas or texture-array packing, defined by [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md);
 - material table GPU layout;
 - renderer backend bind groups and shader modules;
 - Vanilla material library content;

@@ -208,7 +208,7 @@ Generated cache rules:
   as derived and safe to rebuild;
 - stale cache must never override authoritative source validation.
 
-Generated atlases, texture arrays, and load plans are host/runtime details. They
+Generated atlases, texture arrays, and load plans are host/runtime details. Texture backend planning is defined by [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md). They
 are useful for performance and diagnostics, but authors should target stable
 content and asset keys.
 
