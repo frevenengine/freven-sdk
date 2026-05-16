@@ -25,7 +25,7 @@ It builds on:
 
 This document does not define:
 
-- texture dimensions, file formats, mipmap generation, or filtering policy;
+- texture dimensions, file formats, mipmap generation, or filtering policy, defined by [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md);
 - texture atlas or texture-array packing;
 - renderer-internal material table layout;
 - Bevy/wgpu material APIs;
@@ -253,7 +253,7 @@ Rules:
 - texture file path, dimensions, format, mip policy, sampling policy, color space, compression, and atlas packing are not defined by this document;
 - generated atlas coordinates or texture-array layers must never appear in a material definition.
 
-Texture size, sampling, and validation rules are defined by the texture policy follow-up. Atlas/array packing is defined by the texture pipeline follow-up.
+Texture size, sampling, and validation rules are defined by [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md). Atlas/array packing is defined by the texture pipeline follow-up.
 
 ## Sampling reference
 
@@ -267,7 +267,7 @@ profile = "voxel_nearest"
 Rules:
 
 - `sampling.profile` is an author-facing policy name, not a sampler object or GPU handle;
-- the accepted profiles and exact filtering/mipmap behavior belong to the texture size/sampling policy;
+- the accepted profiles and exact filtering/mipmap behavior belong to [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md);
 - unknown profiles are diagnostics;
 - when omitted, tooling chooses the default profile for the material context.
 
@@ -525,7 +525,7 @@ Other fields are preserved as author-facing schema intent for the real material 
 
 This document intentionally leaves these details to follow-up work:
 
-- texture size, format, filtering, mipmap, color-space, and sampling validation;
+- texture size, format, filtering, mipmap, color-space, and sampling validation, defined by [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md);
 - atlas or texture-array packing;
 - material table GPU layout;
 - renderer backend bind groups and shader modules;

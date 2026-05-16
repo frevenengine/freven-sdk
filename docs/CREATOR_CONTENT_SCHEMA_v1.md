@@ -278,6 +278,8 @@ Recipe rules:
 ## Materials
 
 The canonical material schema is defined by [MATERIAL_DEFINITIONS_v1.md](MATERIAL_DEFINITIONS_v1.md).
+Texture size, sampling, alpha, and validation policy are defined by
+[TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md).
 
 A beginner material file should reference textures and render-facing properties
 without exposing renderer internals.

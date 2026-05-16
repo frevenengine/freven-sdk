@@ -158,8 +158,8 @@ Texture rules:
   are not public renderer slots;
 - generated atlas coordinates and texture-array layers are host-internal.
 
-Texture schema details and packing rules belong to follow-up texture/atlas
-documents.
+Texture authoring, size, sampling, mipmap, alpha, and validation rules are defined by
+[TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md). Packing rules belong to the atlas/array pipeline.
 
 ## Material assets
 
@@ -461,7 +461,8 @@ This model is intentionally foundational.
 Follow-up work should define:
 
 - material schema v1, defined by [MATERIAL_DEFINITIONS_v1.md](MATERIAL_DEFINITIONS_v1.md);
-- texture metadata and atlas/array pipeline;
+- texture metadata and authoring policy, defined by [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md);
+- atlas/array pipeline;
 - block visual data schema;
 - model asset format v1;
 - shader/effect extension boundary;
