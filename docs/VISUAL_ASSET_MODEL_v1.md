@@ -32,7 +32,7 @@ between author-facing assets and renderer-internal backend handles.
 
 This document does not define:
 
-- the full material schema;
+- the full material schema, defined by [MATERIAL_DEFINITIONS_v1.md](MATERIAL_DEFINITIONS_v1.md);
 - the full block visual schema;
 - the final model asset format;
 - the texture atlas or texture-array packing algorithm;
@@ -188,8 +188,8 @@ Material rules:
 - Vanilla and standalone experiences provide material libraries through authored
   content/assets, not through engine hardcoding.
 
-The full material schema is a follow-up document. This model only defines where
-materials sit in the visual asset graph.
+The full material schema is defined by [MATERIAL_DEFINITIONS_v1.md](MATERIAL_DEFINITIONS_v1.md).
+This model only defines where materials sit in the visual asset graph.
 
 ## Model assets
 
@@ -460,7 +460,7 @@ This model is intentionally foundational.
 
 Follow-up work should define:
 
-- material schema v1;
+- material schema v1, defined by [MATERIAL_DEFINITIONS_v1.md](MATERIAL_DEFINITIONS_v1.md);
 - texture metadata and atlas/array pipeline;
 - block visual data schema;
 - model asset format v1;
