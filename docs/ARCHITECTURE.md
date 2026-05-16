@@ -200,7 +200,7 @@ This document does not define the full schemas for:
 - detailed material/model/texture/shader schemas beyond the shared visual asset
   model;
 - layered asset override implementation details beyond the v1 policy model;
-- data-driven content patch and merge semantics;
+- data-driven content patch/merge implementation details beyond the v1 semantic model;
 - beginner-friendly data authoring formats;
 - future scripting-language bindings.
 

@@ -26,6 +26,10 @@ For deterministic visual asset layering, override policy, conflict diagnostics,
 and server/client cosmetic rules, see
 [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md).
 
+For data-driven content add, replace, patch, append, disable, compatibility,
+and diagnostics semantics, see
+[CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md).
+
 Most gameplay mods and current Vanilla-style authoring should use
 `freven_world_guest_sdk`.
 

@@ -37,7 +37,7 @@ This document does not define:
 - the final model asset format;
 - the texture atlas or texture-array packing algorithm;
 - the layered asset override algorithm;
-- the content patch/merge algorithm;
+- the content patch/merge algorithm defined by [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md);
 - shader plugin ABI or arbitrary renderer extension APIs;
 - final DevKit implementation details.
 
@@ -466,7 +466,7 @@ Follow-up work should define:
 - model asset format v1;
 - shader/effect extension boundary;
 - layered asset override rules defined by [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md);
-- content patch/merge semantics;
+- content patch/merge semantics defined by [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md);
 - DevKit validation commands and generated load-plan output.
 
 Those documents should reference this visual asset model instead of redefining

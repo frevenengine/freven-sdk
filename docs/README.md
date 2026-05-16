@@ -17,6 +17,9 @@ Read them in this order:
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): deterministic
   visual asset layering, override policy, conflict diagnostics, and
   server/client cosmetic rules
+- [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): data-driven content
+  add, replace, patch, append, disable, compatibility, and diagnostics
+  semantics
 - [WASM_AUTHORING.md](WASM_AUTHORING.md): recommended Wasm authoring paths for
   neutral guests and explicit world-stack guests
 - [NEUTRAL_GUEST_CONTRACT_v1.md](NEUTRAL_GUEST_CONTRACT_v1.md): canonical

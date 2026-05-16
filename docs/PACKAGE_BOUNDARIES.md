@@ -275,8 +275,8 @@ High-level rules:
 
 Detailed layered asset override rules are defined in
 [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md).
-Detailed content add/patch/replace/disable semantics belong in the content
-patch/merge document.
+Detailed content add/patch/replace/disable semantics are defined in
+[CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md).
 
 ## Package layout examples
 
@@ -387,7 +387,7 @@ This document does not define:
 - detailed texture/material/model/shader schemas beyond the shared visual asset
   model;
 - the asset override algorithm beyond the v1 policy model;
-- the content patch/merge algorithm;
+- the content patch/merge algorithm beyond the v1 semantic model;
 - final content-pack manifest schema;
 - final generated cache directory names;
 - final save migration format;
