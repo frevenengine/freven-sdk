@@ -35,7 +35,8 @@ This document does not define:
 - the full material schema, defined by [MATERIAL_DEFINITIONS_v1.md](MATERIAL_DEFINITIONS_v1.md);
 - the full block visual schema, defined by
   [BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md);
-- the final model asset format;
+- the model asset format, defined by
+  [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md);
 - the texture atlas or texture-array packing algorithm, defined by [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md);
 - the layered asset override algorithm;
 - the content patch/merge algorithm defined by [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md);
