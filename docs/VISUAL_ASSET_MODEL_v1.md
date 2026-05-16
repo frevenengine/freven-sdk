@@ -352,7 +352,8 @@ The result must not depend on accidental filesystem walk order. If two packages
 declare the same effective key, the resolver must either apply an explicit
 override rule or report a conflict.
 
-Detailed layered override rules belong to the asset override document.
+Detailed layered override rules are defined in
+[LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md).
 
 ## Client/server determinism
 
@@ -464,7 +465,7 @@ Follow-up work should define:
 - block visual data schema;
 - model asset format v1;
 - shader/effect extension boundary;
-- layered asset override rules;
+- layered asset override rules defined by [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md);
 - content patch/merge semantics;
 - DevKit validation commands and generated load-plan output.
 

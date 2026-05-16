@@ -22,6 +22,10 @@ For the long-term visual asset identity and dependency model behind textures,
 materials, models, effects, and generated renderer load plans, see
 [VISUAL_ASSET_MODEL_v1.md](VISUAL_ASSET_MODEL_v1.md).
 
+For deterministic visual asset layering, override policy, conflict diagnostics,
+and server/client cosmetic rules, see
+[LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md).
+
 Most gameplay mods and current Vanilla-style authoring should use
 `freven_world_guest_sdk`.
 

@@ -14,6 +14,9 @@ Read them in this order:
 - [VISUAL_ASSET_MODEL_v1.md](VISUAL_ASSET_MODEL_v1.md): stable visual asset
   keys, asset categories, dependency graph, validation, resolution, and
   renderer-backend boundaries
+- [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): deterministic
+  visual asset layering, override policy, conflict diagnostics, and
+  server/client cosmetic rules
 - [WASM_AUTHORING.md](WASM_AUTHORING.md): recommended Wasm authoring paths for
   neutral guests and explicit world-stack guests
 - [NEUTRAL_GUEST_CONTRACT_v1.md](NEUTRAL_GUEST_CONTRACT_v1.md): canonical
