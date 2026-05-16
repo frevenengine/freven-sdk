@@ -7,6 +7,9 @@ It builds on:
 - [ARCHITECTURE.md](ARCHITECTURE.md): engine / SDK / experience / mod / content-pack / standalone-product ownership;
 - [PACKAGE_BOUNDARIES.md](PACKAGE_BOUNDARIES.md): manifest, config, content, assets, generated cache, and save/world state ownership;
 - [VISUAL_ASSET_MODEL_v1.md](VISUAL_ASSET_MODEL_v1.md): stable visual asset identity and dependency model;
+- [LIGHTING_FOUNDATION_v1.md](LIGHTING_FOUNDATION_v1.md): shared lighting
+  vocabulary for material lighting models, emissive appearance, light emission,
+  transmission, and AO;
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): visual asset override decisions;
 - [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): structured content add/replace/patch/disable semantics.
 
@@ -31,6 +34,8 @@ This document does not define:
 - Bevy/wgpu material APIs;
 - shader graph authoring;
 - arbitrary renderer plugin ABI;
+- the full scene/block lighting contract, defined by
+  [LIGHTING_FOUNDATION_v1.md](LIGHTING_FOUNDATION_v1.md);
 - final item/entity visual binding schemas;
 - block visual binding schema, defined by
   [BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md);
@@ -236,6 +241,10 @@ Accepted v1 values:
 | `pbr_lit` | PBR-ready lit material using metallic/roughness-style fields where supported. |
 
 The current renderer may treat `lit` and `pbr_lit` similarly until the material pipeline matures. The schema still records the author's intent.
+
+Lighting model semantics, emissive appearance versus actual light emission,
+transparent/cutout light transmission, and AO policy are defined by
+[LIGHTING_FOUNDATION_v1.md](LIGHTING_FOUNDATION_v1.md).
 
 ## Texture references
 
@@ -504,6 +513,7 @@ Validators should report at least:
 | Invalid numeric range | material key, field, accepted range |
 | Alpha/render-layer mismatch | material key, alpha mode, render layer |
 | Unsupported optional PBR field | material key, field, runtime capability |
+| Unsupported lighting field | material key, field, runtime capability, fallback |
 | Renderer-internal id used | material key, field, forbidden value |
 | Missing fallback debug tint | material key, file path |
 | Unknown sampling profile | material key, profile, accepted profiles |
@@ -530,6 +540,8 @@ This document intentionally leaves these details to follow-up work:
 - texture size, format, filtering, mipmap, color-space, and sampling validation, defined by [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md);
 - atlas or texture-array packing, defined by [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md);
 - material table GPU layout;
+- scene/block lighting implementation, defined semantically by
+  [LIGHTING_FOUNDATION_v1.md](LIGHTING_FOUNDATION_v1.md);
 - renderer backend bind groups and shader modules;
 - Vanilla material library content;
 - full block/item/entity visual binding schema.

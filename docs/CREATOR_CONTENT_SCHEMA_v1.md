@@ -569,3 +569,18 @@ This document does not define:
 - marketplace policy.
 
 Those are separate follow-up issues.
+
+## Relationship to lighting foundation
+
+Creator-friendly lighting fields compile into the semantic vocabulary defined by
+[LIGHTING_FOUNDATION_v1.md](LIGHTING_FOUNDATION_v1.md).
+
+Rules:
+
+- beginner files may expose simple fields such as `emits_light`,
+  `light_intensity`, `light_opacity`, `transmission`, `face_shading`, or
+  `ambient_occlusion`;
+- tooling must expand shorthand into stable namespaced semantic content;
+- renderer light handles, shader uniforms, lightmap coordinates, GPU buffers, and
+  generated cache paths are invalid creator-facing values;
+- Vanilla lighting presets remain content/product policy, not engine defaults.
