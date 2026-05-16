@@ -20,6 +20,9 @@ It builds on:
   generated texture backend planning and internal atlas/array boundaries;
 - [BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md): block visual
   bindings from gameplay block keys to model/material/tint/render policy;
+- [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md): model asset
+  declarations for cube, cuboid, item, entity/static, material-slot, UV, and
+  transform authoring;
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): visual asset
   layer ordering and override policy;
 - [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): semantic add, replace,
@@ -184,8 +187,9 @@ The authoring compiler expands this into semantic content such as, following
 - `add block:example.gems:blocks/ruby_ore`;
 - `add material:example.gems:materials/block/ruby_ore` if the friendly block owns
   an implicit simple material;
-- `add model:example.gems:models/block/ruby_ore` or reference a default cube
-  model where the selected experience policy allows it;
+- `add model:example.gems:models/block/ruby_ore` following
+  [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md), or reference a default
+  cube model where the selected experience policy allows it;
 - `add/patch visual:example.gems:visuals/block/ruby_ore`;
 - `add/append tag` entries where tags are present;
 - `add drops/loot` entry where the selected schema supports it.

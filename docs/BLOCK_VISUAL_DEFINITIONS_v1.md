@@ -88,7 +88,8 @@ Only the first model is public SDK vocabulary.
 
 This document does not define:
 
-- the final model asset format, owned by the model format v1 work;
+- the model asset format, defined by
+  [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md);
 - the final content family/variant expansion schema;
 - the final engine meshing implementation;
 - arbitrary glTF/static mesh/entity animation support;
@@ -218,8 +219,8 @@ all = "example.gems:materials/block/ruby_ore"
 | `visual.variant_selector` | string/key | none | Hook into resolved variant/family data. |
 
 The exact model fields, cuboid parts, UVs, transforms, and material-slot rules are
-defined by the model format work. This document only defines how block visuals
-bind gameplay blocks to visual assets.
+defined by [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md). This document
+only defines how block visuals bind gameplay blocks to visual assets.
 
 ## Simple cube visual
 
@@ -567,6 +568,8 @@ Rules:
   missing or unsupported.
 
 ## Relationship to model format v1
+
+See [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md).
 
 This document defines how a block visual references a model and binds material
 slots.

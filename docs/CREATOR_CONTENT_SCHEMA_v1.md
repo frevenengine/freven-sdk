@@ -15,7 +15,10 @@ It builds on:
 - [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): semantic add, replace,
   patch, append, disable, compatibility, and diagnostics model;
 - [BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md): block visual
-  bindings from gameplay block keys to model/material/tint/render policy.
+  bindings from gameplay block keys to model/material/tint/render policy;
+- [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md): model asset
+  declarations for cube, cuboid, item, entity/static, material-slot, UV, and
+  transform authoring.
 
 The goal is to let simple Freven content be authored without Rust while keeping
 the same long-term semantic model used by advanced Wasm mods, standalone games,
@@ -305,9 +308,11 @@ layers, GPU handles, or backend pipeline ids.
 
 ## Models and visuals
 
-A model file describes reusable visual layout or geometry. A visual binding file
-connects gameplay content to models/materials. Block visual binding details are
-defined by [BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md).
+A model file describes reusable visual layout or geometry. Model asset format
+details are defined by [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md). A
+visual binding file connects gameplay content to models/materials. Block visual
+binding details are defined by
+[BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md).
 
 Conceptual model file:
 

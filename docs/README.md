@@ -24,6 +24,9 @@ Read them in this order:
 - [BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md):
   data-driven block visual bindings, cube/per-face/model material references,
   render-layer/tint hooks, and collision/selection separation
+- [MODEL_ASSET_FORMAT_v1.md](MODEL_ASSET_FORMAT_v1.md): model asset
+  declarations for cube, per-face cube, cuboid parts, material slots,
+  transforms, UVs, and future item/entity/imported model paths
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): deterministic
   visual asset layering, override policy, conflict diagnostics, and
   server/client cosmetic rules
