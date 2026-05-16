@@ -20,6 +20,9 @@ Read them in this order:
 - [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): data-driven content
   add, replace, patch, append, disable, compatibility, and diagnostics
   semantics
+- [CREATOR_CONTENT_SCHEMA_v1.md](CREATOR_CONTENT_SCHEMA_v1.md): beginner-friendly
+  data-driven content schema direction for blocks, items, recipes, entities,
+  visuals, behaviors, and components
 - [WASM_AUTHORING.md](WASM_AUTHORING.md): recommended Wasm authoring paths for
   neutral guests and explicit world-stack guests
 - [NEUTRAL_GUEST_CONTRACT_v1.md](NEUTRAL_GUEST_CONTRACT_v1.md): canonical
