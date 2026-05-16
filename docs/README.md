@@ -23,6 +23,9 @@ Read them in this order:
 - [CREATOR_CONTENT_SCHEMA_v1.md](CREATOR_CONTENT_SCHEMA_v1.md): beginner-friendly
   data-driven content schema direction for blocks, items, recipes, entities,
   visuals, behaviors, and components
+- [DATA_DRIVEN_AUTHORING_LAYER_v1.md](DATA_DRIVEN_AUTHORING_LAYER_v1.md):
+  practical data-driven authoring workflow, shorthand expansion, examples,
+  compilation pipeline, DevKit expectations, and beginner diagnostics
 - [WASM_AUTHORING.md](WASM_AUTHORING.md): recommended Wasm authoring paths for
   neutral guests and explicit world-stack guests
 - [NEUTRAL_GUEST_CONTRACT_v1.md](NEUTRAL_GUEST_CONTRACT_v1.md): canonical

@@ -34,6 +34,10 @@ For the beginner-friendly data-driven content schema direction for blocks,
 items, recipes, entities, visuals, behaviors, and components, see
 [CREATOR_CONTENT_SCHEMA_v1.md](CREATOR_CONTENT_SCHEMA_v1.md).
 
+For the practical data-driven content authoring workflow, shorthand expansion,
+examples, compilation pipeline, DevKit expectations, and beginner diagnostics,
+see [DATA_DRIVEN_AUTHORING_LAYER_v1.md](DATA_DRIVEN_AUTHORING_LAYER_v1.md).
+
 Most gameplay mods and current Vanilla-style authoring should use
 `freven_world_guest_sdk`.
 
