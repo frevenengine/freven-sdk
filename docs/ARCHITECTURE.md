@@ -154,8 +154,8 @@ The architecture uses these high-level boundaries:
 | Generated cache | host/devkit-owned derived data such as atlases, load plans, fingerprints, and compiled cache artifacts |
 | Save/world state | persistent runtime state produced by play and simulation |
 
-Detailed rules for these file and state boundaries belong in the manifest,
-config, content, asset, and save-state documents. The core architecture rule is
+Detailed rules for these file and state boundaries are defined in
+[PACKAGE_BOUNDARIES.md](PACKAGE_BOUNDARIES.md). The core architecture rule is
 that shipped defaults, active config, generated cache, and save/world state are
 not the same thing.
 

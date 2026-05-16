@@ -14,6 +14,10 @@ Current authoring is split into two explicit layers:
 For the broader engine / SDK / experience / mod / content-pack / standalone
 product boundary model, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
+For file/state ownership between manifests, config, content data, assets,
+generated cache, and save/world state, see
+[PACKAGE_BOUNDARIES.md](PACKAGE_BOUNDARIES.md).
+
 Most gameplay mods and current Vanilla-style authoring should use
 `freven_world_guest_sdk`.
 

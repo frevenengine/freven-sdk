@@ -8,6 +8,9 @@ Read them in this order:
 - [ARCHITECTURE.md](ARCHITECTURE.md): canonical Freven platform architecture
   and ownership vocabulary for engine, SDK, experiences, Vanilla, mods,
   content packs, script packs, standalone products, and save/world state
+- [PACKAGE_BOUNDARIES.md](PACKAGE_BOUNDARIES.md): manifest, config schema,
+  active config, content data, assets, generated cache, and save/world state
+  ownership boundaries
 - [WASM_AUTHORING.md](WASM_AUTHORING.md): recommended Wasm authoring paths for
   neutral guests and explicit world-stack guests
 - [NEUTRAL_GUEST_CONTRACT_v1.md](NEUTRAL_GUEST_CONTRACT_v1.md): canonical
