@@ -11,6 +11,9 @@ Current authoring is split into two explicit layers:
   worldgen, character controllers, client-control providers, and world runtime
   services
 
+For the broader engine / SDK / experience / mod / content-pack / standalone
+product boundary model, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 Most gameplay mods and current Vanilla-style authoring should use
 `freven_world_guest_sdk`.
 
