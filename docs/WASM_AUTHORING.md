@@ -20,7 +20,8 @@ generated cache, and save/world state, see
 
 For the long-term visual asset identity and dependency model behind textures,
 materials, models, effects, and generated renderer load plans, see
-[VISUAL_ASSET_MODEL_v1.md](VISUAL_ASSET_MODEL_v1.md).
+[VISUAL_ASSET_MODEL_v1.md](VISUAL_ASSET_MODEL_v1.md). For the canonical
+material content schema, see [MATERIAL_DEFINITIONS_v1.md](MATERIAL_DEFINITIONS_v1.md).
 
 For deterministic visual asset layering, override policy, conflict diagnostics,
 and server/client cosmetic rules, see

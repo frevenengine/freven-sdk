@@ -12,6 +12,8 @@ Read them in this order:
   active config, content data, assets, generated cache, and save/world state
   ownership boundaries
 - [VISUAL_ASSET_MODEL_v1.md](VISUAL_ASSET_MODEL_v1.md): stable visual asset
+- [MATERIAL_DEFINITIONS_v1.md](MATERIAL_DEFINITIONS_v1.md): data-driven
+  material definitions with PBR-ready fields and renderer-internal boundaries;
   keys, asset categories, dependency graph, validation, resolution, and
   renderer-backend boundaries
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): deterministic
