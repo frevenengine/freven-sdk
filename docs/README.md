@@ -18,6 +18,9 @@ Read them in this order:
   material definitions with PBR-ready fields and renderer-internal boundaries
 - [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md): texture size,
   format, sampling, mipmap, alpha, color-space, and validation policy
+- [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md):
+  generated atlas/texture-array/backend planning, deterministic ordering,
+  fingerprints, cache invalidation, and internal-slot boundaries
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): deterministic
   visual asset layering, override policy, conflict diagnostics, and
   server/client cosmetic rules

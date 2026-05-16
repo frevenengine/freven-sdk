@@ -16,6 +16,8 @@ It builds on:
   data-driven material definition schema;
 - [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md): texture size, sampling,
   mipmap, alpha, color-space, and validation policy;
+- [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md):
+  generated texture backend planning and internal atlas/array boundaries;
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): visual asset
   layer ordering and override policy;
 - [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): semantic add, replace,

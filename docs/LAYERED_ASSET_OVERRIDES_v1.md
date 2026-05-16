@@ -278,7 +278,8 @@ order.
 ### Generated cache is stale
 
 A texture file changes and the atlas cache still contains the old bytes. The fix
-is to invalidate/rebuild generated cache. Authors should not edit the atlas file
+is to invalidate/rebuild generated cache. Texture backend cache invalidation is
+specified by [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md). Authors should not edit the atlas file
 as if it were source.
 
 ## Relationship to content patch/merge

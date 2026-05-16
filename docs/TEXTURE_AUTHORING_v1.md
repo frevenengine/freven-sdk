@@ -26,8 +26,8 @@ It builds on:
 - Keep atlas coordinates, texture-array layers, renderer slots, GPU samplers,
   Bevy handles, wgpu handles, and cache paths out of authored texture data.
 - Make validation diagnostics predictable and useful for DevKit users.
-- Leave atlas or texture-array packing to the dedicated atlas/array pipeline
-  document.
+- Leave atlas or texture-array packing to the dedicated
+  [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md) document.
 
 ## Non-goals
 
@@ -499,7 +499,7 @@ Rules:
 
 This document defines what texture assets are valid.
 
-The atlas/array pipeline defines how valid resolved textures become renderer
+[TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md) defines how valid resolved textures become renderer
 backend resources.
 
 This document does not define:
@@ -512,7 +512,7 @@ This document does not define:
 - cache key layout;
 - GPU upload strategy.
 
-Those are generated backend details and belong to the atlas/array pipeline.
+Those are generated backend details and belong to [TEXTURE_BACKEND_PIPELINE_v1.md](TEXTURE_BACKEND_PIPELINE_v1.md).
 
 ## Examples
 
