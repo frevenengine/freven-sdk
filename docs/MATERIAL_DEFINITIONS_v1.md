@@ -31,7 +31,9 @@ This document does not define:
 - Bevy/wgpu material APIs;
 - shader graph authoring;
 - arbitrary renderer plugin ABI;
-- final block/item/entity visual binding schemas;
+- final item/entity visual binding schemas;
+- block visual binding schema, defined by
+  [BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md);
 - Vanilla's actual stone/dirt/grass material library.
 
 Those belong to separate SDK, engine, Vanilla, and DevKit issues.

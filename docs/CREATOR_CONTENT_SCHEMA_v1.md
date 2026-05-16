@@ -13,7 +13,9 @@ It builds on:
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): visual asset
   layer ordering and override policy;
 - [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): semantic add, replace,
-  patch, append, disable, compatibility, and diagnostics model.
+  patch, append, disable, compatibility, and diagnostics model;
+- [BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md): block visual
+  bindings from gameplay block keys to model/material/tint/render policy.
 
 The goal is to let simple Freven content be authored without Rust while keeping
 the same long-term semantic model used by advanced Wasm mods, standalone games,
@@ -304,7 +306,8 @@ layers, GPU handles, or backend pipeline ids.
 ## Models and visuals
 
 A model file describes reusable visual layout or geometry. A visual binding file
-connects gameplay content to models/materials.
+connects gameplay content to models/materials. Block visual binding details are
+defined by [BLOCK_VISUAL_DEFINITIONS_v1.md](BLOCK_VISUAL_DEFINITIONS_v1.md).
 
 Conceptual model file:
 
