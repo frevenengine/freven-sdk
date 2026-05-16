@@ -24,7 +24,10 @@ It builds on:
 - [CREATOR_CONTENT_SCHEMA_v1.md](CREATOR_CONTENT_SCHEMA_v1.md): creator-facing
   source schema direction;
 - [DATA_DRIVEN_AUTHORING_LAYER_v1.md](DATA_DRIVEN_AUTHORING_LAYER_v1.md):
-  practical authoring workflow and shorthand expansion.
+  practical authoring workflow and shorthand expansion;
+- [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md): shader/effect
+  ownership boundary for visual effect references, capabilities, fallbacks, trust,
+  and renderer-internal resource boundaries.
 
 The goal is to define how gameplay block content is bound to authored visuals
 without exposing renderer slots, atlas coordinates, runtime block ids, or
@@ -649,3 +652,17 @@ Rules:
   material appearance;
 - shader uniforms, vertex attributes, lightmap coordinates, and renderer light
   handles must not appear in block visual files.
+
+## Relationship to shader/effect boundary
+
+Block visuals may reference named effects, but shader/effect ownership is defined
+by [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md).
+
+Rules:
+
+- visual effect references use stable effect keys;
+- render layer, tint, lighting, and effect policy are semantic visual data;
+- shader uniforms, vertex attribute locations, bind groups, pipeline ids, and
+  GPU handles must not appear in block visual files;
+- selected stack policy decides whether an effect is cosmetic, server-required,
+  denied, or trusted.

@@ -26,7 +26,10 @@ It builds on:
 - [CREATOR_CONTENT_SCHEMA_v1.md](CREATOR_CONTENT_SCHEMA_v1.md): creator-facing
   source schema direction;
 - [DATA_DRIVEN_AUTHORING_LAYER_v1.md](DATA_DRIVEN_AUTHORING_LAYER_v1.md):
-  practical authoring workflow and shorthand expansion.
+  practical authoring workflow and shorthand expansion;
+- [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md): shader/effect
+  ownership boundary for model animation/effect hooks and renderer-internal
+  resource boundaries.
 
 The goal is to define a stable author-facing model format for block, item, and
 future entity/static visuals without exposing renderer meshes, atlas coordinates,
@@ -871,3 +874,18 @@ Rules:
   are backend/generated-cache details;
 - visual model geometry must not silently change gameplay collision, selection,
   or authoritative light semantics.
+
+## Relationship to shader/effect boundary
+
+Model animation/effect hooks may name stable hooks, but shader/effect ownership is
+defined by [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md).
+
+Rules:
+
+- model effect hooks are semantic hook names, not shader entry points or GPU
+  buffer layouts;
+- renderer mesh buffers, vertex layouts, shader constants, and bind groups are
+  backend details;
+- imported/static/entity models may request effect capabilities only through
+  validated effect declarations;
+- unsupported effect hooks must produce diagnostics or deterministic fallback.

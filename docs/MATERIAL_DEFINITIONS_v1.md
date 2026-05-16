@@ -10,6 +10,9 @@ It builds on:
 - [LIGHTING_FOUNDATION_v1.md](LIGHTING_FOUNDATION_v1.md): shared lighting
   vocabulary for material lighting models, emissive appearance, light emission,
   transmission, and AO;
+- [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md): shader/effect
+  ownership boundary for material effect references, capabilities, fallbacks,
+  trust, and diagnostics;
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): visual asset override decisions;
 - [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): structured content add/replace/patch/disable semantics.
 
@@ -563,3 +566,18 @@ Future versions may add:
 - explicit client-local cosmetic override policy.
 
 Those additions should extend the author-facing schema without exposing renderer internals.
+
+## Relationship to shader/effect boundary
+
+Materials may reference named effects, but shader/effect ownership is defined by
+[SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md).
+
+Rules:
+
+- material effect references use stable effect keys;
+- material fields are semantic inputs, not uniform-buffer offsets or bind group
+  bindings;
+- renderer pipeline ids, shader modules, GPU handles, and generated shader cache
+  paths must not appear in material files;
+- unsupported material effects must produce diagnostics or deterministic
+  fallback.

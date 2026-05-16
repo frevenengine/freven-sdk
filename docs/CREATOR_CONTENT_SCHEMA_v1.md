@@ -21,7 +21,10 @@ It builds on:
   transform authoring;
 - [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md):
   deterministic content family expansion for variants, generated keys,
-  allow/skip lists, and per-variant overrides.
+  allow/skip lists, and per-variant overrides;
+- [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md): shader/effect
+  ownership boundary for friendly effect shorthand, capability checks, fallbacks,
+  trust, and diagnostics.
 
 The goal is to let simple Freven content be authored without Rust while keeping
 the same long-term semantic model used by advanced Wasm mods, standalone games,
@@ -584,3 +587,19 @@ Rules:
 - renderer light handles, shader uniforms, lightmap coordinates, GPU buffers, and
   generated cache paths are invalid creator-facing values;
 - Vanilla lighting presets remain content/product policy, not engine defaults.
+
+## Relationship to shader/effect boundary
+
+Creator-friendly effect shorthand compiles into the semantic model defined by
+[SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md).
+
+Rules:
+
+- beginner files may expose fields such as `effect`, `post_process`,
+  `wind_effect`, `glow_effect`, or simple effect parameters;
+- tooling must expand shorthand into stable effect keys and typed inputs;
+- raw shader source, bind group numbers, shader modules, GPU handles, and
+  generated shader cache paths are invalid creator-facing values unless a future
+  trusted policy explicitly allows them;
+- DevKit diagnostics should explain unsupported capabilities and fallback
+  decisions.

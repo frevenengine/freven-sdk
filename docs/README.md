@@ -30,6 +30,9 @@ Read them in this order:
 - [LIGHTING_FOUNDATION_v1.md](LIGHTING_FOUNDATION_v1.md): minimal lighting
   vocabulary for ambient, directional/sun, emissive/block light,
   transparency/transmission, per-face shading, and AO
+- [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md): shader/effect
+  ownership boundary for engine resource contracts, experience style choices,
+  named effects, capabilities, fallbacks, trust, and diagnostics
 - [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md):
   deterministic content family expansion for variant axes, generated keys,
   allow/skip lists, overrides, and generated block/material/model/visual entries

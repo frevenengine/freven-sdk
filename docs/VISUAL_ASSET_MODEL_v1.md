@@ -8,7 +8,9 @@ It builds on:
 - [ARCHITECTURE.md](ARCHITECTURE.md): engine / SDK / experience / mod /
   content-pack / standalone-product ownership;
 - [PACKAGE_BOUNDARIES.md](PACKAGE_BOUNDARIES.md): manifest, config, content,
-  assets, generated cache, and save/world state ownership.
+  assets, generated cache, and save/world state ownership;
+- [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md): shader/effect
+  ownership boundary, capabilities, fallbacks, trust policy, and diagnostics.
 
 This document defines stable visual asset identity, asset categories,
 dependencies, validation, resolution, compatibility classes, and the boundary
@@ -476,3 +478,19 @@ Follow-up work should define:
 
 Those documents should reference this visual asset model instead of redefining
 visual asset identity from scratch.
+
+## Relationship to shader/effect boundary
+
+Shader/effect identity, dependency graph placement, and renderer-internal cache
+boundaries are introduced here, but the ownership model is defined by
+[SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md).
+
+Rules:
+
+- shader/effect keys are stable visual asset keys;
+- effect declarations are content data;
+- shader source files are assets;
+- compiled shader modules, pipeline ids, bind group layouts, and backend
+  translations are generated/backend output;
+- arbitrary renderer extension is outside normal v1 content and requires a
+  future trust/capability policy.
