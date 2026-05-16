@@ -30,6 +30,10 @@ For data-driven content add, replace, patch, append, disable, compatibility,
 and diagnostics semantics, see
 [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md).
 
+For the beginner-friendly data-driven content schema direction for blocks,
+items, recipes, entities, visuals, behaviors, and components, see
+[CREATOR_CONTENT_SCHEMA_v1.md](CREATOR_CONTENT_SCHEMA_v1.md).
+
 Most gameplay mods and current Vanilla-style authoring should use
 `freven_world_guest_sdk`.
 

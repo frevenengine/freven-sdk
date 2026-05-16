@@ -201,7 +201,7 @@ This document does not define the full schemas for:
   model;
 - layered asset override implementation details beyond the v1 policy model;
 - data-driven content patch/merge implementation details beyond the v1 semantic model;
-- beginner-friendly data authoring formats;
+- beginner-friendly data authoring implementation details beyond the v1 schema direction;
 - future scripting-language bindings.
 
 Those are separate SDK and DevKit documents/issues that should reference this

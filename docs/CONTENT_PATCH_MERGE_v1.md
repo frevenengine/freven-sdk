@@ -405,7 +405,8 @@ Examples:
 
 This document defines semantics, not beginner syntax.
 
-A future creator-friendly schema can offer simpler files such as block, item,
+[CREATOR_CONTENT_SCHEMA_v1.md](CREATOR_CONTENT_SCHEMA_v1.md) defines the
+creator-friendly schema direction for simpler files such as block, item,
 recipe, material, model, or family definitions. Those files should compile down
 to the same semantic operations described here.
 
@@ -433,7 +434,7 @@ runtime state, or renderer internals.
 
 This document does not define:
 
-- final beginner-friendly content file syntax;
+- final beginner-friendly content file syntax beyond the v1 schema direction;
 - final block/item/recipe/material/model schemas;
 - final visual asset override winner rules beyond the existing v1 document;
 - final save/world migration format;
