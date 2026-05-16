@@ -12,6 +12,10 @@ It builds on:
   assets, generated cache, and save/world state ownership;
 - [VISUAL_ASSET_MODEL_v1.md](VISUAL_ASSET_MODEL_v1.md): visual asset identity,
   categories, dependency graph, validation, and renderer-backend boundaries;
+- [MATERIAL_DEFINITIONS_v1.md](MATERIAL_DEFINITIONS_v1.md): canonical
+  data-driven material definition schema;
+- [TEXTURE_AUTHORING_v1.md](TEXTURE_AUTHORING_v1.md): texture size, sampling,
+  mipmap, alpha, color-space, and validation policy;
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): visual asset
   layer ordering and override policy;
 - [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): semantic add, replace,
