@@ -1,0 +1,12 @@
+schema = 1
+key = "freven.fixture:visuals/block/framed_glass"
+
+[visual]
+target = "freven.fixture:blocks/framed_glass"
+model = "freven.fixture:models/block/framed_glass"
+render_layer = "transparent"
+fallback_debug_tint_rgba = "80BFFFFF"
+
+[visual.materials]
+frame = "freven.fixture:materials/block/iron_frame"
+pane = "freven.fixture:materials/block/blue_glass"

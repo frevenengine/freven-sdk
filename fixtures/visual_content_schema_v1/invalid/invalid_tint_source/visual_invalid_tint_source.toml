@@ -1,0 +1,12 @@
+schema = 1
+key = "freven.fixture.invalid:visuals/block/invalid_tint_source"
+
+[visual]
+target = "freven.fixture.invalid:blocks/invalid_tint_source"
+model = "freven.core:models/block/cube_all"
+render_layer = "opaque"
+tint_source = "shader_uniform_slot_3"
+fallback_debug_tint_rgba = "FF00FFFF"
+
+[visual.materials]
+all = "freven.fixture:materials/block/stone"

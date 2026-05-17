@@ -1,0 +1,41 @@
+schema = 1
+key = "freven.fixture:models/block/grass_tint_cube"
+
+[model]
+kind = "cuboid_parts"
+domain = "block"
+origin = [0.5, 0.5, 0.5]
+ambient_occlusion = true
+
+[material_slots]
+top = { required = true, profile = "voxel_block" }
+side = { required = true, profile = "voxel_block" }
+bottom = { required = true, profile = "voxel_block" }
+
+[[parts]]
+name = "full_cube"
+from = [0.0, 0.0, 0.0]
+to = [1.0, 1.0, 1.0]
+
+[parts.faces.top]
+material = "top"
+tint = "biome_grass"
+
+[parts.faces.north]
+material = "side"
+tint = "biome_grass"
+
+[parts.faces.south]
+material = "side"
+tint = "biome_grass"
+
+[parts.faces.east]
+material = "side"
+tint = "biome_grass"
+
+[parts.faces.west]
+material = "side"
+tint = "biome_grass"
+
+[parts.faces.bottom]
+material = "bottom"

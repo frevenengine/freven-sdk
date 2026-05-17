@@ -1,0 +1,12 @@
+schema = 1
+key = "freven.fixture:materials/block/glow_ore"
+
+[material]
+base_color_texture = "freven.fixture:textures/block/glow_ore"
+emissive_texture = "freven.fixture:textures/block/glow_ore_emissive"
+emissive_rgba = "80F0FFFF"
+emissive_strength = 1.75
+fallback_debug_tint_rgba = "80F0FFFF"
+alpha_mode = "opaque"
+render_layer = "opaque"
+lighting_model = "lit"

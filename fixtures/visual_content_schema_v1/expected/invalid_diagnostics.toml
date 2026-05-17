@@ -1,0 +1,26 @@
+schema = 1
+
+[[diagnostics]]
+fixture = "invalid/missing_model/visual_missing_model.toml"
+code = "missing_model"
+message = "Referenced model key does not resolve in the selected visual asset graph."
+
+[[diagnostics]]
+fixture = "invalid/unknown_material_slot/visual_unknown_material_slot.toml"
+code = "unknown_material_slot"
+message = "Visual binds a material slot not declared by the referenced model."
+
+[[diagnostics]]
+fixture = "invalid/invalid_tint_source/visual_invalid_tint_source.toml"
+code = "invalid_tint_source"
+message = "Tint source is not a supported author-facing tint/color-map source."
+
+[[diagnostics]]
+fixture = "invalid/invalid_family_combination/family_invalid_combination.toml"
+code = "invalid_family_combination"
+message = "Allow and skip policies select the same generated combination."
+
+[[diagnostics]]
+fixture = "invalid/renderer_internal_leak/visual_renderer_internal_leak.toml"
+code = "renderer_internal_leak"
+message = "Authored visual content contains renderer/backend/internal fields."

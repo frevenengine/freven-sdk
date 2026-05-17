@@ -1,0 +1,11 @@
+schema = 1
+key = "freven.fixture.invalid:visuals/block/unknown_material_slot"
+
+[visual]
+target = "freven.fixture.invalid:blocks/unknown_material_slot"
+model = "freven.core:models/block/cube_all"
+render_layer = "opaque"
+fallback_debug_tint_rgba = "FF00FFFF"
+
+[visual.materials]
+north = "freven.fixture:materials/block/stone"

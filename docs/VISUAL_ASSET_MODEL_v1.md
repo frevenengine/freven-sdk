@@ -494,3 +494,15 @@ Rules:
   translations are generated/backend output;
 - arbitrary renderer extension is outside normal v1 content and requires a
   future trust/capability policy.
+
+## Visual content schema conformance fixtures
+
+Canonical machine-checkable examples for the rc10 visual stack live under
+`fixtures/visual_content_schema_v1/`.
+
+Those fixtures are the SDK-owned contract anchor for engine load-plan tests,
+DevKit diagnostics/templates, Boot client install checks, and Vanilla authored
+visual bindings. They must stay author-facing: stable namespaced keys,
+materials, models, block visuals, tint/light metadata, and family source data are
+allowed; renderer slots, atlas coordinates, texture-array layers, GPU handles,
+runtime block ids, and generated cache paths are not authored fixture fields.

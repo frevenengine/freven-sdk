@@ -1,0 +1,41 @@
+schema = 1
+key = "freven.fixture:families/rock"
+
+[family]
+kind = "content_family"
+namespace = "freven.fixture"
+description = "Rock block/material/visual family fixture."
+
+[[axes]]
+name = "rock"
+
+[[axes.values]]
+id = "granite"
+display = "Granite"
+fallback_tint_rgba = "9A8C86FF"
+
+[[axes.values]]
+id = "basalt"
+display = "Basalt"
+fallback_tint_rgba = "30343AFF"
+
+[templates.block]
+key = "freven.fixture:blocks/{rock}"
+display_name = "{rock.display}"
+solid = true
+opaque = true
+hardness = 1.5
+
+[templates.material]
+key = "freven.fixture:materials/block/{rock}"
+base_color_texture = "freven.fixture:textures/block/{rock}"
+fallback_debug_tint_rgba = "{rock.fallback_tint_rgba}"
+alpha_mode = "opaque"
+render_layer = "opaque"
+
+[templates.visual]
+key = "freven.fixture:visuals/block/{rock}"
+target = "freven.fixture:blocks/{rock}"
+model = "freven.core:models/block/cube_all"
+material = "freven.fixture:materials/block/{rock}"
+fallback_debug_tint_rgba = "{rock.fallback_tint_rgba}"

@@ -1,0 +1,12 @@
+schema = 1
+key = "freven.fixture:materials/block/blue_glass"
+
+[material]
+base_color_texture = "freven.fixture:textures/block/blue_glass"
+base_color_rgba = "80BFFFFF"
+fallback_debug_tint_rgba = "80BFFFFF"
+alpha_mode = "blend"
+render_layer = "transparent"
+lighting_model = "lit"
+roughness = 0.05
+metallic = 0.0

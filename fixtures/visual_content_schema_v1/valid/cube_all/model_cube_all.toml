@@ -1,0 +1,16 @@
+schema = 1
+key = "freven.core:models/block/cube_all"
+
+[model]
+kind = "cube"
+domain = "block"
+origin = [0.5, 0.5, 0.5]
+ambient_occlusion = true
+
+[material_slots]
+all = { required = true, profile = "voxel_block" }
+
+[cube]
+from = [0.0, 0.0, 0.0]
+to = [1.0, 1.0, 1.0]
+material = "all"

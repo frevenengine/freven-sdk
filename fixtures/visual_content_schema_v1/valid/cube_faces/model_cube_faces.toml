@@ -1,0 +1,18 @@
+schema = 1
+key = "freven.core:models/block/cube_faces"
+
+[model]
+kind = "cube_faces"
+domain = "block"
+origin = [0.5, 0.5, 0.5]
+ambient_occlusion = true
+
+[material_slots]
+top = { required = false, profile = "voxel_block" }
+bottom = { required = false, profile = "voxel_block" }
+north = { required = false, profile = "voxel_block" }
+south = { required = false, profile = "voxel_block" }
+east = { required = false, profile = "voxel_block" }
+west = { required = false, profile = "voxel_block" }
+side = { required = false, profile = "voxel_block" }
+all = { required = false, profile = "voxel_block" }

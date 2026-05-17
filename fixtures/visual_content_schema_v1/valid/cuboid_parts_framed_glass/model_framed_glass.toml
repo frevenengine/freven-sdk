@@ -1,0 +1,42 @@
+schema = 1
+key = "freven.fixture:models/block/framed_glass"
+
+[model]
+kind = "cuboid_parts"
+domain = "block"
+origin = [0.5, 0.5, 0.5]
+ambient_occlusion = true
+
+[material_slots]
+frame = { required = true, profile = "voxel_block" }
+pane = { required = true, profile = "voxel_block" }
+
+[[parts]]
+name = "center_pane"
+from = [0.4375, 0.0, 0.0]
+to = [0.5625, 1.0, 1.0]
+material = "pane"
+
+[[parts]]
+name = "top_frame"
+from = [0.0, 0.875, 0.0]
+to = [1.0, 1.0, 1.0]
+material = "frame"
+
+[[parts]]
+name = "bottom_frame"
+from = [0.0, 0.0, 0.0]
+to = [1.0, 0.125, 1.0]
+material = "frame"
+
+[[parts]]
+name = "west_frame"
+from = [0.0, 0.0, 0.0]
+to = [0.125, 1.0, 1.0]
+material = "frame"
+
+[[parts]]
+name = "east_frame"
+from = [0.875, 0.0, 0.0]
+to = [1.0, 1.0, 1.0]
+material = "frame"

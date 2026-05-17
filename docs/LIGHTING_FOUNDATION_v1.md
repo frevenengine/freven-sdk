@@ -608,3 +608,12 @@ Rules:
 - shader uniforms, bind groups, generated lightmaps, and renderer light handles
   are backend/generated output;
 - raw shader effects must not become hidden gameplay light authority.
+
+## Conformance fixtures
+
+Lighting-related conformance examples live under
+`fixtures/visual_content_schema_v1/valid/`.
+
+The fixture set intentionally separates emissive material appearance from actual
+light emission metadata. Consumers should use this split when validating authored
+content and when building runtime/load-plan representations.

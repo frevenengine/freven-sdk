@@ -1,0 +1,11 @@
+schema = 1
+key = "freven.fixture:visuals/block/stone"
+
+[visual]
+target = "freven.fixture:blocks/stone"
+model = "freven.core:models/block/cube_all"
+render_layer = "opaque"
+fallback_debug_tint_rgba = "808080FF"
+
+[visual.materials]
+all = "freven.fixture:materials/block/stone"

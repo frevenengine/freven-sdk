@@ -1,0 +1,9 @@
+schema = 1
+key = "freven.fixture:materials/block/grass_side"
+
+[material]
+base_color_texture = "freven.fixture:textures/block/grass_side"
+fallback_debug_tint_rgba = "5F8F3AFF"
+alpha_mode = "opaque"
+render_layer = "opaque"
+lighting_model = "lit"

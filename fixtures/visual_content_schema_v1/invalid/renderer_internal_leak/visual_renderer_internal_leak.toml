@@ -1,0 +1,15 @@
+schema = 1
+key = "freven.fixture.invalid:visuals/block/renderer_internal_leak"
+
+[visual]
+target = "freven.fixture.invalid:blocks/renderer_internal_leak"
+model = "freven.core:models/block/cube_all"
+render_layer = "opaque"
+fallback_debug_tint_rgba = "FF00FFFF"
+renderer_slot = 7
+atlas_rect = [0, 0, 16, 16]
+texture_array_layer = 3
+gpu_handle = "not_author_facing"
+
+[visual.materials]
+all = "freven.fixture:materials/block/stone"
