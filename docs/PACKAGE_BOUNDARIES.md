@@ -127,6 +127,11 @@ Content data can include definitions for blocks, items, recipes, providers,
 material declarations, model declarations, block visual bindings, content
 families, tags, and future data-driven gameplay definitions.
 
+Content data may be split across multiple explicitly included manifest files
+when following [MODULAR_CONTENT_MANIFESTS_v1.md](MODULAR_CONTENT_MANIFESTS_v1.md).
+Those included files remain authored content source; they are not generated cache,
+runtime state, or package identity manifests.
+
 Content data rules:
 
 - content data is authored source;

@@ -30,6 +30,8 @@ It builds on:
   layer ordering and override policy;
 - [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): semantic add, replace,
   patch, append, disable, compatibility, and diagnostics model;
+- [MODULAR_CONTENT_MANIFESTS_v1.md](MODULAR_CONTENT_MANIFESTS_v1.md):
+  explicit deterministic includes for splitting large content packs across files;
 - [CREATOR_CONTENT_SCHEMA_v1.md](CREATOR_CONTENT_SCHEMA_v1.md): creator-friendly
   schema direction for common content files;
 - [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md): shader/effect
@@ -80,6 +82,12 @@ This document does not define:
 Those remain follow-up implementation issues.
 
 ## Authoring package layout
+
+A data-driven package can use this conceptual layout.
+
+For larger content packs, [MODULAR_CONTENT_MANIFESTS_v1.md](MODULAR_CONTENT_MANIFESTS_v1.md)
+defines how one root `content.manifest` may explicitly include additional source
+files while still resolving into the same semantic content graph.
 
 A data-driven package can use this conceptual layout:
 
