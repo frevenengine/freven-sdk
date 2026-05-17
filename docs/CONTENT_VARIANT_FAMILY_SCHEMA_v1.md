@@ -1063,3 +1063,11 @@ Rules:
   paths are never authored family output;
 - Vanilla-like families such as torches, lamps, glass, leaves, water, and glowing
   plants should express lighting through content metadata, not engine hardcode.
+
+## Conformance fixtures
+
+Canonical family examples live under `fixtures/visual_content_schema_v1/valid/families/`.
+
+The fixture set covers rock, soil/grass, and colored-glass families. Family
+expansion is source/load-time content expansion that happens before resolved
+visual load plans, client visual mesh table installation, and runtime meshing.

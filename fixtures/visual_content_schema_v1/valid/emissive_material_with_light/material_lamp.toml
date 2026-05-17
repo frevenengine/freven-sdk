@@ -1,0 +1,19 @@
+schema = 1
+key = "freven.fixture:materials/block/lamp"
+
+[material]
+base_color_texture = "freven.fixture:textures/block/lamp"
+emissive_texture = "freven.fixture:textures/block/lamp_emissive"
+emissive_rgba = "FFD080FF"
+emissive_strength = 2.0
+fallback_debug_tint_rgba = "FFD080FF"
+alpha_mode = "opaque"
+render_layer = "opaque"
+lighting_model = "lit"
+
+[light]
+emits = true
+color_rgba = "FFD080FF"
+intensity = 12
+falloff = "voxel_manhattan"
+source_shape = "block"

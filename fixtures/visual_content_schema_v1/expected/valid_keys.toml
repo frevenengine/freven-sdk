@@ -1,0 +1,17 @@
+schema = 1
+
+valid_fixture_keys = [
+  "freven.core:models/block/cube_all",
+  "freven.core:models/block/cube_faces",
+  "freven.fixture:visuals/block/stone",
+  "freven.fixture:visuals/block/grass_block",
+  "freven.fixture:models/block/framed_glass",
+  "freven.fixture:visuals/block/framed_glass",
+  "freven.fixture:models/block/grass_tint_cube",
+  "freven.fixture:visuals/block/tinted_grass_block",
+  "freven.fixture:materials/block/glow_ore",
+  "freven.fixture:materials/block/lamp",
+  "freven.fixture:families/rock",
+  "freven.fixture:families/soil_grass",
+  "freven.fixture:families/colored_glass",
+]

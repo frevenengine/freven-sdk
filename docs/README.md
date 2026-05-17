@@ -36,6 +36,9 @@ Read them in this order:
 - [CONTENT_VARIANT_FAMILY_SCHEMA_v1.md](CONTENT_VARIANT_FAMILY_SCHEMA_v1.md):
   deterministic content family expansion for variant axes, generated keys,
   allow/skip lists, overrides, and generated block/material/model/visual entries
+- [Visual content schema conformance fixtures](../fixtures/visual_content_schema_v1/README.md):
+  canonical SDK-owned machine-checkable examples for block visuals, models,
+  materials, tint metadata, lighting metadata, and content families
 - [LAYERED_ASSET_OVERRIDES_v1.md](LAYERED_ASSET_OVERRIDES_v1.md): deterministic
   visual asset layering, override policy, conflict diagnostics, and
   server/client cosmetic rules

@@ -581,3 +581,11 @@ Rules:
   paths must not appear in material files;
 - unsupported material effects must produce diagnostics or deterministic
   fallback.
+
+## Conformance fixtures
+
+Canonical material examples live under `fixtures/visual_content_schema_v1/valid/`.
+
+The fixture set includes opaque terrain materials, transparent glass materials,
+PBR-ready metal frame material, emissive material appearance without block light,
+and emissive material plus explicit light emission metadata.

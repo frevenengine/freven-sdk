@@ -1,0 +1,11 @@
+schema = 1
+key = "freven.fixture:materials/block/iron_frame"
+
+[material]
+base_color_texture = "freven.fixture:textures/block/iron_frame"
+fallback_debug_tint_rgba = "9098A0FF"
+alpha_mode = "opaque"
+render_layer = "opaque"
+lighting_model = "pbr_lit"
+metallic = 1.0
+roughness = 0.35

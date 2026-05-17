@@ -1,0 +1,26 @@
+schema = 1
+
+[consumers.sdk]
+repo = "freven-sdk"
+purpose = "Own fixture vocabulary, docs, and conformance smoke tests."
+
+[consumers.engine]
+repo = "freven-engine"
+purpose = "Use valid fixtures for load-plan/model/material/tint/light tests and invalid fixtures for diagnostics."
+
+[consumers.devkit]
+repo = "freven-devkit"
+purpose = "Use fixtures for content/assets check diagnostics, templates, and inspector examples."
+
+[consumers.boot]
+repo = "freven-boot"
+purpose = "Use fixtures to verify selected visual content reaches client startup installation."
+
+[consumers.vanilla]
+repo = "freven-vanilla"
+purpose = "Use fixtures as authored visual binding and family-shape reference content."
+
+[phase_order]
+family_expansion = "before_resolved_visual_load_plan"
+client_install = "after_resolved_visual_load_plan"
+runtime_meshing = "after_client_visual_mesh_table_install"

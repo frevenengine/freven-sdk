@@ -889,3 +889,11 @@ Rules:
 - imported/static/entity models may request effect capabilities only through
   validated effect declarations;
 - unsupported effect hooks must produce diagnostics or deterministic fallback.
+
+## Conformance fixtures
+
+Canonical model examples live under `fixtures/visual_content_schema_v1/valid/`.
+
+The fixture set includes reusable `cube_all`, `cube_faces`, custom
+`cuboid_parts`, and tint-bearing face/slot examples. These files are public
+schema examples, not renderer meshes or generated cache artifacts.

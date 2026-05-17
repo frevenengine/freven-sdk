@@ -1,0 +1,10 @@
+schema = 1
+key = "freven.fixture:materials/block/stone"
+
+[material]
+base_color_texture = "freven.fixture:textures/block/stone"
+fallback_debug_tint_rgba = "808080FF"
+alpha_mode = "opaque"
+render_layer = "opaque"
+lighting_model = "lit"
+tint_rgba = "FFFFFFFF"

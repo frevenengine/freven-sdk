@@ -1,0 +1,9 @@
+schema = 1
+key = "freven.fixture:materials/block/dirt"
+
+[material]
+base_color_texture = "freven.fixture:textures/block/dirt"
+fallback_debug_tint_rgba = "8A5A30FF"
+alpha_mode = "opaque"
+render_layer = "opaque"
+lighting_model = "lit"

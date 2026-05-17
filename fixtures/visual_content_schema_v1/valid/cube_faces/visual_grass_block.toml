@@ -1,0 +1,13 @@
+schema = 1
+key = "freven.fixture:visuals/block/grass_block"
+
+[visual]
+target = "freven.fixture:blocks/grass_block"
+model = "freven.core:models/block/cube_faces"
+render_layer = "opaque"
+fallback_debug_tint_rgba = "6BAA3AFF"
+
+[visual.materials]
+top = "freven.fixture:materials/block/grass_top"
+side = "freven.fixture:materials/block/grass_side"
+bottom = "freven.fixture:materials/block/dirt"

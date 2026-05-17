@@ -1,0 +1,11 @@
+schema = 1
+key = "freven.fixture.invalid:visuals/block/missing_model"
+
+[visual]
+target = "freven.fixture.invalid:blocks/missing_model"
+model = "freven.fixture.invalid:models/block/does_not_exist"
+render_layer = "opaque"
+fallback_debug_tint_rgba = "FF00FFFF"
+
+[visual.materials]
+all = "freven.fixture:materials/block/stone"

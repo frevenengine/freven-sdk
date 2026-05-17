@@ -1,0 +1,44 @@
+schema = 1
+key = "freven.fixture:families/colored_glass"
+
+[family]
+kind = "content_family"
+namespace = "freven.fixture"
+description = "Transparent colored glass material/visual family fixture."
+
+[[axes]]
+name = "color"
+
+[[axes.values]]
+id = "red"
+display = "Red"
+fallback_tint_rgba = "CC3030AA"
+
+[[axes.values]]
+id = "blue"
+display = "Blue"
+fallback_tint_rgba = "3050CCAA"
+
+[templates.block]
+key = "freven.fixture:blocks/{color}_glass"
+display_name = "{color.display} Glass"
+solid = true
+opaque = false
+hardness = 0.3
+
+[templates.material]
+key = "freven.fixture:materials/block/{color}_glass"
+base_color_texture = "freven.fixture:textures/block/glass"
+base_color_rgba = "{color.fallback_tint_rgba}"
+alpha_mode = "blend"
+render_layer = "transparent"
+fallback_debug_tint_rgba = "{color.fallback_tint_rgba}"
+
+[templates.visual]
+key = "freven.fixture:visuals/block/{color}_glass"
+target = "freven.fixture:blocks/{color}_glass"
+model = "freven.core:models/block/cube_all"
+material = "freven.fixture:materials/block/{color}_glass"
+tint_rgba = "{color.fallback_tint_rgba}"
+render_layer = "transparent"
+fallback_debug_tint_rgba = "{color.fallback_tint_rgba}"

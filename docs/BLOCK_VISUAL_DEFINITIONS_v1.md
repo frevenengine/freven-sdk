@@ -666,3 +666,13 @@ Rules:
   GPU handles must not appear in block visual files;
 - selected stack policy decides whether an effect is cosmetic, server-required,
   denied, or trusted.
+
+## Conformance fixtures
+
+Canonical block visual examples live under
+`fixtures/visual_content_schema_v1/valid/`.
+
+The fixture set includes `cube_all`, `cube_faces`, model-backed framed glass,
+grass tint metadata, emissive/light metadata, and generated family examples.
+Follow-up engine, DevKit, Boot, and Vanilla work should reference those fixtures
+instead of inventing separate visual examples.
