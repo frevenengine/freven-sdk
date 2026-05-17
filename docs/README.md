@@ -43,6 +43,7 @@ Read them in this order:
   visual asset layering, override policy, conflict diagnostics, and
   server/client cosmetic rules
 - [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md): data-driven content
+- [MODULAR_CONTENT_MANIFESTS_v1.md](MODULAR_CONTENT_MANIFESTS_v1.md): explicit deterministic includes for large content packs.
   add, replace, patch, append, disable, compatibility, and diagnostics
   semantics
 - [CREATOR_CONTENT_SCHEMA_v1.md](CREATOR_CONTENT_SCHEMA_v1.md): beginner-friendly
