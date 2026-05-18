@@ -32,6 +32,8 @@ It builds on:
   patch, append, disable, compatibility, and diagnostics model;
 - [MODULAR_CONTENT_MANIFESTS_v1.md](MODULAR_CONTENT_MANIFESTS_v1.md):
   explicit deterministic includes for splitting large content packs across files;
+- [CONTENT_AUTHORING_PROFILES_v1.md](CONTENT_AUTHORING_PROFILES_v1.md):
+  game/mode-owned source schemas that compile to the canonical content graph;
 - [CREATOR_CONTENT_SCHEMA_v1.md](CREATOR_CONTENT_SCHEMA_v1.md): creator-friendly
   schema direction for common content files;
 - [SHADER_EFFECT_BOUNDARY_v1.md](SHADER_EFFECT_BOUNDARY_v1.md): shader/effect
@@ -49,6 +51,12 @@ The authoring layer is a friendly source layer.
 It does not create a second content model. Authoring files compile into the same
 semantic content entries and patch/merge operations defined by
 [CONTENT_PATCH_MERGE_v1.md](CONTENT_PATCH_MERGE_v1.md).
+
+This document describes practical friendly source patterns. It does not require
+every game to use the same source schema. Game-owned authoring profiles are
+allowed to define their own blocktype, prototype, resource-pack, or custom
+source layout as long as the resolved output is the canonical Freven content
+graph described by [CONTENT_AUTHORING_PROFILES_v1.md](CONTENT_AUTHORING_PROFILES_v1.md).
 
 A beginner-friendly file may be concise, but the resolved result must still be
 explicit, namespaced, validated, deterministic, and diagnosable.

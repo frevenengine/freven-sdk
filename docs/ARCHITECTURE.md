@@ -28,7 +28,7 @@ semantics are defined by follow-up documents.
 | Layer | Owns | Does not own |
 | --- | --- | --- |
 | Engine / platform | runtime host, renderer, networking, storage, asset resolver, scheduling, sandboxing, diagnostics, cache, authoritative apply paths | Vanilla gameplay, first-party content, author-facing schemas, mod policy decisions baked as gameplay meaning |
-| SDK | public contracts, schemas, namespaced identities, guest APIs, capability vocabulary, author-facing validation model | engine internals, renderer slots, Bevy/wgpu types, concrete Vanilla content |
+| SDK | public contracts, schemas, namespaced identities, guest APIs, capability vocabulary, author-facing validation model, authoring-profile boundary vocabulary | engine internals, renderer slots, Bevy/wgpu types, concrete Vanilla content, game-specific profile implementation |
 | Game / gameplay SDK roots | explicit world, volumetric, block, avatar, gameplay-state, item, UI, input, effect, and save contracts above the neutral SDK roots | neutral platform ownership, renderer implementation, first-party Vanilla semantics |
 | Experience | a concrete playable root such as Vanilla, a minigame, a total conversion, or a standalone game experience | engine implementation details |
 | Vanilla | first-party reference experience, default gameplay/content/style, reference integration patterns | platform ownership, required dependency for all games |
@@ -121,6 +121,27 @@ A content pack is the right shape for simple visual/content changes that do not
 need executable code. It must not get runtime authority just because it can
 provide data or assets.
 
+### Content authoring profile
+
+A content authoring profile is a game/mode-owned source schema that compiles or
+expands into Freven's canonical content graph.
+
+The engine owns the canonical graph and runtime registries. It must not hardcode
+Vanilla's blocktype/worldproperty workflow or any other game's source schema.
+
+Examples of possible profiles include:
+
+- a Vanilla-owned blocktypes/worldproperties/shapes workflow;
+- a resource-pack-style convention;
+- a prototype-stage workflow;
+- a standalone game's custom data schema.
+
+Profiles are selected explicitly by experiences or stacks. Mods can target the
+selected game profile, the low-level canonical graph, or both when they opt in.
+
+The SDK boundary is defined in
+[CONTENT_AUTHORING_PROFILES_v1.md](CONTENT_AUTHORING_PROFILES_v1.md).
+
 ### Script pack
 
 A script pack is a future creator-friendly executable layer for languages above
@@ -169,8 +190,9 @@ A typical Freven launch resolves in this conceptual order:
 2. Select an experience or experience stack.
 3. Resolve declared packages, dependencies, trust policy, and active sides.
 4. Resolve config schemas and active config values.
-5. Resolve content data and visual assets through deterministic layer rules.
-6. Build host-internal load plans, caches, and runtime handles.
+5. Compile or expand any selected game-owned authoring profile into the canonical content graph.
+6. Resolve content data and visual assets through deterministic layer rules.
+7. Build host-internal load plans, caches, and runtime handles.
 7. Start the server/client runtime with only the resolved public contracts.
 8. Persist runtime state into save/world state, not back into shipped content.
 
@@ -215,7 +237,7 @@ architecture vocabulary instead of redefining it.
 - Put package identity and capability requests in manifests, not active runtime
   config.
 - Put active values in experience/stack config, not `mod.toml`.
-- Put authored content in content data and assets, not save/world state.
+- Put authored content in content data/assets or a selected game-owned authoring profile, not save/world state.
 - Put generated resolver output in cache/load-plan data, not authored source.
 - Keep every override, patch, and dependency decision explicit and diagnosable.
 - Prefer namespaced keys over renderer slots or raw host ids in public APIs.
