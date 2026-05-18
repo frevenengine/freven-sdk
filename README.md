@@ -36,6 +36,12 @@ For the canonical architecture and ownership vocabulary, see
 engine / SDK / experience / Vanilla / mod / content-pack /
 standalone-product boundaries used by the rc10 visual/data foundation work.
 
+For the game-owned authoring profile boundary, see
+[docs/CONTENT_AUTHORING_PROFILES_v1.md](docs/CONTENT_AUTHORING_PROFILES_v1.md).
+That document explains how a game such as Vanilla can provide a friendly
+blocktype/worldproperty workflow while the engine still consumes the generic
+canonical content graph.
+
 The current long-term direction is:
 
 - **engine/platform layer**: neutral runtime/platform substrate
