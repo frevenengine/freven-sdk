@@ -13,8 +13,9 @@ pub use freven_block_guest::{
     BlockServiceRequest, BlockServiceResponse,
 };
 pub use freven_block_sdk_types::{
-    BlockCollision, BlockDescriptor, BlockMaterial, BlockRuntimeId, BlockVisibility, RenderLayer,
-    block_tag_key_hash, is_valid_block_tag_key,
+    BlockCollision, BlockDescriptor, BlockMaterial, BlockRuntimeId, BlockShapeBox,
+    BlockShapeDescriptor, BlockShapeFace, BlockShapeSideMask, BlockShapeValidationError,
+    BlockVisibility, RenderLayer, block_tag_key_hash, is_valid_block_tag_key,
 };
 use freven_guest::{
     CapabilityDeclaration, ChannelConfig, ChannelDeclaration, ComponentCodec, ComponentDeclaration,
