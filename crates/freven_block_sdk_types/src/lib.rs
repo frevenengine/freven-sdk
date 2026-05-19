@@ -51,6 +51,246 @@ pub const DEBUG_PALETTE_WIDTH: u32 = 256;
 /// Maximum valid explicit debug palette material id for the current MVP renderer.
 pub const MAX_EXPLICIT_DEBUG_MATERIAL_ID: u32 = DEBUG_PALETTE_WIDTH - 1;
 
+/// Canonical block-local face names used by shape metadata.
+///
+/// This is gameplay/query vocabulary, not renderer mesh identity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BlockShapeFace {
+    Top,
+    Bottom,
+    North,
+    South,
+    East,
+    West,
+}
+
+impl BlockShapeFace {
+    pub const ALL: [Self; 6] = [
+        Self::Top,
+        Self::Bottom,
+        Self::North,
+        Self::South,
+        Self::East,
+        Self::West,
+    ];
+
+    #[must_use]
+    pub const fn opposite(self) -> Self {
+        match self {
+            Self::Top => Self::Bottom,
+            Self::Bottom => Self::Top,
+            Self::North => Self::South,
+            Self::South => Self::North,
+            Self::East => Self::West,
+            Self::West => Self::East,
+        }
+    }
+}
+
+/// Axis-aligned block-local box in normalized voxel coordinates.
+///
+/// Bounds are authored in block-local `0.0..=1.0` coordinates. This type is the
+/// reusable SDK vocabulary for simple collision, selection, and other block
+/// shape query volumes. It intentionally does not describe render mesh triangles.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct BlockShapeBox {
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+}
+
+impl BlockShapeBox {
+    #[must_use]
+    pub const fn new(min: [f32; 3], max: [f32; 3]) -> Self {
+        Self { min, max }
+    }
+
+    #[must_use]
+    pub const fn full_block() -> Self {
+        Self {
+            min: [0.0, 0.0, 0.0],
+            max: [1.0, 1.0, 1.0],
+        }
+    }
+
+    #[must_use]
+    pub const fn half_bottom() -> Self {
+        Self {
+            min: [0.0, 0.0, 0.0],
+            max: [1.0, 0.5, 1.0],
+        }
+    }
+
+    #[must_use]
+    pub fn is_full_block(self) -> bool {
+        self.min == [0.0, 0.0, 0.0] && self.max == [1.0, 1.0, 1.0]
+    }
+
+    #[must_use]
+    pub fn is_valid(self) -> bool {
+        self.min
+            .into_iter()
+            .chain(self.max)
+            .all(|value| value.is_finite() && (0.0..=1.0).contains(&value))
+            && self.min[0] < self.max[0]
+            && self.min[1] < self.max[1]
+            && self.min[2] < self.max[2]
+    }
+}
+
+/// Per-side shape metadata for culling/support-style block semantics.
+///
+/// These flags are intentionally independent from material opacity and render
+/// layer. A transparent/cutout block can still be physically side-solid, and an
+/// opaque partial block must not automatically imply full-face occlusion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockShapeSideMask {
+    pub top: bool,
+    pub bottom: bool,
+    pub north: bool,
+    pub south: bool,
+    pub east: bool,
+    pub west: bool,
+}
+
+impl BlockShapeSideMask {
+    pub const EMPTY: Self = Self {
+        top: false,
+        bottom: false,
+        north: false,
+        south: false,
+        east: false,
+        west: false,
+    };
+
+    pub const FULL: Self = Self {
+        top: true,
+        bottom: true,
+        north: true,
+        south: true,
+        east: true,
+        west: true,
+    };
+
+    #[must_use]
+    pub const fn get(self, face: BlockShapeFace) -> bool {
+        match face {
+            BlockShapeFace::Top => self.top,
+            BlockShapeFace::Bottom => self.bottom,
+            BlockShapeFace::North => self.north,
+            BlockShapeFace::South => self.south,
+            BlockShapeFace::East => self.east,
+            BlockShapeFace::West => self.west,
+        }
+    }
+
+    #[must_use]
+    pub const fn with(mut self, face: BlockShapeFace, value: bool) -> Self {
+        match face {
+            BlockShapeFace::Top => self.top = value,
+            BlockShapeFace::Bottom => self.bottom = value,
+            BlockShapeFace::North => self.north = value,
+            BlockShapeFace::South => self.south = value,
+            BlockShapeFace::East => self.east = value,
+            BlockShapeFace::West => self.west = value,
+        }
+        self
+    }
+}
+
+/// Reusable canonical block shape semantics.
+///
+/// This is public SDK vocabulary shared by engine/runtime, game-owned authoring
+/// profiles, and mod-facing APIs. It is not Vanilla-specific and it is not render
+/// mesh identity.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BlockShapeDescriptor {
+    pub occludes: BlockShapeSideMask,
+    pub side_solid: BlockShapeSideMask,
+    pub collision_boxes: Vec<BlockShapeBox>,
+    pub selection_boxes: Vec<BlockShapeBox>,
+}
+
+impl BlockShapeDescriptor {
+    #[must_use]
+    pub fn empty() -> Self {
+        Self {
+            occludes: BlockShapeSideMask::EMPTY,
+            side_solid: BlockShapeSideMask::EMPTY,
+            collision_boxes: Vec::new(),
+            selection_boxes: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn full_cube() -> Self {
+        let full = BlockShapeBox::full_block();
+        Self {
+            occludes: BlockShapeSideMask::FULL,
+            side_solid: BlockShapeSideMask::FULL,
+            collision_boxes: vec![full],
+            selection_boxes: vec![full],
+        }
+    }
+
+    #[must_use]
+    pub fn solid_non_occluding(boxes: impl Into<Vec<BlockShapeBox>>) -> Self {
+        let boxes = boxes.into();
+        Self {
+            occludes: BlockShapeSideMask::EMPTY,
+            side_solid: BlockShapeSideMask::FULL,
+            collision_boxes: boxes.clone(),
+            selection_boxes: boxes,
+        }
+    }
+
+    #[must_use]
+    pub fn with_occlusion(mut self, occludes: BlockShapeSideMask) -> Self {
+        self.occludes = occludes;
+        self
+    }
+
+    #[must_use]
+    pub fn with_side_solid(mut self, side_solid: BlockShapeSideMask) -> Self {
+        self.side_solid = side_solid;
+        self
+    }
+
+    #[must_use]
+    pub fn with_selection_boxes(mut self, selection_boxes: impl Into<Vec<BlockShapeBox>>) -> Self {
+        self.selection_boxes = selection_boxes.into();
+        self
+    }
+
+    #[must_use]
+    pub fn occludes_face(&self, face: BlockShapeFace) -> bool {
+        self.occludes.get(face)
+    }
+
+    pub fn validate(&self) -> Result<(), BlockShapeValidationError> {
+        for (index, bounds) in self.collision_boxes.iter().copied().enumerate() {
+            if !bounds.is_valid() {
+                return Err(BlockShapeValidationError::InvalidCollisionBox { index, bounds });
+            }
+        }
+
+        for (index, bounds) in self.selection_boxes.iter().copied().enumerate() {
+            if !bounds.is_valid() {
+                return Err(BlockShapeValidationError::InvalidSelectionBox { index, bounds });
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Validation errors for SDK block shape descriptors.
+#[derive(Debug, Clone, PartialEq)]
+pub enum BlockShapeValidationError {
+    InvalidCollisionBox { index: usize, bounds: BlockShapeBox },
+    InvalidSelectionBox { index: usize, bounds: BlockShapeBox },
+}
+
 /// Collision-facing reusable standard block/profile semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockCollision {
@@ -453,6 +693,52 @@ mod tests {
         assert_eq!(def.visual_kind(), BlockVisualKind::MaterialKey);
         assert!(def.uses_material_key());
         assert_eq!(def.material_key_hash(), material_key_hash(key));
+    }
+
+    #[test]
+    fn block_shape_full_cube_has_full_occlusion_collision_and_selection() {
+        let shape = BlockShapeDescriptor::full_cube();
+
+        assert!(shape.occludes_face(BlockShapeFace::North));
+        assert!(shape.occludes_face(BlockShapeFace::Top));
+        assert_eq!(shape.collision_boxes, vec![BlockShapeBox::full_block()]);
+        assert_eq!(shape.selection_boxes, vec![BlockShapeBox::full_block()]);
+        shape.validate().expect("full cube shape should validate");
+    }
+
+    #[test]
+    fn block_shape_half_block_can_be_solid_without_occluding_faces() {
+        let half = BlockShapeBox::half_bottom();
+        let shape = BlockShapeDescriptor::solid_non_occluding(vec![half]);
+
+        assert!(!shape.occludes_face(BlockShapeFace::Top));
+        assert!(shape.side_solid.get(BlockShapeFace::Top));
+        assert_eq!(shape.collision_boxes, vec![half]);
+        assert_eq!(shape.selection_boxes, vec![half]);
+        shape.validate().expect("half block shape should validate");
+    }
+
+    #[test]
+    fn block_shape_supports_multiple_collision_boxes() {
+        let post = BlockShapeBox::new([0.375, 0.0, 0.375], [0.625, 1.0, 0.625]);
+        let arm = BlockShapeBox::new([0.0, 0.375, 0.375], [1.0, 0.625, 0.625]);
+
+        let shape = BlockShapeDescriptor::solid_non_occluding(vec![post, arm]);
+
+        assert_eq!(shape.collision_boxes.len(), 2);
+        assert_eq!(shape.selection_boxes.len(), 2);
+        shape.validate().expect("multi-box shape should validate");
+    }
+
+    #[test]
+    fn block_shape_validation_rejects_invalid_bounds() {
+        let invalid = BlockShapeBox::new([0.0, 0.0, 0.0], [1.2, 1.0, 1.0]);
+        let shape = BlockShapeDescriptor::solid_non_occluding(vec![invalid]);
+
+        assert!(matches!(
+            shape.validate(),
+            Err(BlockShapeValidationError::InvalidCollisionBox { index: 0, .. })
+        ));
     }
 
     #[test]
